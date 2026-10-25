@@ -2,13 +2,26 @@
 
 ## PANDUAN CEPAT (1 ZIP ini berisi semuanya)
 
-1. **Deploy ke Vercel**: ekstrak ZIP, push folder ini ke GitHub, import di Vercel (tanpa pengaturan apa pun; `vercel.json` sudah mengarah ke `web/`). Atau di Termux: `npm i -g vercel && vercel --prod` dari folder ini. Catat URL-nya, mis. `https://timeflow-kamu.vercel.app`.
-2. **Bangun APK di Termux memakai URL itu**:
-   `cd android && gradle :app:assembleVercelDebug -PtimeflowUrl=https://timeflow-kamu.vercel.app`
-   APK: `android/app/build/outputs/apk/vercel/debug/app-vercel-debug.apk`
-3. **WebToAPK biasa TIDAK bisa dipakai** untuk ini: ia hanya membungkus website dan tidak menjalankan kode alarm native. Alarm, suara, getar, notifikasi, foto profil hanya ada di proyek `android/` (dibangun dengan Gradle, bukan WebToAPK).
+**Di Termux, satu perintah:**
 
-Catatan: kode Kotlin belum pernah dikompilasi/diuji di perangkat (lihat "STATUS JUJUR" di bawah). Alternatif bila Termux gagal: GitHub Actions (`.github/workflows/build-apk.yml`).
+```
+pkg install -y unzip
+unzip TimeFlow-LENGKAP.zip -d timeflow && cd timeflow
+export VERCEL_TOKEN=xxxxx        # opsional: token dari vercel.com/account/tokens (tanpa ini kamu login lewat vercel login)
+bash termux-deploy-build.sh
+```
+
+Skrip itu: (1) memasang Java 17, Node, aapt2, (2) deploy ke Vercel dan mengambil URL produksi, (3) menyiapkan Gradle 8.7 + Android SDK, (4) membangun `TimeFlow.apk` dengan URL tadi dan menyalinnya ke folder Download. Bisa dipisah: `bash termux-deploy-build.sh deploy` lalu `bash termux-deploy-build.sh apk https://nama.vercel.app`.
+
+Tanpa PC dan tanpa Termux yang kuat: push folder ini ke GitHub, tab Actions > "Build APK" > Run workflow (isi URL Vercel), unduh APK dari Artifacts.
+
+**Kenapa bukan WebToAPK biasa?** WebToAPK hanya membungkus website. Alarm yang berbunyi di latar belakang, notifikasi dengan tombol Tunda/Stop, dan semua izin hanya bisa lewat proyek `android/` (kode native). Skrip di atas membangun proyek itu, jadi tampilannya tetap dari URL Vercel milikmu. Bila tetap memakai WebToAPK, semua fitur (foto, audio, alarm, notifikasi) berjalan dalam mode web, tetapi alarm hanya andal saat aplikasi terbuka atau masih hidup di latar belakang (lihat bagian 1).
+
+**Yang diminta di versi ini**
+- Foto profil dari galeri: Pengaturan > ketuk profil > Pilih dari galeri (potong + zoom). Di APK memakai Photo Picker native; di mode web memakai pemilih file dan disimpan di IndexedDB.
+- Upload audio alarm: Pengaturan > Suara & upload audio alarm > Upload audio alarm, lalu pilih di form alarm (ada tombol Dengarkan). MP3/M4A/OGG/WAV, maks 15 MB di mode web.
+- Kata "browser" sudah dihapus dari seluruh teks aplikasi.
+- Izin: saat APK pertama dibuka, TimeFlow meminta berurutan notifikasi, foto/galeri, audio, alarm tepat waktu, layar penuh di layar kunci, dan "tidak dibatasi" hemat baterai. Kamera, mikrofon, kontak, dan lokasi sengaja tidak diminta karena tidak ada fitur yang memakainya (mudah ditambah bila kelak perlu).
 
 ---
 
@@ -23,13 +36,13 @@ vercel.json Konfigurasi Vercel (outputDirectory = web)
 
 ## STATUS JUJUR
 
-Diverifikasi di lingkungan pembuatan: sintaks JavaScript, alur UI web di Chromium dengan bridge native **tiruan** (migrasi alarm, form alarm, izin, validasi backup), XML valid.
+Diverifikasi di lingkungan pembuatan: sintaks JavaScript; alur mode web di Chromium (foto dari file + crop + tetap ada setelah reload, upload audio, alarm berbunyi dengan audio kustom, Tunda, bunyi ulang, Stop, alarm berulang, service worker, tidak ada kata "browser" di layar); alur UI dengan bridge native **tiruan**; XML valid.
 **Belum** dikompilasi dan **belum** dijalankan di perangkat: seluruh kode Kotlin/Gradle. Lingkungan pembuatan tidak punya Gradle, Android SDK, maupun jaringan, jadi tidak ada APK yang dihasilkan dan tidak ada pengujian alarm nyata. Kemungkinan ada error kompilasi kecil pada build pertama. Daftar uji di bagian "Uji di perangkat" harus kamu jalankan.
 
 ## 1. Deploy website ke Vercel
 
 1. Push repo ke GitHub. 2. Import di Vercel. 3. Framework "Other", tanpa build command. `vercel.json` sudah mengarahkan output ke `web/`. HTTPS otomatis.
-Di browser biasa, UI berjalan dengan mesin alarm JavaScript lama sebagai cadangan (hanya aktif saat halaman terbuka, tanpa pesan peringatan sesuai permintaan). Alarm yang andal hanya ada di aplikasi Android.
+Di luar APK native (mis. dibungkus WebToAPK atau dibuka langsung dari URL), TimeFlow memakai mesin alarm versi web: dering berulang dengan layar Tunda/Stop, getar, layar menyala, notifikasi sistem dengan tombol Tunda/Stop lewat service worker, dan audio senyap agar halaman tidak dihentikan. Mesin ini hanya jalan selama halaman/WebView hidup; saat layar mati atau aplikasi dimatikan sistem, Android dapat menghentikannya. Alarm yang pasti berbunyi hanya ada di APK native.
 
 ## 2. Arsitektur Android
 
@@ -38,7 +51,7 @@ Di browser biasa, UI berjalan dengan mesin alarm JavaScript lama sebagai cadanga
 - Alarm: `AlarmManager.setAlarmClock` -> `AlarmReceiver` -> `AlarmService` (foreground, `mediaPlayback`) memutar `MediaPlayer` (USAGE_ALARM, looping) + `Vibrator`, notifikasi dengan **Tunda** dan **Stop**, full-screen intent ke `AlarmRingActivity`. Mesin alarm tidak memakai timer JS/HTML audio/service worker.
 - Penyimpanan native: `alarms.json` atomik di penyimpanan privat (dipilih menggantikan Room agar build di Termux tidak butuh kapt/KSP). Sumber kebenaran alarm = native; web mencerminkan dan disinkronkan saat dibuka, saat kembali ke aplikasi, dan saat alarm berbunyi.
 - Fitur: sekali jalan, hari tertentu, ulang tiap 5-120 menit dalam rentang jam, tunda 5/10/15/30 menit, 4 nada bawaan + audio kustom (disalin ke penyimpanan app via SAF, MP3/OGG/WAV/M4A dll. sesuai dekoder Android), getar + 3 pola, volume skala-dalam-app (volume sistem tidak diubah), dedupe event ganda, jadwal ulang setelah boot/ganti waktu/zona/update app/perubahan izin, auto-berhenti 10 menit + notifikasi "terlewat", foto profil via Photo Picker + crop + simpan file JPEG, backup JSON via SAF dengan validasi skema (v1 dan v2 diterima, v lebih baru ditolak, item rusak dilewati, audio hilang dialihkan, wajib konfirmasi sebelum menimpa).
-- Izin: notifikasi (Android 13+) dan alarm tepat waktu diminta kontekstual setelah kamu menyimpan alarm; status semua izin ada di Settings > Izin & notifikasi Android. Tidak ada izin penyimpanan/mikrofon/kontak/lokasi.
+- Izin: diminta berurutan saat aplikasi dibuka (maksimal 3 kali pembukaan agar tidak mengganggu): notifikasi, foto/galeri, audio, alarm tepat waktu, layar penuh, abaikan hemat baterai. Status dan tombol minta ulang ada di Settings > Izin & notifikasi Android. Tidak ada izin kamera/mikrofon/kontak/lokasi.
 
 ### Batasan yang tidak bisa dihilangkan
 - Setelah **Force stop**, alarm tidak berbunyi sampai TimeFlow dibuka lagi (perilaku Android).
@@ -60,7 +73,7 @@ Butuh JDK 17, Android SDK (platform 34, build-tools 34.x), Gradle 8.7 (wrapper t
 
 **Opsi B, Android Studio di PC:** buka folder `android/`, Build > Build APK(s).
 
-**Opsi C, Termux (rapuh, tidak saya uji):** `pkg install openjdk-17 gradle`. aapt2 resmi Google tidak berjalan di Termux; pasang aapt2/SDK build-tools untuk aarch64 dari paket Termux atau proyek komunitas, lalu aktifkan `android.aapt2FromMavenOverride=<path aapt2>` di `android/gradle.properties`, set `ANDROID_HOME`, dan butuh RAM bebas sekitar 2 GB. Lalu `cd android && gradle :app:assembleBundledDebug` (atau `assembleVercelDebug -PtimeflowUrl=...`). Jika gagal, pakai Opsi A.
+**Opsi C, Termux (skrip `termux-deploy-build.sh` mengotomatiskan ini; rapuh dan belum diuji di perangkat):** `pkg install openjdk-17 gradle`. aapt2 resmi Google tidak berjalan di Termux; pasang aapt2/SDK build-tools untuk aarch64 dari paket Termux atau proyek komunitas, lalu aktifkan `android.aapt2FromMavenOverride=<path aapt2>` di `android/gradle.properties`, set `ANDROID_HOME`, dan butuh RAM bebas sekitar 2 GB. Lalu `cd android && gradle :app:assembleBundledDebug` (atau `assembleVercelDebug -PtimeflowUrl=...`). Jika gagal, pakai Opsi A.
 
 Hasil debug bundel: `android/app/build/outputs/apk/bundled/debug/app-bundled-debug.apk` (package `app.timeflow.debug`).
 
