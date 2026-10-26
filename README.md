@@ -23,6 +23,25 @@ Tanpa PC dan tanpa Termux yang kuat: push folder ini ke GitHub, tab Actions > "B
 - Kata "browser" sudah dihapus dari seluruh teks aplikasi.
 - Izin: saat APK pertama dibuka, TimeFlow meminta berurutan notifikasi, foto/galeri, audio, alarm tepat waktu, layar penuh di layar kunci, dan "tidak dibatasi" hemat baterai. Kamera, mikrofon, kontak, dan lokasi sengaja tidak diminta karena tidak ada fitur yang memakainya (mudah ditambah bila kelak perlu).
 
+## v1.5 (riwayat notifikasi + alarm & timer di notch)
+
+- **Riwayat Notifikasi** (More > Riwayat notifikasi): semua notifikasi yang masuk disimpan di perangkat (SQLite, tidak dikirim ke server). Bisa dicari berdasarkan nama aplikasi, judul, atau isi; difilter per aplikasi (dengan ikon) dan per periode (hari ini / 7 hari / 30 hari); dikelompokkan per tanggal. Tiap item menampilkan "x menit lalu", hari, tanggal, tahun, dan jam; ketuk untuk melihat teks lengkap, lalu Buka aplikasi, Salin, atau Hapus. Pengaturan: simpan riwayat on/off, lama simpan (30 hari / 90 hari / 1 tahun / selamanya), hapus semua. Batas 5000 notifikasi terbaru. Merekam butuh izin Akses notifikasi (sama dengan notch), dan tetap merekam walau notch dimatikan.
+- **Alarm di notch:** saat alarm berbunyi, notch menampilkan kartu berisi label, jam, tombol Tunda dan Matikan (butuh notch aktif + izin tampil di atas aplikasi lain).
+- **Timer di notch:** hitung mundur Focus Timer tampil di pil notch (atau di pil musik bila musik sedang diputar); ketuk untuk membuka aplikasi. Tombol uji ada di Settings > Dynamic Notch.
+- Halaman riwayat ada di `web/index.html`, jadi **web harus di-deploy ulang ke Vercel** sebelum APK dipakai. APK juga harus dibuild ulang (perintah baru `history.*`, `focus.sync`).
+- Belum dikompilasi dan belum diuji di perangkat.
+
+---
+
+## v1.4 (notch lebih cepat + balas dari notch)
+
+- **Lebih responsif:** jendela overlay tidak lagi di-resize tiap frame (itu penyebab ketukan terasa lambat). Pil digambar ulang di dalam jendela, jendela hanya diubah ukurannya dua kali per transisi. Deteksi ketukan lebih toleran, ada efek tekan, animasi lebih singkat.
+- **Semua notifikasi di bar masuk ke notch** (kecuali ringkasan grup, notifikasi musik yang sudah jadi kontrol media, dan notifikasi TimeFlow sendiri). Notifikasi menetap (unduhan/layanan) tampil sekali saja. Yang datang berurutan masuk antrean (lencana "+N"). Hilang dari notch bila dihapus dari bar.
+- **Ketuk banner = kartu notifikasi:** pesan lengkap, tombol Buka, tombol aksi lain milik notifikasi (mis. "Tandai dibaca"), dan **kolom balas + tombol kirim** bila notifikasinya punya aksi Balas (WhatsApp, Telegram, dll.). Keyboard muncul otomatis. Geser atas / tombol X / ketuk di luar menutup kartu.
+- Belum dikompilasi dan belum diuji di perangkat. Balasan memakai RemoteInput milik aplikasi asal; aplikasi yang tidak menyediakan aksi Balas hanya menampilkan tombol Buka.
+
+---
+
 ## v1.3 (perbaikan + Dynamic Notch)
 
 - **Perbaikan alarm:** hapus/nonaktifkan gagal karena kunci `id` di bridge dipakai ganda (ID permintaan vs ID alarm); sekarang ID alarm dikirim sebagai `ref`. Tombol hari (Sen-Min) sebelumnya menyimpan `[0,0]`; sekarang benar. Perintah native yang tidak dibalas kini berakhir dengan pesan error setelah 12 detik, tidak menggantung.

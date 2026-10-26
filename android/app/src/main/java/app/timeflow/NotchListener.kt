@@ -3,6 +3,7 @@ package app.timeflow
 import android.app.Notification
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
@@ -11,7 +12,10 @@ import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
+import android.app.RemoteInput
 import android.os.Build
+import android.os.Bundle
+import android.os.SystemClock
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -19,6 +23,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.view.Gravity
 import android.view.WindowManager
+import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 
 /**
@@ -34,6 +39,27 @@ class NotchListener : NotificationListenerService(), NotchHost {
         fun refresh() { inst?.let { i -> i.ui.post { i.apply() } } }
         fun demoNotif(): Boolean { val i = inst ?: return false; i.ui.post { i.demoN() }; return true }
         fun demoMedia(): Boolean { val i = inst ?: return false; i.ui.post { i.demoM() }; return true }
+        fun demoAlarm(): Boolean { val i = inst ?: return false; i.ui.post { i.demoA() }; return true }
+        fun demoTimer(): Boolean { val i = inst ?: return false; i.ui.post { i.demoT() }; return true }
+
+        @Volatile private var alarmInfo: AlarmInfo? = null
+        @Volatile private var timerInfo: TimerInfo? = null
+
+        /** Dipanggil AlarmService tiap daftar alarm yang berbunyi berubah: alarm utama tampil di notch dengan tombol Tunda / Matikan. */
+        fun alarmChanged(ctx: Context) {
+            val ids = AlarmService.ringing
+            val a = ids.firstOrNull()?.let { AlarmStore.get(ctx, it) }
+            alarmInfo = if (a != null) AlarmInfo(a.id, a.label, hm(a.hour, a.minute), a.snoozeMin, ids.size - 1) else null
+            val i = inst ?: return
+            i.ui.post { i.pushAlarm() }
+        }
+
+        /** Dari Focus Timer di halaman web: tampilkan hitung mundur di notch. Nilai waktu dalam milidetik. */
+        fun timerSync(running: Boolean, endAt: Long, leftMs: Long, totalMs: Long, clear: Boolean) {
+            timerInfo = if (clear || (!running && (leftMs <= 0L || leftMs >= totalMs))) null else TimerInfo(running, endAt, leftMs)
+            val i = inst ?: return
+            i.ui.post { i.pushTimer() }
+        }
     }
 
     private val ui = Handler(Looper.getMainLooper())
@@ -45,6 +71,11 @@ class NotchListener : NotificationListenerService(), NotchHost {
     private var ctl: MediaController? = null
     private var demoOn = false
     private val seen = HashMap<String, String>()
+    private val labels = HashMap<String, String>()
+    private val shownOngoing = HashSet<String>()
+    private val repliedAt = HashMap<String, Long>()
+    private val hseen = HashMap<String, String>()
+    private val hOngoing = HashSet<String>()
     private val comp by lazy { ComponentName(this, NotchListener::class.java) }
 
     private val sessions = MediaSessionManager.OnActiveSessionsChangedListener { list -> ui.post { pick(list ?: emptyList()) } }
@@ -104,7 +135,7 @@ class NotchListener : NotificationListenerService(), NotchHost {
     private fun apply() {
         val c = NotchPrefs.get(this)
         if (!allowed(c)) { teardown(); return }
-        if (view == null) view = NotchView(this, this)
+        if (view == null) { view = NotchView(this, this); view?.setTimer(timerInfo); view?.setAlarm(alarmInfo) }
         val d = resources.displayMetrics.density
         lp?.let { it.x = (c.x * d).toInt(); it.y = (c.top * d).toInt() }
         view?.applyConfig()
@@ -136,6 +167,20 @@ class NotchListener : NotificationListenerService(), NotchHost {
         }
     }
 
+    override fun focusable(on: Boolean) {
+        val l = lp ?: return
+        val nf = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        val wo = WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
+        if (on) {
+            l.flags = (l.flags and nf.inv()) or wo
+            l.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+        } else {
+            l.flags = (l.flags or nf) and wo.inv()
+            l.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_UNSPECIFIED
+        }
+        if (attached) runCatching { wm.updateViewLayout(view, l) }
+    }
+
     override fun transport(cmd: Int) {
         if (demoOn) return
         val t = ctl?.transportControls ?: return
@@ -152,6 +197,32 @@ class NotchListener : NotificationListenerService(), NotchHost {
     }
 
     override fun openMedia() { runCatching { ctl?.sessionActivity?.send() } }
+
+    override fun openApp() {
+        runCatching { packageManager.getLaunchIntentForPackage(packageName)?.let { startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
+    }
+
+    override fun alarmSnooze(id: String) {
+        if (id == "demo") { alarmInfo = null; pushAlarm(); return }
+        runCatching { AlarmService.snooze(this, id) }
+    }
+
+    override fun alarmStop(id: String) {
+        if (id == "demo") { alarmInfo = null; pushAlarm(); return }
+        runCatching { AlarmService.stop(this, id) }
+    }
+
+    private fun pushAlarm() {
+        val a = alarmInfo
+        if (a != null && view == null && allowed(NotchPrefs.get(this))) apply()
+        view?.setAlarm(a)
+    }
+
+    private fun pushTimer() {
+        val t = timerInfo
+        if (t != null && view == null && allowed(NotchPrefs.get(this))) apply()
+        view?.setTimer(t)
+    }
 
     // ---------- media ----------
     private fun pick(list: List<MediaController>) {
@@ -183,30 +254,112 @@ class NotchListener : NotificationListenerService(), NotchHost {
     }
 
     // ---------- notifikasi ----------
+    /** Membuat fungsi pengirim balasan: mengisi RemoteInput lalu memicu PendingIntent aksi "Balas" milik aplikasi asal. */
+    private fun makeReply(rAct: Notification.Action, key: String): (String) -> Boolean = { txt ->
+        val ok = runCatching {
+            val inputs = rAct.remoteInputs
+            val results = Bundle()
+            for (r in inputs) if (r.allowFreeFormInput) results.putCharSequence(r.resultKey, txt)
+            val intent = Intent().addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
+            RemoteInput.addResultsToIntent(inputs, intent, results)
+            if (Build.VERSION.SDK_INT >= 28) RemoteInput.setResultsSource(intent, RemoteInput.SOURCE_FREE_FORM_INPUT)
+            rAct.actionIntent.send(this@NotchListener, 0, intent)
+            true
+        }.getOrDefault(false)
+        if (ok) repliedAt[key] = SystemClock.elapsedRealtime()
+        ok
+    }
+
+    override fun onNotificationRemoved(sbn: StatusBarNotification) {
+        seen.remove(sbn.key); shownOngoing.remove(sbn.key); hseen.remove(sbn.key); hOngoing.remove(sbn.key)
+        ui.post { view?.removeNotif(sbn.key) }
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
+        val n = sbn.notification ?: return
+        val pkg = sbn.packageName
+        if (pkg == packageName) return
+        // Ringkasan grup dan notifikasi musik dilewati (musik sudah tampil sebagai kontrol media). Selain itu semua masuk ke notch.
+        if ((n.flags and Notification.FLAG_GROUP_SUMMARY) != 0) return
+        if (n.category == Notification.CATEGORY_TRANSPORT || n.extras.containsKey(Notification.EXTRA_MEDIA_SESSION)) return
+        val key = sbn.key
+        val last = repliedAt[key]
+        if (last != null && SystemClock.elapsedRealtime() - last < 6000L) return   // jangan tampilkan balasan kita sendiri
+
+        val ex = n.extras
+        var title = ex.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
+        var text = (ex.getCharSequence(Notification.EXTRA_BIG_TEXT) ?: ex.getCharSequence(Notification.EXTRA_TEXT))?.toString().orEmpty()
+        // Chat (WhatsApp, Telegram, dll.): ambil pesan terakhir beserta nama pengirim/grup
+        val style = runCatching { NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(n) }.getOrNull()
+        val msg = style?.messages?.lastOrNull()
+        if (style != null && msg != null) {
+            val who = msg.person
+            val me = style.user.key
+            if (who != null && me != null && who.key == me) return
+            val convo = style.conversationTitle?.toString()
+            val sender = who?.name?.toString()
+            val body = msg.text?.toString().orEmpty()
+            if (body.isNotEmpty()) text = if (!convo.isNullOrEmpty() && !sender.isNullOrEmpty()) "$sender: $body" else body
+            if (!convo.isNullOrEmpty()) title = convo else if (title.isEmpty() && !sender.isNullOrEmpty()) title = sender
+        }
+        if (title.isEmpty() && text.isEmpty()) return
+        val app = labels.getOrPut(pkg) {
+            runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
+        }
+        // Simpan ke riwayat (terpisah dari pengaturan notch). Notifikasi menetap (unduhan, layanan) dicatat sekali saja.
+        if (NotifHistory.enabled(this)) {
+            val hsig = "$title|$text"
+            val hPersist = (n.flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE)) != 0
+            if (hseen[key] != hsig && !(hPersist && hOngoing.contains(key))) {
+                if (hseen.size > 120) hseen.clear()
+                hseen[key] = hsig
+                if (hPersist) { if (hOngoing.size > 120) hOngoing.clear(); hOngoing.add(key) }
+                val at = if (sbn.postTime > 0L) sbn.postTime else System.currentTimeMillis()
+                runCatching { NotifHistory.add(this, pkg, app, title.ifEmpty { app }, text, at) }
+            }
+        }
         val c = NotchPrefs.get(this)
         if (!c.enabled || !c.showNotif) return
-        val n = sbn.notification ?: return
-        val skip = Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE or Notification.FLAG_GROUP_SUMMARY
-        if ((n.flags and skip) != 0) return
-        if (n.category == Notification.CATEGORY_TRANSPORT || n.extras.containsKey(Notification.EXTRA_MEDIA_SESSION)) return
-        val ex = n.extras
-        val title = ex.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
-        val text = (ex.getCharSequence(Notification.EXTRA_BIG_TEXT) ?: ex.getCharSequence(Notification.EXTRA_TEXT))?.toString().orEmpty()
-        if (title.isEmpty() && text.isEmpty()) return
         val sig = "$title|$text"
-        if (seen[sbn.key] == sig) return
+        if (seen[key] == sig) return
         if (seen.size > 80) seen.clear()
-        seen[sbn.key] = sig
-        val pkg = sbn.packageName
-        val app = runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
+        seen[key] = sig
+        // Notifikasi menetap (unduhan, layanan latar) hanya tampil sekali per kunci supaya tidak membanjiri notch
+        val persistent = (n.flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE)) != 0
+        if (persistent) {
+            if (shownOngoing.contains(key)) return
+            if (shownOngoing.size > 80) shownOngoing.clear()
+            shownOngoing.add(key)
+        }
+
         val icon = runCatching {
             val pc = createPackageContext(pkg, 0)
             (n.getLargeIcon() ?: n.smallIcon)?.loadDrawable(pc)
         }.getOrNull()
         val pi = n.contentIntent
         val open: (() -> Unit)? = if (pi != null) ({ runCatching { pi.send() }; Unit }) else null
-        val info = NotifInfo(app, title.ifEmpty { app }, if (title.isEmpty()) "" else text, icon, n.color, open)
+
+        // Aksi balas (RemoteInput) dan aksi tombol lain dari notifikasi
+        val acts: Array<Notification.Action> = n.actions ?: emptyArray()
+        var found: Notification.Action? = null
+        for (a in acts) {
+            val ri = a.remoteInputs ?: continue
+            if (a.actionIntent != null && ri.any { it.allowFreeFormInput }) { found = a; break }
+        }
+        val rAct = found
+        val reply: ((String) -> Boolean)? = if (rAct != null) makeReply(rAct, key) else null
+        val hint = rAct?.remoteInputs?.firstOrNull { it.allowFreeFormInput }?.label?.toString().orEmpty()
+        val extra = ArrayList<NotifAct>()
+        for (a in acts) {
+            if (a === rAct || a.remoteInputs != null || a.actionIntent == null) continue
+            val label = a.title?.toString().orEmpty()
+            if (label.isEmpty()) continue
+            val ai = a.actionIntent
+            extra.add(NotifAct(label) { runCatching { ai.send() } })
+            if (extra.size >= 2) break
+        }
+
+        val info = NotifInfo(key, app, title.ifEmpty { app }, if (title.isEmpty()) "" else text, icon, n.color, open, reply, hint, extra)
         ui.post {
             if (!allowed(NotchPrefs.get(this))) return@post
             if (view == null) apply()
@@ -215,9 +368,21 @@ class NotchListener : NotificationListenerService(), NotchHost {
     }
 
     // ---------- uji coba ----------
+    private fun demoA() {
+        alarmInfo = AlarmInfo("demo", "Uji alarm", "06:30", 10, 0)
+        pushAlarm()
+        ui.postDelayed({ if (alarmInfo?.id == "demo") { alarmInfo = null; pushAlarm() } }, 12_000)
+    }
+
+    private fun demoT() {
+        timerInfo = TimerInfo(true, System.currentTimeMillis() + 25_000L, 0L)
+        pushTimer()
+    }
+
     private fun demoN() {
         if (view == null) apply()
-        view?.showNotif(NotifInfo("WhatsApp", "Budi", "Bro, jadi nongkrong malam ini?", null, 0xFF25D366.toInt(), null))
+        view?.showNotif(NotifInfo("demo", "WhatsApp", "Budi", "Bro, jadi nongkrong malam ini?", null, 0xFF25D366.toInt(), null,
+            reply = { true }, replyHint = "Balas Budi…", actions = listOf(NotifAct("Tandai dibaca") {})))
     }
 
     private fun demoM() {

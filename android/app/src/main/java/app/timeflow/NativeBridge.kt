@@ -1,8 +1,12 @@
 package app.timeflow
 
 import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
@@ -172,16 +176,66 @@ class NativeBridge(private val act: MainActivity) {
             "notch.get" -> ok(id, notchState())
             "notch.set" -> { NotchPrefs.set(ctx, o.getJSONObject("cfg")); NotchListener.refresh(); ok(id, notchState()) }
             "notch.reset" -> { NotchPrefs.reset(ctx); NotchListener.refresh(); ok(id, notchState()) }
-            "notch.test" -> ok(id, JSONObject().put("sent", if (o.optString("what") == "media") NotchListener.demoMedia() else NotchListener.demoNotif()))
+            "notch.test" -> ok(id, JSONObject().put("sent", when (o.optString("what")) {
+                "media" -> NotchListener.demoMedia()
+                "alarm" -> NotchListener.demoAlarm()
+                "timer" -> NotchListener.demoTimer()
+                else -> NotchListener.demoNotif()
+            }))
             "notch.perm" -> when (o.optString("what")) {
                 "overlay" -> open(id, Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + ctx.packageName)))
                 "access" -> open(id, Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                 else -> fail(id, "Izin tidak dikenal")
             }
 
+            // ----- riwayat notifikasi -----
+            "history.get" -> async(id) { NotifHistory.settings(ctx).put("access", NotchListener.accessGranted(ctx)) }
+            "history.set" -> async(id) { NotifHistory.set(ctx, o.getJSONObject("cfg")); NotifHistory.settings(ctx).put("access", NotchListener.accessGranted(ctx)) }
+            "history.list" -> async(id) {
+                NotifHistory.list(ctx, o.optString("q"), o.optString("pkg"), o.optLong("since"), o.optLong("before"), o.optInt("limit", 60).coerceIn(10, 200))
+            }
+            "history.apps" -> async(id) {
+                val arr = NotifHistory.apps(ctx)
+                for (i in 0 until arr.length()) { val a = arr.getJSONObject(i); a.put("icon", appIcon(a.getString("pkg"))) }
+                arr
+            }
+            "history.delete" -> async(id) { NotifHistory.delete(ctx, o.optLong("hid", -1L)); true }
+            "history.clear" -> async(id) { NotifHistory.clear(ctx); true }
+            "history.openApp" -> {
+                val li = ctx.packageManager.getLaunchIntentForPackage(o.optString("pkg"))
+                if (li == null) fail(id, "Aplikasi ini tidak bisa dibuka (mungkin sudah dicopot)")
+                else { li.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); ctx.startActivity(li); ok(id, true) }
+            }
+            "history.copy" -> {
+                val cm = ctx.getSystemService(ClipboardManager::class.java)
+                cm.setPrimaryClip(ClipData.newPlainText("TimeFlow", o.optString("text").take(8000)))
+                ok(id, true)
+            }
+
+            // ----- sinkron Focus Timer ke notch -----
+            "focus.sync" -> {
+                NotchListener.timerSync(o.optBoolean("running"), o.optLong("end"), o.optLong("left") * 1000L, o.optLong("total") * 1000L, o.optBoolean("clear"))
+                ok(id, true)
+            }
+
             "ui.theme" -> { act.setBars(o.optBoolean("dark")); ok(id, true) }
             else -> fail(id, "Perintah tidak dikenal")
         }
+    }
+
+    private val iconCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /** Ikon aplikasi (PNG 56px sebagai data URL) untuk daftar riwayat; kosong bila aplikasinya sudah dicopot. */
+    private fun appIcon(pkg: String): String = iconCache.getOrPut(pkg) {
+        runCatching {
+            val dr = ctx.packageManager.getApplicationIcon(pkg)
+            val bmp = Bitmap.createBitmap(56, 56, Bitmap.Config.ARGB_8888)
+            dr.setBounds(0, 0, 56, 56)
+            dr.draw(Canvas(bmp))
+            val bo = java.io.ByteArrayOutputStream()
+            bmp.compress(Bitmap.CompressFormat.PNG, 100, bo)
+            "data:image/png;base64," + android.util.Base64.encodeToString(bo.toByteArray(), android.util.Base64.NO_WRAP)
+        }.getOrDefault("")
     }
 
     private fun notchState(): JSONObject = JSONObject().put("cfg", NotchPrefs.toJson(ctx)).put("st", JSONObject()

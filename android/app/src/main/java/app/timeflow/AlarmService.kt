@@ -93,7 +93,7 @@ class AlarmService : Service() {
         if (active.isEmpty()) shutdown() else { publish(); applyPrimary() }
     }
 
-    private fun publish() { ringing = active.keys.toSet() }
+    private fun publish() { ringing = active.keys.toSet(); NotchListener.alarmChanged(this) }
 
     /** Alarm utama = yang pertama di antrean; bunyi & getar mengikuti pengaturan alarm tersebut. */
     private fun applyPrimary() {
@@ -115,6 +115,7 @@ class AlarmService : Service() {
         wakeLock = null
         playingId = null
         ringing = emptySet()
+        NotchListener.alarmChanged(this)
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -125,6 +126,7 @@ class AlarmService : Service() {
         Vibe.stop(this)
         wakeLock?.let { if (it.isHeld) it.release() }
         ringing = emptySet()
+        NotchListener.alarmChanged(this)
         super.onDestroy()
     }
 

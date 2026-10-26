@@ -139,6 +139,7 @@ nav button svg{transition:transform .25s}nav button.on svg{transform:translateY(
 label{display:block;font-size:13px;color:var(--mut);margin-bottom:10px}
 label input,label select,label textarea{display:block;width:100%;margin-top:4px;padding:11px 14px;border-radius:14px;border:1.5px solid var(--line);background:var(--bg);font-size:16px}
 textarea{min-height:200px;resize:vertical}
+.nhi{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;cursor:pointer}.nhav{width:40px;height:40px;border-radius:12px;flex:none;display:grid;place-items:center;color:#fff;font-weight:600;overflow:hidden}.nhav img{width:100%;height:100%;object-fit:cover}.nhb{flex:1;min-width:0}.nhl{display:flex;gap:8px;align-items:baseline}.nhl b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.nhl .mut{flex:none;font-size:12px}.nhtx{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}.nhx .nhtx{display:block}.nhd{font-size:12px;margin-top:6px}.nhg{font-size:13px;font-weight:600;color:var(--mut);margin:16px 4px 8px}.chips button img{width:18px;height:18px;border-radius:5px;vertical-align:-4px;margin-right:6px}
 .chips{display:flex;gap:8px;overflow-x:auto;margin-bottom:12px}.chips button{padding:6px 14px;border-radius:16px;background:var(--card);font-size:14px;white-space:nowrap}.chips .on{background:var(--acc);color:#fff}
 .set{display:flex;align-items:center;gap:12px;width:100%;padding:14px 0;border-bottom:1px solid var(--line);text-align:left}.set>span{flex:1}
 .dot{width:30px;height:30px;border-radius:15px;border:3px solid transparent}.dot.on{border-color:var(--ink)}
@@ -166,7 +167,7 @@ const ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
 const pd=s=>{const[a,b,c]=s.split('-').map(Number);return new Date(a,b-1,c)};
 const uid=()=>Math.random().toString(36).slice(2,9);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const IC={home:'M3 11l9-8 9 8v10H3z',cal:'M4 5h16v16H4zM4 10h16M8 3v4M16 3v4',check:'M12 21a9 9 0 100-18 9 9 0 000 18zM8 12l3 3 5-6',note:'M5 3h14v18H5zM9 8h6M9 12h6M9 16h3',more:'M5 12h.01M12 12h.01M19 12h.01',plus:'M12 5v14M5 12h14',bell:'M6 9a6 6 0 1112 0c0 6 2 7 2 7H4s2-1 2-7zM10 20h4',calc:'M6 3h12v18H6zM9 7h6M9 12h.01M12 12h.01M15 12h.01M9 16h.01M12 16h.01M15 16h.01',timer:'M12 21a8 8 0 100-16 8 8 0 000 16zM12 9v4l2 2M9 2h6',gear:'M12 15a3 3 0 100-6 3 3 0 000 6zM12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2',trash:'M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14',back:'M15 5l-7 7 7 7',user:'M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0',pin:'M12 17v5M8 3h8l-1 7 3 4H6l3-4z',search:'M11 18a7 7 0 100-14 7 7 0 000 14zM21 21l-5-5',x:'M6 6l12 12M18 6L6 18',r:'M9 5l7 7-7 7',chev:'M6 9l6 6 6-6',play:'M8 5v14l11-7z'};
+const IC={home:'M3 11l9-8 9 8v10H3z',cal:'M4 5h16v16H4zM4 10h16M8 3v4M16 3v4',check:'M12 21a9 9 0 100-18 9 9 0 000 18zM8 12l3 3 5-6',note:'M5 3h14v18H5zM9 8h6M9 12h6M9 16h3',more:'M5 12h.01M12 12h.01M19 12h.01',plus:'M12 5v14M5 12h14',bell:'M6 9a6 6 0 1112 0c0 6 2 7 2 7H4s2-1 2-7zM10 20h4',calc:'M6 3h12v18H6zM9 7h6M9 12h.01M12 12h.01M15 12h.01M9 16h.01M12 16h.01M15 16h.01',timer:'M12 21a8 8 0 100-16 8 8 0 000 16zM12 9v4l2 2M9 2h6',gear:'M12 15a3 3 0 100-6 3 3 0 000 6zM12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2',trash:'M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14',back:'M15 5l-7 7 7 7',user:'M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0',pin:'M12 17v5M8 3h8l-1 7 3 4H6l3-4z',search:'M11 18a7 7 0 100-14 7 7 0 000 14zM21 21l-5-5',x:'M6 6l12 12M18 6L6 18',r:'M9 5l7 7-7 7',chev:'M6 9l6 6 6-6',play:'M8 5v14l11-7z',hist:'M3 12a9 9 0 109-9 9.7 9.7 0 00-6.7 2.8L3 8M3 3v5h5M12 7v5l3 2'};
 const ic=(n,s=22)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${IC[n]}"/></svg>`;
 const MON=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'],DAY=['Min','Sen','Sel','Rab','Kam','Jum','Sab'],COLN=['Burgundy','Coral','Lavender','Sage'],PRI=['Rendah','Sedang','Tinggi'],CATS=['Personal','Work','Study'];
 const fmtD=s=>{const d=pd(s);return DAY[d.getDay()]+', '+d.getDate()+' '+MON[d.getMonth()].slice(0,3)+' '+d.getFullYear()};
@@ -231,8 +232,9 @@ async function notchSheet(){NI.view='notch';if(!NCH.cfg)await nchLoad();if(!NCH.
  ${NCH_TG.map(([k,t])=>`<button class="set" data-a="nchtog" data-k="${k}"><span>${t}</span><i class="sw ${c[k]?'on':''}"></i></button>`).join('')}
  ${NCH_SL.map(([k,t,a,b,u])=>`<div style="padding:10px 0"><div class="row" style="gap:8px"><span style="flex:1">${t}</span><span class="mut" id="nv_${k}">${c[k]} ${u}</span></div><input type="range" data-in="nch" data-k="${k}" data-u="${u}" min="${a}" max="${b}" step="1" value="${c[k]}" aria-label="${t}" style="width:100%"></div>`).join('')}
  <div class="row" style="margin:6px 0"><button class="pill ghost" style="height:42px" data-a="nchtest" data-w="notif">Uji notifikasi</button><button class="pill ghost" style="height:42px" data-a="nchtest" data-w="media">Uji musik</button></div>
+ <div class="row" style="margin:6px 0"><button class="pill ghost" style="height:42px" data-a="nchtest" data-w="alarm">Uji alarm</button><button class="pill ghost" style="height:42px" data-a="nchtest" data-w="timer">Uji timer</button></div>
  <button class="pill ghost" style="height:42px;margin-bottom:8px" data-a="nchreset">Kembalikan ke bawaan</button>
- <p class="mut">Ketuk notifikasi untuk membukanya, geser ke atas untuk menutup. Saat musik diputar, ketuk notch untuk kontrol putar, jeda, dan ganti lagu. Notch tetap bekerja walau aplikasi ditutup selama izin di atas aktif. Jika tombol "Izinkan" akses notifikasi ditolak sistem: Info aplikasi TimeFlow &gt; menu ⋮ &gt; "Izinkan setelan terbatas", lalu coba lagi.</p></div>`;
+ <p class="mut">Ketuk banner notifikasi untuk membuka kartunya (balas, kirim, atau buka aplikasi), geser ke atas untuk menutup. Alarm yang berbunyi (dengan tombol Tunda dan Matikan) dan hitung mundur Focus Timer juga tampil di notch. Saat musik diputar, ketuk notch untuk kontrol putar, jeda, dan ganti lagu. Notch tetap bekerja walau aplikasi ditutup selama izin di atas aktif. Jika tombol "Izinkan" akses notifikasi ditolak sistem: Info aplikasi TimeFlow &gt; menu ⋮ &gt; "Izinkan setelan terbatas", lalu coba lagi.</p></div>`;
  nchPrev();nchStatus();nchLoad().then(()=>{if(NI.view==='notch'){nchStatus();nchPrev()}})}
 function permsSheet(){NI.view='perms';const s=NI.status;
  const row=(t,d,good,w,b,okT,badT)=>`<div class="set" style="flex-direction:column;align-items:stretch;gap:6px"><div class="row" style="gap:8px"><b style="flex:1">${t}</b><span class="badge ${good?'':'p1'}" style="flex:none">${good?(okT||'Aktif'):(badT||'Perlu tindakan')}</span></div><p class="mut">${d}</p>${good||!w?'':`<button class="pill ghost" style="height:40px" data-a="preq" data-w="${w}">${b}</button>`}</div>`;
@@ -381,7 +383,7 @@ function nlist(){let L=D.notes.filter(n=>(ncat==='All'||n.cat===ncat)&&(n.title+
  L.sort((a,b)=>(b.pin?1:0)-(a.pin?1:0)||b.ts-a.ts);
  return L.length?L.map(n=>`<button class="card" style="display:block;width:100%;text-align:left;margin:0 0 8px" data-a="note" data-id="${n.id}"><div class="row"><b style="flex:1">${n.pin?ic('pin',14)+' ':''}${esc(n.title)||'Tanpa judul'}</b><span class="badge" style="flex:none">${esc(n.cat)}</span></div><p class="mut" style="white-space:pre-line;max-height:60px;overflow:hidden">${esc(n.body.slice(0,140))}</p><p class="mut" style="font-size:12px;margin-top:4px">${new Date(n.ts).toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'})}</p></button>`).join(''):'<div class="card empty">Belum ada catatan. Tekan + untuk membuat.</div>'}
 function notes(){return `${head('Notes','Tangkap pikiranmu.')}<input class="fld" data-in="nq" value="${esc(nq)}" placeholder="Cari catatan" aria-label="Cari catatan" style="margin-bottom:12px"><div class="chips">${['All',...CATS].map(c=>`<button class="${ncat===c?'on':''}" data-a="nc" data-v="${c}">${c}</button>`).join('')}</div><div id="list">${nlist()}</div>`}
-function more(){const L=[['bell','Alarm','alarm'],['calc','Calculator','calc'],['timer','Focus Timer','focus'],['gear','Settings','settings']];
+function more(){const L=[['bell','Alarm','alarm'],['calc','Calculator','calc'],['timer','Focus Timer','focus'],['hist','Riwayat notifikasi','notifh'],['gear','Settings','settings']];
  return `${head('More','Fitur lainnya.')}${L.map(l=>`<button class="card row" style="width:100%;text-align:left" data-a="sub" data-p="${l[2]}">${ic(l[0],26)}<b>${l[1]}</b>${ic('r',18)}</button>`).join('')}`}
 function alarm(){const L=[...D.alarms].sort((a,b)=>a.time.localeCompare(b.time)),P=nProb();
  return `${head('Alarm','Jangan lewatkan yang penting.',1)}
@@ -417,6 +419,54 @@ function focus(){const td=today(),ss=D.sessions.filter(s=>s.day===td),mins=ss.re
  <div class="row" style="margin-bottom:12px"><button class="pill" data-a="fgo">${ft.run?'Jeda':ft.left<ftTotal()?'Lanjutkan':'Mulai'}</button><button class="pill ghost" data-a="frs">Reset</button><button class="pill ghost" data-a="fsk">Lewati</button></div>
  <label>Hubungkan dengan tugas${pickSel('ftask_v',[['','Tanpa tugas'],...open.map(t=>[t.title,t.title])],ft.task,'data-in="ftask"')}</label>
  <div class="card"><b>Hari ini</b><p class="mut">${ss.length} sesi · ${mins} menit fokus</p></div>`}
+// ---------- riwayat notifikasi (disimpan native, dibaca lewat jembatan) ----------
+const NH={q:'',pkg:'',days:0,items:[],apps:[],icons:{},more:false,total:0,open:null,cfg:null,loading:false,sq:0,si:0,sig:'',tk:0,rl:0,t:0};
+const DAYF=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+const nhHue=s=>{let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))%360;return h};
+function nhAgo(ts){const s=Math.max(0,Math.floor((Date.now()-ts)/1000));if(s<10)return'Baru saja';if(s<60)return s+' detik lalu';const m=Math.floor(s/60);if(m<60)return m+' menit lalu';const h=Math.floor(m/60);if(h<24)return h+' jam lalu';const d=Math.floor(h/24);if(d<7)return d+' hari lalu';if(d<30)return Math.floor(d/7)+' minggu lalu';if(d<365)return Math.floor(d/30)+' bulan lalu';return Math.floor(d/365)+' tahun lalu'}
+const nhFull=ts=>{const d=new Date(ts);return DAYF[d.getDay()]+', '+d.getDate()+' '+MON[d.getMonth()]+' '+d.getFullYear()+' · '+pad(d.getHours())+'.'+pad(d.getMinutes())+'.'+pad(d.getSeconds())};
+const nhShort=ts=>{const d=new Date(ts);return DAY[d.getDay()]+', '+d.getDate()+' '+MON[d.getMonth()].slice(0,3)+' '+d.getFullYear()+' · '+pad(d.getHours())+'.'+pad(d.getMinutes())};
+const nhDK=ts=>{const d=new Date(ts);return d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate()};
+function nhGroup(ts){const t=new Date(),k=nhDK(ts);if(k===nhDK(t.getTime()))return'Hari ini';if(k===nhDK(new Date(t.getFullYear(),t.getMonth(),t.getDate()-1).getTime()))return'Kemarin';const d=new Date(ts);return DAYF[d.getDay()]+', '+d.getDate()+' '+MON[d.getMonth()]+' '+d.getFullYear()}
+function nhAv(pkg,app){const ic=NH.icons[pkg];return `<div class="nhav" style="${ic?'background:var(--bg)':`background:hsl(${nhHue(pkg)} 45% 48%)`}">${ic?`<img src="${ic}" alt="">`:esc((app||'?').trim().slice(0,1).toUpperCase())}</div>`}
+function nhSince(){if(NH.days===1){const t=new Date();return new Date(t.getFullYear(),t.getMonth(),t.getDate()).getTime()}return NH.days?Date.now()-NH.days*86400000:0}
+const nhCount=()=>NH.loading&&!NH.items.length?'Memuat...':NH.total+((NH.q||NH.pkg||NH.days)?' hasil':' notifikasi tersimpan');
+function nhItem(x){const o=NH.open===x.id;
+ return `<div class="card ${o?'nhx':''}" style="padding:14px;margin-bottom:8px"><div class="nhi" role="button" tabindex="0" data-a="nhopen" data-hid="${x.id}" aria-expanded="${o}">${nhAv(x.pkg,x.app)}<div class="nhb"><div class="nhl"><b>${esc(x.app)}</b><span class="mut" data-ts="${x.ts}">${nhAgo(x.ts)}</span></div>${x.title&&x.title!==x.app?`<div style="font-weight:500;word-break:break-word">${esc(x.title)}</div>`:''}<div class="mut nhtx">${esc(x.text)||'&nbsp;'}</div><div class="mut nhd">${o?nhFull(x.ts):nhShort(x.ts)}</div></div></div>
+ ${o?`<div class="row" style="margin-top:12px;gap:8px"><button class="pill ghost" style="height:40px" data-a="nhapp" data-pkg="${esc(x.pkg)}">Buka</button><button class="pill ghost" style="height:40px" data-a="nhcopy" data-hid="${x.id}">Salin</button><button class="pill ghost" style="height:40px;color:#d9534f" data-a="nhdel" data-hid="${x.id}">Hapus</button></div>`:''}</div>`}
+function nhList(){if(!NH.items.length)return `<div class="card empty">${NH.loading?'Memuat...':(NH.q||NH.pkg||NH.days?'Tidak ada notifikasi yang cocok.':'Belum ada riwayat. Notifikasi yang masuk setelah izin akses notifikasi aktif akan tersimpan di sini.')}</div>`;
+ let g='',h='';for(const x of NH.items){const k=nhGroup(x.ts);if(k!==g){g=k;h+=`<div class="nhg">${esc(k)}</div>`}h+=nhItem(x)}
+ return h+(NH.more?'<button class="pill ghost" data-a="nhmore">Muat lebih banyak</button>':'')}
+function nhChips(){const P=[[0,'Semua'],[1,'Hari ini'],[7,'7 hari'],[30,'30 hari']];
+ return `<div class="chips">${P.map(p=>`<button class="${NH.days===p[0]?'on':''}" data-a="nhp" data-v="${p[0]}">${p[1]}</button>`).join('')}</div>
+ <div class="chips"><button class="${NH.pkg?'':'on'}" data-a="nha" data-pkg="">Semua aplikasi</button>${NH.apps.map(a=>`<button class="${NH.pkg===a.pkg?'on':''}" data-a="nha" data-pkg="${esc(a.pkg)}">${NH.icons[a.pkg]?`<img src="${NH.icons[a.pkg]}" alt="">`:''}${esc(a.app)} <span style="opacity:.7">${a.count}</span></button>`).join('')}</div>`}
+function nhSet(){const c=NH.cfg;if(!c)return'<p class="mut">Memuat...</p>';const R=[[30,'30 hari'],[90,'90 hari'],[365,'1 tahun'],[0,'Selamanya']];
+ return `<b>Pengaturan riwayat</b><button class="set" data-a="nhtog"><span>Simpan riwayat notifikasi</span><i class="sw ${c.enabled?'on':''}"></i></button>
+ <div style="padding:10px 0"><span>Simpan selama</span><div class="seg" style="margin-top:8px">${R.map(r=>`<button class="${c.days===r[0]?'on':''}" data-a="nhret" data-v="${r[0]}">${r[1]}</button>`).join('')}</div></div>
+ <button class="pill ghost" style="height:42px;color:#d9534f" data-a="nhclr">Hapus semua riwayat</button>
+ <p class="mut" style="margin-top:10px">Riwayat hanya disimpan di perangkat ini dan tidak dikirim ke server. Maksimal 5000 notifikasi terbaru; yang lebih lama dari batas waktu di atas dihapus otomatis.</p>`}
+function notifh(){
+ if(!NATIVE)return `${head('Riwayat notifikasi','Semua notifikasi yang masuk.',1)}<div class="card empty">Riwayat notifikasi hanya tersedia di aplikasi Android TimeFlow, karena hanya aplikasi terpasang yang boleh membaca notifikasi.</div>`;
+ return `${head('Riwayat notifikasi','<span id="nhcnt">'+nhCount()+'</span>',1)}<div id="nhwarn"></div>
+ <input class="fld" data-in="nhq" value="${esc(NH.q)}" placeholder="Cari nama aplikasi, judul, atau isi" aria-label="Cari riwayat notifikasi" style="margin-bottom:12px">
+ <div id="nhch">${nhChips()}</div><div id="nhlist">${nhList()}</div><div class="card" id="nhset" style="margin-top:16px">${nhSet()}</div>`}
+function nhPaint(){const l=$('#nhlist');if(l)l.innerHTML=nhList();const c=$('#nhcnt');if(c)c.textContent=nhCount()}
+function nhPaintCh(){const e=$('#nhch');if(e)e.innerHTML=nhChips()}
+async function nhLoad(reset,silent){if(!NATIVE)return;const my=++NH.sq,before=reset?0:(NH.items.length?NH.items[NH.items.length-1].id:0);
+ if(!silent&&reset){NH.loading=true;if(!NH.items.length)nhPaint()}
+ try{const r=await nat('history.list',{q:NH.q,pkg:NH.pkg,since:nhSince(),before,limit:60});if(my!==NH.sq)return;NH.loading=false;
+  const sig=r.items.map(x=>x.id).join(',')+'|'+r.total;if(silent&&sig===NH.sig){nhTick(true);return}
+  if(reset)NH.sig=sig;NH.items=reset?r.items:NH.items.concat(r.items);NH.more=r.more;NH.total=r.total;nhPaint()}catch(e){NH.loading=false;nerr(e)}}
+async function nhInit(){if(!NATIVE)return;const my=++NH.si;
+ try{const[cfg,apps]=await Promise.all([nat('history.get'),nat('history.apps')]);if(my!==NH.si)return;NH.cfg=cfg;NH.apps=apps;for(const a of apps)if(a.icon)NH.icons[a.pkg]=a.icon;
+  const w=$('#nhwarn');if(w)w.innerHTML=cfg.access?'':'<div class="card"><b>Akses notifikasi belum aktif</b><p class="mut" style="margin:6px 0 10px">Tanpa izin ini, notifikasi baru tidak bisa direkam.</p><button class="pill" style="height:42px" data-a="nchperm" data-w="access">Izinkan akses notifikasi</button></div>';
+  const st=$('#nhset');if(st)st.innerHTML=nhSet();nhPaintCh()}catch(e){nerr(e)}
+ nhLoad(true)}
+function nhTick(force){if(!NATIVE||(sub||page)!=='notifh')return;const n=Date.now();
+ if(!force&&n-NH.tk<5000)return;NH.tk=n;document.querySelectorAll('[data-ts]').forEach(e=>{e.textContent=nhAgo(+e.dataset.ts)});
+ if(!force&&!document.hidden&&NH.items.length<=60&&!NH.loading&&n-NH.rl>=10000){NH.rl=n;nhLoad(true,true)}}
+let ftSig='';
+function ftSync(){if(!NATIVE||!D)return;const sg=ft.run?'r'+ft.end:'p'+ft.left+'|'+ft.mode+'|'+ftTotal();if(sg===ftSig)return;ftSig=sg;nat('focus.sync',{running:ft.run,end:ft.run?ft.end:0,left:ft.left,total:ftTotal()}).catch(()=>{})}
 function settings(){const ACC=ACCS,ph='button';
  return `${head('Settings','Atur sesuai gayamu.',1)}<div class="card"><${ph} class="row" style="width:100%;text-align:left" data-a="photo" aria-label="Ubah foto profil"><div class="ico" style="width:52px;height:52px;border-radius:26px;background:var(--acc);color:#fff;overflow:hidden">${avatar(52)}</div><div><b>${esc(U)}</b><p class="mut">Ketuk untuk ubah foto profil</p></div>${ic('r',16)}</${ph}></div>
  <div class="card"><button class="set" data-a="theme"><span>Tema gelap</span><i class="sw ${D.theme==='dark'?'on':''}"></i></button>
@@ -485,12 +535,12 @@ function openNote(id){cn=D.notes.find(n=>n.id===id);$('#sheet').innerHTML=`<div 
 function nsave(){$('#ns').textContent='Menyimpan…';clearTimeout(nt);nt=setTimeout(()=>{cn.ts=Date.now();save();const e=$('#ns');if(e)e.textContent='Tersimpan'},400)}
 // ---------- shell ----------
 function apply(){document.documentElement.dataset.theme=D.theme;document.documentElement.style.setProperty('--acc',D.accent);nUi()}
-const ORD=['home','cal','tasks','notes','more','alarm','calc','focus','settings'];let lastCur=null;
-function render(){if(D)delete document.documentElement.dataset.auth;else document.documentElement.dataset.auth='1';if(!D){auth();return}apply();const V={home,cal,tasks,notes,more,alarm,calc,focus,settings},cur=sub||page;
+const ORD=['home','cal','tasks','notes','more','alarm','calc','focus','notifh','settings'];let lastCur=null;
+function render(){if(D)delete document.documentElement.dataset.auth;else document.documentElement.dataset.auth='1';if(!D){auth();return}apply();const V={home,cal,tasks,notes,more,alarm,calc,focus,notifh,settings},cur=sub||page;
  const pg=cur!==lastCur?'pg '+(lastCur===null||ORD.indexOf(cur)>=ORD.indexOf(lastCur)?'fromR':'fromL'):'';lastCur=cur;
  const N=[['home','Home','home'],['cal','Calendar','cal'],['tasks','Tasks','check'],['notes','Notes','note'],['more','More','more']];
  $('#app').innerHTML=`<div class="shell"><nav aria-label="Navigasi utama">${N.map(n=>`<button class="${(sub?'more':page)===n[0]?'on':''}" data-a="go" data-p="${n[0]}">${ic(n[2])}${n[1]}</button>`).join('')}</nav><main class="${pg}">${V[cur]()}</main>${['home','cal','tasks','notes'].includes(cur)?`<button class="fab${pg?' pop':''}" data-a="${cur==='notes'?'qa':'qa'}" data-t="${{home:'event',cal:'event',tasks:'task',notes:'note'}[cur]}" aria-label="Tambah cepat">${ic('plus',26)}</button>`:''}</div>`;
- if(cur==='focus')ftPaint();dcPaint()}
+ if(cur==='focus')ftPaint();if(cur==='notifh')nhInit();dcPaint()}
 const A={stage:d=>{stage=d.s;render()},mode:()=>{mode=mode==='login'?'create':'login';render()},submit:submitUser,
  enter:()=>{U=pending;localStorage.setItem(KEY+'session',U);D=ldUser(U);stage='in';page='home';sub=null;render();nBoot();webInit()},
  go:d=>{page=d.p;sub=null;render()},sub:d=>{sub=d.p;render()},back:()=>{sub=null;render()},
@@ -513,8 +563,17 @@ const A={stage:d=>{stage=d.s;render()},mode:()=>{mode=mode==='login'?'create':'l
  if(NATIVE){nat('backup.save',{json:j,name:nm}).then(r=>toast(r.saved?'Backup disimpan':'Ekspor dibatalkan')).catch(nerr);return}
  const b=new Blob([j],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=nm;a.click();toast('Backup diunduh')},
  out:()=>{$('#sheet').innerHTML=`<div class="ov" data-a="close"></div><div class="sh" role="dialog"><h2>Keluar dari akun?</h2><p class="mut" style="margin-bottom:16px">Kamu akan diarahkan ke halaman masuk. Data tetap tersimpan di perangkat ini.</p><div class="row"><button class="pill ghost" data-a="close">Batal</button><button class="pill" data-a="logout">Keluar</button></div></div>`},
- logout:()=>{localStorage.removeItem(KEY+'session');if(NATIVE){lastTheme=null;NI.view=null;nat('ui.theme',{dark:false}).catch(()=>{})}if(NI.photo&&NI.photo.startsWith('blob:'))URL.revokeObjectURL(NI.photo);NI.photo=null;U=null;D=null;lastCur=null;mode='login';stage='login';close();document.documentElement.removeAttribute('style');document.documentElement.dataset.theme='light';render()}};
+ logout:()=>{localStorage.removeItem(KEY+'session');ftSig='';if(NATIVE)nat('focus.sync',{clear:true}).catch(()=>{});if(NATIVE){lastTheme=null;NI.view=null;nat('ui.theme',{dark:false}).catch(()=>{})}if(NI.photo&&NI.photo.startsWith('blob:'))URL.revokeObjectURL(NI.photo);NI.photo=null;U=null;D=null;lastCur=null;mode='login';stage='login';close();document.documentElement.removeAttribute('style');document.documentElement.dataset.theme='light';render()}};
 Object.assign(A,A_EXTRA);Object.assign(A,A_NAT);
+Object.assign(A,{nhp:d=>{NH.days=+d.v;nhPaintCh();nhLoad(true)},nha:d=>{NH.pkg=d.pkg||'';nhPaintCh();nhLoad(true)},
+ nhopen:d=>{const id=+d.hid;NH.open=NH.open===id?null:id;nhPaint()},nhmore:()=>nhLoad(false),
+ nhapp:d=>{nat('history.openApp',{pkg:d.pkg}).catch(nerr)},
+ nhcopy:d=>{const x=NH.items.find(i=>i.id===+d.hid);if(!x)return;nat('history.copy',{text:x.app+'\n'+(x.title&&x.title!==x.app?x.title+'\n':'')+x.text+'\n'+nhFull(x.ts)}).then(()=>toast('Disalin')).catch(nerr)},
+ nhdel:d=>{const id=+d.hid;nat('history.delete',{hid:id}).then(()=>{NH.items=NH.items.filter(i=>i.id!==id);NH.total=Math.max(0,NH.total-1);if(NH.open===id)NH.open=null;NH.sig='';nhPaint();toast('Dihapus')}).catch(nerr)},
+ nhtog:()=>{nat('history.set',{cfg:{enabled:!NH.cfg.enabled}}).then(c=>{NH.cfg=c;$('#nhset').innerHTML=nhSet()}).catch(nerr)},
+ nhret:d=>{nat('history.set',{cfg:{days:+d.v}}).then(c=>{NH.cfg=c;$('#nhset').innerHTML=nhSet();nhLoad(true)}).catch(nerr)},
+ nhclr:()=>ask('Hapus semua riwayat?','Semua notifikasi yang tersimpan akan dihapus dan tidak bisa dikembalikan.','Hapus',()=>{nat('history.clear').then(()=>{NH.items=[];NH.total=0;NH.apps=[];NH.pkg='';NH.open=null;NH.sig='';NH.cfg&&(NH.cfg.count=0);nhPaint();nhPaintCh();toast('Riwayat dihapus')}).catch(nerr)})});
+
 document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(t&&A[t.dataset.a]){if(t.tagName==='A')e.preventDefault();A[t.dataset.a](t.dataset,t)}});
 document.addEventListener('input',e=>{const k=e.target.dataset.in;if(!k)return;const x=e.target;
  if(k==='nch'&&NCH.cfg){const kk=x.dataset.k;$('#nv_'+kk).textContent=x.value+' '+x.dataset.u;nchSend({[kk]:+x.value});nchPrev()}
@@ -524,6 +583,7 @@ document.addEventListener('input',e=>{const k=e.target.dataset.in;if(!k)return;c
  if(k==='tq'){tq=x.value;$('#list').innerHTML=tlist()}
  if(k==='nq'){nq=x.value;$('#list').innerHTML=nlist()}
  if(k==='gs')gsearch(x.value);
+ if(k==='nhq'){NH.q=x.value;clearTimeout(NH.t);NH.t=setTimeout(()=>nhLoad(true),250)}
  if(k==='ntitle'){cn.title=x.value;nsave()}if(k==='nbody'){cn.body=x.value;nsave()}if(k==='ncatsel'){cn.cat=x.value;nsave()}
  if(k==='ftask')ft.task=x.value;
  if(k==='import')doImport(x.files[0],x)});
@@ -625,7 +685,7 @@ async function webInit(){if(NATIVE||!D||!U)return;NI.hasVib=!!navigator.vibrate;
 if(!NATIVE){webFiles();try{navigator.serviceWorker&&navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.tf==='act'){if(e.data.action==='snooze')ringSnooze();else if(e.data.action==='stop')ringStop()}})}catch{}}
 Object.assign(A,{rstop:()=>ringStop(),rsnz:ringSnooze});
 // background loops (alarm check + focus timer)
-setInterval(()=>{if(!D)return;ftTick();dcPaint();alarmTick();if(!NATIVE)keepAlive()},1000);
+setInterval(()=>{if(!D)return;ftTick();ftSync();nhTick();dcPaint();alarmTick();if(!NATIVE)keepAlive()},1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&D){ftTick();alarmTick();if(WEB.ring)wake()}});
 render();nBoot();webInit();
 </script></body></html>

@@ -21,7 +21,7 @@ import android.webkit.WebViewClient
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
-import androidx.activity.PickVisualMediaRequest
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.WindowCompat
 import androidx.webkit.WebMessageCompat
@@ -130,7 +130,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         bridge = NativeBridge(this)
-        web = WebView(this).apply { setBackgroundColor(Color.parseColor("#F4F2EE")) }
+        web = WebView(this).apply { setBackgroundColor(Color.WHITE) }
         setContentView(web)
 
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
