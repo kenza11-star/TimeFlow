@@ -21,7 +21,16 @@ Tanpa PC dan tanpa Termux yang kuat: push folder ini ke GitHub, tab Actions > "B
 - Foto profil dari galeri: Pengaturan > ketuk profil > Pilih dari galeri (potong + zoom). Di APK memakai Photo Picker native; di mode web memakai pemilih file dan disimpan di IndexedDB.
 - Upload audio alarm: Pengaturan > Suara & upload audio alarm > Upload audio alarm, lalu pilih di form alarm (ada tombol Dengarkan). MP3/M4A/OGG/WAV, maks 15 MB di mode web.
 - Kata "browser" sudah dihapus dari seluruh teks aplikasi.
-- Izin: saat APK pertama dibuka, TimeFlow meminta berurutan notifikasi, foto/galeri, audio, alarm tepat waktu, layar penuh di layar kunci, dan "tidak dibatasi" hemat baterai. Kamera, mikrofon, kontak, dan lokasi sengaja tidak diminta karena tidak ada fitur yang memakainya (mudah ditambah bila kelak perlu).
+- Izin: saat APK pertama dibuka, TimeFlow meminta berurutan notifikasi, foto/galeri, audio, alarm tepat waktu, layar penuh di layar kunci, dan "tidak dibatasi" hemat baterai. Kamera, mikrofon, dan kontak sengaja tidak diminta. Lokasi (perkiraan) baru diminta mulai v1.6, hanya saat kamu memilih "Pakai lokasi saya" untuk cuaca.
+
+## v1.6 (cuaca + widget layar utama)
+
+- **Cuaca hari ini** di Home: suhu, terasa seperti, kondisi, naik/turun, peluang hujan, 8 jam ke depan, kelembapan, angin, terbit/terbenam. Data dari Open-Meteo (gratis, tanpa API key). Ketuk kartunya (atau Settings > Cuaca & widget) untuk memilih lokasi: **Pakai lokasi saya** (izin lokasi perkiraan, hanya diminta saat kamu menekan tombol itu) atau **cari kota** secara manual.
+- **Widget layar utama (4 jenis):** Jam (jam + tanggal + cuaca singkat), Kalender (bulan ini, hari ini ditandai), Cuaca, Agenda (acara hari ini + jumlah tugas/alarm). Pasang dari Settings > Cuaca & widget, atau tahan lama layar utama > Widget > TimeFlow. Warna widget mengikuti tema gelap/terang dan warna aksen aplikasi. Agenda 7 hari ke depan disinkronkan dari app ke widget otomatis setiap ada perubahan.
+- **Cara kerja internet:** hanya kode native yang memanggil Open-Meteo (`WeatherRepo.kt`); WebView tetap terkunci ke origin aplikasi (request lain tetap diblokir). Koordinat terakhir disimpan, jadi widget Cuaca/Jam bisa memperbarui cuaca di latar belakang (kira-kira tiap 30 menit) tanpa izin lokasi latar belakang. Kalau kamu berpindah kota, buka TimeFlow sekali agar lokasi (mode GPS) diperbarui.
+- Izin baru: `INTERNET` (juga untuk build bundled; artinya build bundled tidak lagi 100% tanpa internet) dan `ACCESS_COARSE_LOCATION`.
+- Perintah bridge baru: `weather.get/refresh/search/setCity/useGps`, `widget.sync`, `widget.pin`. **Web harus di-deploy ulang ke Vercel dan APK dibuild ulang.**
+- Belum dikompilasi dan belum diuji di perangkat (Kotlin, layout widget). Bagian web (parser cuaca, sintaks JS) sudah diuji di lingkungan pembuatan.
 
 ## v1.5 (riwayat notifikasi + alarm & timer di notch)
 
