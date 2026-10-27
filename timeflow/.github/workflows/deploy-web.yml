@@ -1,0 +1,41 @@
+# OPSIONAL. Deploy folder web/ ke Vercel otomatis tiap web/ berubah.
+# Tidak perlu bila kamu sudah menyambungkan repo ini ke Vercel lewat Vercel > Settings > Git (cara termudah, lihat PANDUAN-GITHUB.md).
+# Butuh 3 secret: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID. Tanpa itu, workflow ini otomatis dilewati.
+name: Deploy web ke Vercel
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", "vercel.json"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cek secret Vercel
+        id: chk
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Secret Vercel belum lengkap, deploy dilewati."
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.chk.outputs.ok == 'true'
+        with:
+          node-version: 20
+
+      - name: Deploy ke Vercel (production)
+        if: steps.chk.outputs.ok == 'true'
+        run: |
+          npx --yes vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
+          npx --yes vercel@latest build --prod --token="$VERCEL_TOKEN"
+          npx --yes vercel@latest deploy --prebuilt --prod --token="$VERCEL_TOKEN"

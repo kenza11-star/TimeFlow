@@ -1,0 +1,104 @@
+# Bangun APK TimeFlow di GitHub. Jalan otomatis tiap kode Android berubah (push ke main), atau manual:
+# tab Actions > "Build APK" > Run workflow. Hasil: GitHub Releases > "TimeFlow APK terbaru" (atau Artifacts).
+name: Build APK
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "vercel = tampilan dimuat dari URL Vercel | bundled = tampilan ada di dalam APK (offline, TAPI data lama tidak ikut)"
+        type: choice
+        options: [vercel, bundled]
+        default: vercel
+      timeflow_url:
+        description: "URL Vercel (dipakai bila mode = vercel)"
+        required: false
+        default: "https://time-flow-steel.vercel.app"
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - "tools/**"
+      - "icon/**"
+      - ".github/workflows/build-apk.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-apk
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      MODE: ${{ github.event.inputs.mode || 'vercel' }}
+      TF_URL: ${{ github.event.inputs.timeflow_url || 'https://time-flow-steel.vercel.app' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Ikon aplikasi dari icon/timeflow.jpg
+        run: |
+          f=$(find icon -maxdepth 1 -type f -iname 'timeflow.*' 2>/dev/null | head -n1 || true)
+          if [ -n "$f" ]; then
+            bash tools/make-icon.sh "$f"
+          else
+            echo "::warning::icon/timeflow.jpg tidak ditemukan, memakai ikon bawaan."
+          fi
+
+      - name: Pakai debug keystore tetap (agar APK baru bisa menimpa APK lama tanpa uninstall)
+        env:
+          KS: ${{ secrets.DEBUG_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS" ]; then
+            mkdir -p ~/.android
+            echo "$KS" | base64 -d > ~/.android/debug.keystore
+            echo "Debug keystore dari secret dipakai."
+          elif [ -f keystore/debug.keystore.b64 ]; then
+            mkdir -p ~/.android
+            base64 -d keystore/debug.keystore.b64 > ~/.android/debug.keystore
+            echo "Debug keystore dari keystore/debug.keystore.b64 dipakai."
+          else
+            echo "::warning::Keystore tetap belum disiapkan. APK ini bertanda tangan acak: untuk memasangnya, APK TimeFlow lama harus di-uninstall dulu (data lokal hilang, backup dulu!). Lihat PANDUAN-GITHUB.md."
+          fi
+
+      - name: Build APK debug
+        working-directory: android
+        run: |
+          if [ "$MODE" = "bundled" ]; then
+            gradle --no-daemon :app:assembleBundledDebug
+          else
+            gradle --no-daemon :app:assembleVercelDebug -PtimeflowUrl="$TF_URL"
+          fi
+
+      - name: Rapikan nama file
+        run: |
+          mkdir -p out
+          cp "$(find android/app/build/outputs/apk -name '*.apk' | head -n1)" out/TimeFlow.apk
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TimeFlow-apk
+          path: out/TimeFlow.apk
+
+      - name: Terbitkan ke GitHub Releases (supaya gampang diunduh dari HP)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-latest
+          name: TimeFlow APK terbaru
+          prerelease: true
+          body: "APK debug TimeFlow hasil build otomatis (mode: ${{ env.MODE }}). Unduh TimeFlow.apk di bawah, lalu pasang."
+          files: out/TimeFlow.apk
