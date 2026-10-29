@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/w_root" android:layout_width="match_parent" android:layout_height="match_parent">
+    <ImageView android:id="@+id/w_bg" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:scaleType="fitXY" android:src="@drawable/widget_bg" android:importantForAccessibility="no" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+        android:orientation="vertical" android:padding="12dp">
+        <TextView android:id="@+id/w_month" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textSize="15sp" android:textStyle="bold" android:paddingStart="4dp" android:paddingBottom="4dp"
+            android:singleLine="true" android:ellipsize="end" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="20dp" android:orientation="horizontal">
+            <TextView android:id="@+id/w_h0" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="S" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_h1" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="S" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_h2" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="R" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_h3" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="K" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_h4" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="J" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_h5" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="S" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_h6" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="M" android:textSize="12sp" android:includeFontPadding="false" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+            <TextView android:id="@+id/w_c0" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c1" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c2" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c3" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c4" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c5" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c6" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+            <TextView android:id="@+id/w_c7" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c8" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c9" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c10" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c11" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c12" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c13" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+            <TextView android:id="@+id/w_c14" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c15" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c16" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c17" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c18" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c19" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c20" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+            <TextView android:id="@+id/w_c21" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c22" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c23" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c24" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c25" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c26" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c27" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+            <TextView android:id="@+id/w_c28" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c29" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c30" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c31" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c32" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c33" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c34" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+            <TextView android:id="@+id/w_c35" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c36" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c37" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c38" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c39" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c40" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+            <TextView android:id="@+id/w_c41" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:gravity="center" android:text="" android:textSize="12sp" android:includeFontPadding="false" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>
