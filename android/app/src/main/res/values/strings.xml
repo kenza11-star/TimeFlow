@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">TimeFlow</string>
+    <string name="widget_clock_name">TimeFlow Jam</string>
+    <string name="widget_clock_desc">Jam, tanggal, dan cuaca singkat.</string>
+    <string name="widget_weather_name">TimeFlow Cuaca</string>
+    <string name="widget_weather_desc">Cuaca hari ini dan beberapa jam ke depan.</string>
+    <string name="widget_agenda_name">TimeFlow Agenda</string>
+    <string name="widget_agenda_desc">Acara hari ini dan jumlah tugas.</string>
+    <string name="widget_calendar_name">TimeFlow Kalender</string>
+    <string name="widget_calendar_desc">Kalender bulan ini, hari ini ditandai.</string>
+</resources>
