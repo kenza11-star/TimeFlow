@@ -5,10 +5,10 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "vercel = tampilan dimuat dari URL Vercel | bundled = tampilan ada di dalam APK (offline, TAPI data lama tidak ikut)"
+        description: "bundled = aplikasi penuh di dalam APK, jalan offline & online (disarankan) | vercel = tampilan dimuat dari URL Vercel, butuh internet"
         type: choice
-        options: [vercel, bundled]
-        default: vercel
+        options: [bundled, vercel]
+        default: bundled
       timeflow_url:
         description: "URL Vercel (dipakai bila mode = vercel)"
         required: false
@@ -17,6 +17,7 @@ on:
     branches: [main]
     paths:
       - "android/**"
+      - "web/**"
       - "tools/**"
       - "icon/**"
       - ".github/workflows/build-apk.yml"
@@ -33,7 +34,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
-      MODE: ${{ github.event.inputs.mode || 'vercel' }}
+      MODE: ${{ github.event.inputs.mode || 'bundled' }}
       TF_URL: ${{ github.event.inputs.timeflow_url || 'https://time-flow-steel.vercel.app' }}
     steps:
       - uses: actions/checkout@v4
@@ -106,3 +107,4 @@ jobs:
           prerelease: true
           body: "APK debug TimeFlow hasil build otomatis (mode: ${{ env.MODE }}). Unduh TimeFlow.apk di bawah, lalu pasang."
           files: out/TimeFlow.apk
+          
