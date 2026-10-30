@@ -1,3 +1,0 @@
-Folder ini berisi tanda tangan tetap (debug.keystore.b64) supaya APK baru bisa dipasang MENIMPA APK lama tanpa uninstall dan data (alarm, username, dll.) tetap ada.
-JANGAN diganti / dihapus setelah dipakai. Cukup salin folder "keystore" ke repo (sejajar dengan folder android dan web).
-Catatan: pemasangan PERTAMA setelah ini tetap perlu uninstall APK lama satu kali (tanda tangan lama acak). Ekspor backup dulu di aplikasi lama, lalu pulihkan di aplikasi baru.
