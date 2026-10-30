@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Build "vercel": dibutuhkan untuk memuat UI dari URL Vercel (INTERNET juga ada di manifest utama untuk cuaca). -->
+    <uses-permission android:name="android.permission.INTERNET" />
+</manifest>
