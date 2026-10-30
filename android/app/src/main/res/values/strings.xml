@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">TimeFlow</string>
+    <string name="widget_clock_name">TimeFlow Jam</string>
+    <string name="widget_clock_desc">Jam, tanggal, dan cuaca singkat.</string>
+    <string name="widget_weather_name">TimeFlow Cuaca</string>
+    <string name="widget_music_name">TimeFlow Musik</string>
+    <string name="widget_weather_desc">Cuaca hari ini dan beberapa jam ke depan.</string>
+    <string name="widget_agenda_name">TimeFlow Agenda</string>
+    <string name="widget_agenda_desc">Acara hari ini dan jumlah tugas.</string>
+    <string name="widget_calendar_name">TimeFlow Kalender</string>
+    <string name="widget_calendar_desc">Kalender bulan ini, hari ini ditandai.</string>
+    <string name="cc_a11y_desc">Dipakai TimeFlow untuk menampilkan Control Center saat kamu menggeser dari kanan atas layar, dan untuk menekan tombol Wi-Fi, Bluetooth, dll. di panel sistem saat kamu mengetuknya di Control Center. Isi layar hanya dibaca saat itu; ketikan tidak dibaca.</string>
+</resources>
