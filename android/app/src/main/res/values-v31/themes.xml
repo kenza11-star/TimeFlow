@@ -1,0 +1,10 @@
+<resources>
+    <!-- Android 12+: splash sistem putih, ikon aplikasi di tengah -->
+    <style name="Theme.TimeFlow" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/tf_white</item>
+        <item name="android:statusBarColor">@color/tf_white</item>
+        <item name="android:navigationBarColor">@color/tf_white</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowSplashScreenBackground">@color/tf_white</item>
+    </style>
+</resources>
