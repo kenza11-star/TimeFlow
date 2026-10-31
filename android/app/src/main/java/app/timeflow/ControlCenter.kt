@@ -419,12 +419,12 @@ class ControlCenter(private val svc: Context, private val host: CcHost, private 
                 if (Build.VERSION.SDK_INT >= 31) {
                     backdrop.setImageBitmap(shot)
                     // blur tebal + saturasi 140% supaya warna wallpaper tetap hidup (tidak abu-abu)
-                    val blurFx = RenderEffect.createBlurEffect(40f, 40f, Shader.TileMode.CLAMP)
+                    val blurFx = RenderEffect.createBlurEffect(22f, 22f, Shader.TileMode.CLAMP)
                     val satCf = android.graphics.ColorMatrixColorFilter(android.graphics.ColorMatrix().apply { setSaturation(CcGlass.SAT) })
                     backdrop.setRenderEffect(RenderEffect.createColorFilterEffect(satCf, blurFx))
                 } else {
                     // tanpa RenderEffect: kecilkan lalu perbesar = kabur kasar
-                    val w = max(1, shot.width / 18); val h = max(1, shot.height / 18)
+                    val w = max(1, shot.width / 12); val h = max(1, shot.height / 12)
                     backdrop.setImageBitmap(Bitmap.createScaledBitmap(Bitmap.createScaledBitmap(shot, w, h, true), shot.width, shot.height, true))
                     backdrop.setColorFilter(android.graphics.ColorMatrixColorFilter(android.graphics.ColorMatrix().apply { setSaturation(CcGlass.SAT) }))
                 }

@@ -24,7 +24,7 @@ import kotlin.math.sin
 /** Warna dasar gaya iOS dipakai bersama oleh semua kontrol. */
 object CcColor {
     val glass = Color.argb(34, 255, 255, 255)          // tint putih tipis (glassmorphism), bukan abu-abu solid
-    val glassEdge = Color.argb(70, 255, 255, 255)
+    val glassEdge = Color.argb(46, 255, 255, 255)
     val off = Color.argb(46, 255, 255, 255)            // kontrol nonaktif = kaca bening
     val offCircle = Color.argb(54, 255, 255, 255)
     val dark = Color.rgb(28, 28, 30)

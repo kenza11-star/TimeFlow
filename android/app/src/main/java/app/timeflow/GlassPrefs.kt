@@ -15,9 +15,9 @@ object GlassPrefs {
 
     class Cfg(val style: Int, val blur: Int, val dim: Int, val sheen: Int, val radius: Int) {
         /** Kekuatan blur: pengecilan bitmap, jumlah putaran, dan radius kotak. Makin besar pembagi, makin kabur. */
-        val blurDiv get() = when (blur) { 0 -> 8; 2 -> 14; else -> 10 }
-        val blurPasses get() = when (blur) { 0 -> 3; 2 -> 4; else -> 3 }
-        val blurR get() = when (blur) { 0 -> 5; 2 -> 6; else -> 6 }
+        val blurDiv get() = when (blur) { 0 -> 4; 2 -> 8; else -> 6 }
+        val blurPasses get() = when (blur) { 0 -> 3; 2 -> 3; else -> 4 }
+        val blurR get() = when (blur) { 0 -> 3; 2 -> 5; else -> 3 }
         val radiusDp get() = when (radius) { 0 -> 20f; 2 -> 38f; else -> 28f }
         /** Tint hitam tipis (gaya gelap): 0..100% -> alpha 0..55 (bawaan 50% = 27, ~10%) supaya warna wallpaper tetap hidup. */
         val darkAlpha get() = (dim * 0.55f).toInt().coerceIn(0, 255)
@@ -39,7 +39,7 @@ object GlassPrefs {
     }
 
     /** Tanda tangan pengaturan: ikut dalam kunci latar, jadi mengubah pengaturan otomatis membuat latar baru. */
-    fun sig(c: Context): String { val g = get(c); return "g2s${g.style}b${g.blur}d${g.dim}w${g.sheen}r${g.radius}" }
+    fun sig(c: Context): String { val g = get(c); return "g3s${g.style}b${g.blur}d${g.dim}w${g.sheen}r${g.radius}" }
 
     fun set(c: Context, style: Int? = null, blur: Int? = null, dim: Int? = null, sheen: Int? = null, radius: Int? = null) {
         val e = sp(c).edit()

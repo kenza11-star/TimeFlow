@@ -21,12 +21,12 @@ object CcGlass {
 
     /** Kilau isi: putih ~23% di kiri atas, memudar jadi nyaris bening di kanan bawah. */
     fun fillShader(l: Float, t: Float, r: Float, b: Float): Shader = LinearGradient(l, t, r, b,
-        intArrayOf(Color.argb(58, 255, 255, 255), Color.argb(18, 255, 255, 255), Color.argb(6, 255, 255, 255)),
+        intArrayOf(Color.argb(40, 255, 255, 255), Color.argb(12, 255, 255, 255), Color.argb(4, 255, 255, 255)),
         floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP)
 
     /** Rim light: putih ~38% di kiri atas, memudar di kanan bawah. */
     fun rimShader(l: Float, t: Float, r: Float, b: Float): Shader = LinearGradient(l, t, r, b,
-        intArrayOf(Color.argb(98, 255, 255, 255), Color.argb(40, 255, 255, 255), Color.argb(24, 255, 255, 255)),
+        intArrayOf(Color.argb(52, 255, 255, 255), Color.argb(18, 255, 255, 255), Color.argb(8, 255, 255, 255)),
         floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP)
 }
 

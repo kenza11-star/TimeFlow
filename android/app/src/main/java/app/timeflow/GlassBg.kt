@@ -106,7 +106,7 @@ object GlassBg {
     fun render(ctx: Context, shot: Bitmap, r: Rect, radiusDp: Float = 28f): Bitmap {
         val cfg = GlassPrefs.get(ctx)
         val d = ctx.resources.displayMetrics.density
-        val pad = (56 * d).toInt()           // blur tebal butuh bahan lebih lebar di sekeliling widget
+        val pad = (40 * d).toInt()
         val x0 = max(0, r.left - pad); val y0 = max(0, r.top - pad)
         val x1 = min(shot.width, r.right + pad); val y1 = min(shot.height, r.bottom + pad)
         val region = Bitmap.createBitmap(shot, x0, y0, x1 - x0, y1 - y0)
@@ -154,7 +154,7 @@ object GlassBg {
         val k = cfg.sheenK
         val sheen = Paint().apply {
             shader = LinearGradient(0f, 0f, ow * 0.95f, oh.toFloat(),
-                intArrayOf(Color.argb((64 * k).toInt().coerceIn(0, 255), 255, 255, 255), Color.argb((16 * k).toInt().coerceIn(0, 255), 255, 255, 255), Color.argb(0, 255, 255, 255)),
+                intArrayOf(Color.argb((46 * k).toInt().coerceIn(0, 255), 255, 255, 255), Color.argb((12 * k).toInt().coerceIn(0, 255), 255, 255, 255), Color.argb(0, 255, 255, 255)),
                 floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP)
         }
         c.drawRect(box, sheen)
@@ -164,28 +164,17 @@ object GlassBg {
                 Color.argb(0, 0, 0, 0), Color.argb(if (light) 10 else 20, 0, 0, 0), Shader.TileMode.CLAMP)
         }
         c.drawRect(box, depth)
-        // 3d) cahaya tepi bagian dalam: pita lebar dan lembut di sepanjang tepi, terang di kiri atas
-        val gw = max(2f, 4f * d * f)
-        val glow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE; strokeWidth = gw
-            shader = LinearGradient(0f, 0f, ow.toFloat(), oh.toFloat(),
-                intArrayOf(Color.argb(46, 255, 255, 255), Color.argb(6, 255, 255, 255), Color.argb(20, 255, 255, 255)),
-                floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP)
-        }
-        val gh = gw / 2f
-        c.drawRoundRect(RectF(gh, gh, ow - gh, oh - gh), max(0f, rad - gh), max(0f, rad - gh), glow)
-
         // 4) sudut membulat dengan tepi halus (anti-alias): hapus area di luar kartu
         val outside = Path().apply { addRoundRect(box, rad, rad, Path.Direction.CW); fillType = Path.FillType.INVERSE_WINDING }
         val clear = Paint(Paint.ANTI_ALIAS_FLAG).apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR) }
         c.drawPath(outside, clear)
 
-        // 5) rim light 1dp: putih ~35% di kiri atas, memudar ke kanan bawah
+        // 5) rim light 1dp sangat halus: putih ~20% di kiri atas, hampir hilang di kanan bawah
         val sw1 = max(1f, 1f * d * f)
         val edge = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE; strokeWidth = sw1
             shader = LinearGradient(0f, 0f, ow.toFloat(), oh.toFloat(),
-                intArrayOf(Color.argb(92, 255, 255, 255), Color.argb(40, 255, 255, 255), Color.argb(22, 255, 255, 255)),
+                intArrayOf(Color.argb(50, 255, 255, 255), Color.argb(18, 255, 255, 255), Color.argb(8, 255, 255, 255)),
                 floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP)
         }
         val h = sw1 / 2f
