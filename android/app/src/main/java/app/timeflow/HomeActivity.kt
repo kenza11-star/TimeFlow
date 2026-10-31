@@ -2,6 +2,7 @@ package app.timeflow
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.role.RoleManager
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
@@ -16,6 +17,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -56,12 +58,14 @@ class HomeActivity : Activity() {
         const val REQ_BIND = 71
         const val REQ_CONFIG = 72
         const val REQ_WALL = 73
+        const val REQ_ROLE = 74
         const val HOST_ID = 1024
         const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
         const val FROM_PAGE = 0
         const val FROM_DOCK = 1
-        const val DOCK_H = 84
+        const val DOCK_H = 88
+        const val PILL_H = 30
         const val SP = "timeflow_home"
     }
 
@@ -76,6 +80,8 @@ class HomeActivity : Activity() {
     private lateinit var dockPanel: FrameLayout
     private lateinit var dockRow: LinearLayout
     private lateinit var dragBar: LinearLayout
+    private lateinit var pill: TextView
+    private var askedDefault = false
     private lateinit var host: AppWidgetHost
     private lateinit var awm: AppWidgetManager
     private lateinit var gd: GestureDetector
@@ -112,7 +118,7 @@ class HomeActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         HomeStore.load(this)
-        mono = getSharedPreferences(SP, MODE_PRIVATE).getBoolean("mono", true)
+        mono = getSharedPreferences(SP, MODE_PRIVATE).getBoolean("mono", false)
         showLabels = getSharedPreferences(SP, MODE_PRIVATE).getBoolean("labels", true)
         awm = AppWidgetManager.getInstance(this)
         host = AppWidgetHost(this, HOST_ID)
@@ -163,6 +169,7 @@ class HomeActivity : Activity() {
         val sig = GlassPrefs.sig(this) + "|" + mono
         if (built() && sig != lastSig) { lastSig = sig; applyWall(true) }
         warmIcons()
+        if (built()) maybeAskDefault()
     }
 
     override fun onStop() {
@@ -249,6 +256,15 @@ class HomeActivity : Activity() {
         dots = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
         root.addView(dots, FrameLayout.LayoutParams(MATCH, dp(16), Gravity.BOTTOM))
 
+        pill = TextView(this).apply {
+            text = "Cari"; textSize = 13f; setTextColor(Color.argb(235, 255, 255, 255)); gravity = Gravity.CENTER
+            compoundDrawablePadding = dp(6); setPadding(dp(14), 0, dp(16), 0)
+            setCompoundDrawablesWithIntrinsicBounds(BitmapDrawable(resources, magnifier()), null, null, null)
+            setOnClickListener { openDrawer(true) }
+        }
+        pill.background = GlassPanelDrawable(pill, dp(15).toFloat(), 1f, 60, 0.4f)
+        root.addView(pill, FrameLayout.LayoutParams(dp(112), dp(PILL_H), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL))
+
         dockPanel = FrameLayout(this)
         dockRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         dockRow.setOnDragListener { v, e -> onDockDrag(v, e) }
@@ -275,17 +291,20 @@ class HomeActivity : Activity() {
         if (rootW == 0 || rootH == 0) return
         val dockH = dp(DOCK_H)
         val dockBottom = botInset + dp(10)
+        val pillBottom = dockBottom + dockH + dp(10)
+        val dotsBottom = pillBottom + dp(PILL_H) + dp(4)
         val top = topInset + dp(6)
         pageW = rootW
-        pageH = rootH - top - (dockBottom + dockH + dp(30))
+        pageH = rootH - top - (dotsBottom + dp(14) + dp(4))
         if (pageH < dp(200)) return
         cellW = pageW / HomeStore.COLS
         cellH = pageH / HomeStore.ROWS
         (pager.layoutParams as FrameLayout.LayoutParams).apply { width = MATCH; height = pageH; topMargin = top }
         pager.requestLayout()
         pager.pageW = pageW
-        (dots.layoutParams as FrameLayout.LayoutParams).bottomMargin = dockBottom + dockH + dp(8)
-        (dockPanel.layoutParams as FrameLayout.LayoutParams).apply { leftMargin = dp(14); rightMargin = dp(14); bottomMargin = dockBottom }
+        (dots.layoutParams as FrameLayout.LayoutParams).bottomMargin = dotsBottom
+        (pill.layoutParams as FrameLayout.LayoutParams).bottomMargin = pillBottom
+        (dockPanel.layoutParams as FrameLayout.LayoutParams).apply { leftMargin = dp(12); rightMargin = dp(12); bottomMargin = dockBottom }
         (dragBar.layoutParams as FrameLayout.LayoutParams).topMargin = topInset + dp(4)
         dockPanel.requestLayout()
         lastSig = GlassPrefs.sig(this) + "|" + mono
@@ -302,9 +321,36 @@ class HomeActivity : Activity() {
             runOnUiThread {
                 wallImg.setImageBitmap(HomeWall.full)
                 if (force) rebuild() else invalidateGlass()
-                askWallpaperOnce()
+                if (!maybeAskDefault()) askWallpaperOnce()
             }
         }.start()
+    }
+
+    /** Tawarkan menjadikan Flow Launcher launcher utama (dialog sistem RoleManager). Mengembalikan true bila dialog ditampilkan. */
+    private fun maybeAskDefault(): Boolean {
+        val sp = getSharedPreferences(SP, MODE_PRIVATE)
+        if (askedDefault || isFinishing || sp.getBoolean("no_default_ask", false) || HomeUtil.isDefaultHome(this)) return false
+        askedDefault = true
+        var chose = false
+        AlertDialog.Builder(this)
+            .setTitle("Jadikan Flow Launcher launcher utama?")
+            .setMessage("Supaya tombol Home membuka Flow Launcher dengan dock, folder, dan widget kaca. Kamu bisa kembali ke launcher lama kapan saja lewat Pengaturan.")
+            .setPositiveButton("Jadikan bawaan") { _, _ -> chose = true; requestHome() }
+            .setNegativeButton("Nanti", null)
+            .setNeutralButton("Jangan tanya lagi") { _, _ -> sp.edit().putBoolean("no_default_ask", true).apply() }
+            .setOnDismissListener { if (!chose) askWallpaperOnce() }
+            .show()
+        return true
+    }
+
+    private fun requestHome() {
+        if (Build.VERSION.SDK_INT >= 29) {
+            val rm = getSystemService(RoleManager::class.java)
+            if (rm != null && rm.isRoleAvailable(RoleManager.ROLE_HOME) && !rm.isRoleHeld(RoleManager.ROLE_HOME)) {
+                try { startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_HOME), REQ_ROLE); return } catch (e: Exception) { }
+            }
+        }
+        runCatching { startActivity(Intent(Settings.ACTION_HOME_SETTINGS)) }
     }
 
     /** Bila wallpaper sistem tidak bisa dibaca (Android baru), tawarkan memilih wallpaper dari galeri satu kali. */
@@ -363,7 +409,19 @@ class HomeActivity : Activity() {
 
     private fun iconFor(item: HItem): Bitmap? =
         if (item.type == HItem.APP) FolderIcons.tile(this, item.pkg, mono, false)
-        else FolderIcons.mini(this, item.apps.take(4), mono, false)
+        else FolderIcons.mini(this, item.apps.take(if (mono) 4 else 9), mono, false, 144, mono)
+
+    private fun magnifier(): Bitmap {
+        val s = dp(15)
+        val b = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888)
+        val c = Canvas(b)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(235, 255, 255, 255); style = Paint.Style.STROKE; strokeWidth = s * 0.13f; strokeCap = Paint.Cap.ROUND
+        }
+        c.drawCircle(s * 0.42f, s * 0.42f, s * 0.28f, p)
+        c.drawLine(s * 0.64f, s * 0.64f, s * 0.88f, s * 0.88f, p)
+        return b
+    }
 
     private fun makeItemView(item: HItem, from: Int): View? {
         if (item.type == HItem.WIDGET) return makeWidget(item)
@@ -374,12 +432,19 @@ class HomeActivity : Activity() {
             if (item.apps.isEmpty()) return null
         }
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
-        val isz = dp(if (from == FROM_DOCK) 58 else 56)
-        box.addView(ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER; setImageBitmap(iconFor(item)) }, LinearLayout.LayoutParams(isz, isz))
+        val isz = if (from == FROM_DOCK) dp(62) else minOf(dp(62), (cellW * 0.7f).toInt())
+        val iv = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER; setImageBitmap(iconFor(item)) }
+        if (item.type == HItem.FOLDER && !mono) {
+            // folder gaya iOS: kotak frosted (kaca asli dari wallpaper kabur) berisi 3x3 ikon mini
+            iv.background = GlassPanelDrawable(iv, isz * 0.225f, 1f, 60, 0.4f)
+            glassViews.add(iv)
+        }
+        box.addView(iv, LinearLayout.LayoutParams(isz, isz))
         if (from != FROM_DOCK && showLabels) {
             box.addView(TextView(this).apply {
                 text = if (item.type == HItem.APP) appLabel(item.pkg) else item.name.ifEmpty { "Folder" }
-                textSize = 11f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+                textSize = 11.5f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
                 maxLines = 1; ellipsize = TextUtils.TruncateAt.END; includeFontPadding = false
                 setShadowLayer(3f, 0f, 1f, 0x80000000.toInt())
             }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(5); leftMargin = dp(2); rightMargin = dp(2) })
@@ -411,21 +476,13 @@ class HomeActivity : Activity() {
 
     private fun buildDock() {
         dockRow.removeAllViews()
-        dockPanel.background = GlassPanelDrawable(dockPanel, dp(32).toFloat())
-        for (s in 0..HomeStore.DOCK) {
+        // dock gaya iPhone: bilah frosted bersudut besar, 4 ikon rata (laci aplikasi lewat geser ke atas atau tombol Cari)
+        dockPanel.background = GlassPanelDrawable(dockPanel, dp(34).toFloat(), 1f, 62, 0.35f)
+        for (s in 0 until HomeStore.DOCK) {
             val cell = FrameLayout(this)
-            if (s < HomeStore.DOCK) {
-                val item = HomeStore.dock.firstOrNull { it.cx == s }
-                val v = if (item != null) makeItemView(item, FROM_DOCK) else null
-                if (v != null) cell.addView(v, FrameLayout.LayoutParams(MATCH, MATCH))
-            } else {
-                val box = LinearLayout(this).apply { gravity = Gravity.CENTER }
-                box.addView(ImageView(this).apply {
-                    setImageBitmap(drawerButtonBmp()); contentDescription = "Semua aplikasi"
-                }, LinearLayout.LayoutParams(dp(58), dp(58)))
-                box.setOnClickListener { openDrawer() }
-                cell.addView(box, FrameLayout.LayoutParams(MATCH, MATCH))
-            }
+            val item = HomeStore.dock.firstOrNull { it.cx == s }
+            val v = if (item != null) makeItemView(item, FROM_DOCK) else null
+            if (v != null) cell.addView(v, FrameLayout.LayoutParams(MATCH, MATCH))
             dockRow.addView(cell, LinearLayout.LayoutParams(0, MATCH, 1f))
         }
     }
@@ -561,7 +618,7 @@ class HomeActivity : Activity() {
             DragEvent.ACTION_DRAG_STARTED -> { val d = drag; return d != null && d.item.type != HItem.WIDGET }
             DragEvent.ACTION_DROP -> {
                 val pl = drag ?: return false
-                val slot = (e.x / (v.width / (HomeStore.DOCK + 1f))).toInt().coerceIn(0, HomeStore.DOCK - 1)
+                val slot = (e.x / (v.width / HomeStore.DOCK.toFloat())).toInt().coerceIn(0, HomeStore.DOCK - 1)
                 ui.post { dropOnDock(pl, slot) }
                 return true
             }
@@ -662,7 +719,7 @@ class HomeActivity : Activity() {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(14), dp(16), dp(18)); isClickable = true
         }
-        panel.background = GlassPanelDrawable(panel, dp(32).toFloat(), 1.15f)
+        panel.background = GlassPanelDrawable(panel, dp(34).toFloat(), 1f, 56, 0.45f)
         val title = EditText(this).apply {
             setText(f.name.ifEmpty { "Folder" }); textSize = 20f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
             background = null; setSingleLine(true); imeOptions = EditorInfo.IME_ACTION_DONE
@@ -735,7 +792,7 @@ class HomeActivity : Activity() {
         return box
     }
 
-    private fun openDrawer() {
+    private fun openDrawer(focus: Boolean = false) {
         closeOverlay(false)
         val ov = FrameLayout(this)
         ov.addView(ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_XY; setImageBitmap(HomeWall.blur) }, FrameLayout.LayoutParams(MATCH, MATCH))
@@ -791,6 +848,10 @@ class HomeActivity : Activity() {
         ov.alpha = 0f
         ov.translationY = dp(60).toFloat()
         ov.animate().alpha(1f).translationY(0f).setDuration(200).start()
+        if (focus) search.postDelayed({
+            search.requestFocus()
+            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(search, 0)
+        }, 260)
     }
 
     // ---------- menu layar, wallpaper, widget ----------
@@ -812,7 +873,7 @@ class HomeActivity : Activity() {
 
     private fun showSettings() {
         val items = arrayOf(
-            "Gaya ikon: " + (if (mono) "Kaca putih" else "Warna asli") + " (ketuk untuk ganti)",
+            "Gaya ikon: " + (if (mono) "Kaca putih" else "iOS (warna)") + " (ketuk untuk ganti)",
             "Nama ikon: " + (if (showLabels) "Tampil" else "Sembunyi") + " (ketuk untuk ganti)",
             "Blur dan gaya kaca…",
             "Jadikan peluncur bawaan…",
@@ -832,7 +893,7 @@ class HomeActivity : Activity() {
                     rebuild()
                 }
                 2 -> startActivity(Intent(this, WidgetStyleActivity::class.java))
-                3 -> runCatching { startActivity(Intent(Settings.ACTION_HOME_SETTINGS)) }
+                3 -> requestHome()
                 else -> startActivity(Intent(this, MainActivity::class.java))
             }
         }.show()
@@ -914,6 +975,7 @@ class HomeActivity : Activity() {
         when (requestCode) {
             REQ_BIND -> { val pi = pendInfo; if (resultCode == RESULT_OK && pi != null) configureOrAdd(pendWid, pi) else cancelPending() }
             REQ_CONFIG -> { val pi = pendInfo; if (resultCode == RESULT_OK && pi != null) addWidget(pendWid, pi) else cancelPending() }
+            REQ_ROLE -> { if (HomeUtil.isDefaultHome(this)) WidgetUtil.updateAll(this) }
             REQ_WALL -> { val u = data?.data; if (resultCode == RESULT_OK && u != null) setWallpaper(u) }
             else -> super.onActivityResult(requestCode, resultCode, data)
         }

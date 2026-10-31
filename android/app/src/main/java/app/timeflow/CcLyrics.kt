@@ -82,18 +82,37 @@ object CcLyrics {
                     if (synced == null) http("https://lrclib.net/api/get?$q")?.let {
                         synced = JSONObject(it).optString("syncedLyrics", "").ifEmpty { null }
                     }
+                    var plain: String? = null
                     fun scan(body: String?) {
                         if (synced != null || body == null) return
                         val arr = JSONArray(body)
                         for (i in 0 until arr.length()) {
-                            val s = arr.getJSONObject(i).optString("syncedLyrics", "")
+                            val o = arr.getJSONObject(i)
+                            val s = o.optString("syncedLyrics", "")
                             if (s.isNotEmpty()) { synced = s; break }
+                            if (plain == null) { val p = o.optString("plainLyrics", ""); if (p.isNotEmpty()) plain = p }
                         }
                     }
                     scan(http("https://lrclib.net/api/search?$q"))
                     scan(http("https://lrclib.net/api/search?q=" + URLEncoder.encode("$t $a".trim(), "UTF-8")))
+                    scan(http("https://lrclib.net/api/search?track_name=" + URLEncoder.encode(t, "UTF-8")))
+                    scan(http("https://lrclib.net/api/search?q=" + URLEncoder.encode(t, "UTF-8")))
                     val s = synced
-                    if (s != null) { dir.mkdirs(); File(dir, "$k.lrc").writeText(s); out = parse(s) } else why = "tidak ada hasil"
+                    val pl = plain
+                    if (s != null) { dir.mkdirs(); File(dir, "$k.lrc").writeText(s); out = parse(s) }
+                    else if (pl != null && durMs > 0) {
+                        // hanya ada lirik tanpa waktu: baris dibagi rata sepanjang lagu (perkiraan kasar)
+                        val ls = pl.lines().map { it.trim() }.filter { it.isNotEmpty() }
+                        if (ls.size >= 4) {
+                            val sb = StringBuilder()
+                            ls.forEachIndexed { i, l ->
+                                val ms = (durMs * (0.06 + 0.86 * i / ls.size)).toLong()
+                                sb.append(String.format(java.util.Locale.US, "[%02d:%05.2f]%s\n", ms / 60000, (ms % 60000) / 1000.0, l))
+                            }
+                            out = parse(sb.toString())
+                        }
+                        if (out == null) why = "tidak ada hasil"
+                    } else why = "tidak ada hasil"
                 }
             }.onFailure { why = it.javaClass.simpleName }
             val res = out

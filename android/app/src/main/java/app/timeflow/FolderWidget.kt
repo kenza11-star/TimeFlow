@@ -137,6 +137,29 @@ object FolderIcons {
         c.restore()
     }
 
+    /** Ikon gaya iOS: ikon adaptif (latar + depan) dipotong squircle penuh, tanpa ubin kaca. */
+    private fun drawIos(d: Drawable, c: Canvas, r: RectF) {
+        val rad = r.width() * 0.225f
+        val clip = Path().apply { addRoundRect(r, rad, rad, Path.Direction.CW) }
+        c.save()
+        c.clipPath(clip)
+        if (d is AdaptiveIconDrawable) {
+            val big = r.width() * 1.5f             // kanvas adaptif 108dp, area tampil 72dp
+            val l = (r.left - (big - r.width()) / 2f).toInt()
+            val t = (r.top - (big - r.height()) / 2f).toInt()
+            val bg = d.background
+            val fg = d.foreground
+            if (bg != null) { bg.setBounds(l, t, l + big.toInt(), t + big.toInt()); bg.draw(c) }
+            if (fg != null) { fg.setBounds(l, t, l + big.toInt(), t + big.toInt()); fg.draw(c) }
+        } else {
+            c.drawRect(r, Paint().apply { color = 0xFFF2F2F7.toInt() })
+            val inset = r.width() * 0.12f
+            d.setBounds((r.left + inset).toInt(), (r.top + inset).toInt(), (r.right - inset).toInt(), (r.bottom - inset).toInt())
+            d.draw(c)
+        }
+        c.restore()
+    }
+
     fun tile(ctx: Context, pkg: String, mono: Boolean, light: Boolean, size: Int = SZ): Bitmap? {
         val key = "$pkg|$mono|$light|$size"
         cache.get(key)?.let { return it }
@@ -144,8 +167,10 @@ object FolderIcons {
         val b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val c = Canvas(b)
         val r = RectF(0f, 0f, size.toFloat(), size.toFloat())
-        drawGlassTile(c, r, light)
-        drawGlyph(d, mono, light, c, r)
+        if (mono) {
+            drawGlassTile(c, r, light)
+            drawGlyph(d, true, light, c, r)
+        } else drawIos(d, c, r)
         cache.put(key, b)
         return b
     }
@@ -160,24 +185,43 @@ object FolderIcons {
         return b
     }
 
-    /** Ubin berisi 2x2 ikon mini (sisa aplikasi folder), seperti App Library. */
-    fun mini(ctx: Context, pkgs: List<String>, mono: Boolean, light: Boolean, size: Int = SZ): Bitmap {
-        val key = "mini|" + pkgs.joinToString(",") + "|$mono|$light|$size"
+    /** Folder: mode kaca putih = ubin kaca 2x2 ikon mini; mode iOS = kotak frosted 3x3 ikon mini ([frame] false bila latar digambar view lain). */
+    fun mini(ctx: Context, pkgs: List<String>, mono: Boolean, light: Boolean, size: Int = SZ, frame: Boolean = true): Bitmap {
+        val key = "mini|" + pkgs.joinToString(",") + "|$mono|$light|$size|$frame"
         cache.get(key)?.let { return it }
         val b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val c = Canvas(b)
-        drawGlassTile(c, RectF(0f, 0f, size.toFloat(), size.toFloat()), light)
-        val m = size * 0.36f
-        val gap = size * 0.08f
-        val p = (size - 2 * m - gap) / 2f
-        pkgs.take(4).forEachIndexed { i, pkg ->
-            val d = appIcon(ctx, pkg)
-            if (d != null) {
-                val x = p + (i % 2) * (m + gap)
-                val y = p + (i / 2) * (m + gap)
-                val rr = RectF(x, y, x + m, y + m)
-                drawGlassTile(c, rr, light)
-                drawGlyph(d, mono, light, c, rr)
+        val s = size.toFloat()
+        if (!mono) {
+            if (frame) {
+                val rad = s * 0.225f
+                c.drawRoundRect(RectF(0f, 0f, s, s), rad, rad, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(if (light) 40 else 78, 255, 255, 255) })
+            }
+            val pad = s * 0.12f
+            val isz = s * 0.22f
+            val gap = (s - 2 * pad - 3 * isz) / 2f
+            pkgs.take(9).forEachIndexed { i, pkg ->
+                val d = appIcon(ctx, pkg)
+                if (d != null) {
+                    val x = pad + (i % 3) * (isz + gap)
+                    val y = pad + (i / 3) * (isz + gap)
+                    drawIos(d, c, RectF(x, y, x + isz, y + isz))
+                }
+            }
+        } else {
+            drawGlassTile(c, RectF(0f, 0f, s, s), light)
+            val m = size * 0.36f
+            val gap = size * 0.08f
+            val p = (size - 2 * m - gap) / 2f
+            pkgs.take(4).forEachIndexed { i, pkg ->
+                val d = appIcon(ctx, pkg)
+                if (d != null) {
+                    val x = p + (i % 2) * (m + gap)
+                    val y = p + (i / 2) * (m + gap)
+                    val rr = RectF(x, y, x + m, y + m)
+                    drawGlassTile(c, rr, light)
+                    drawGlyph(d, true, light, c, rr)
+                }
             }
         }
         cache.put(key, b)

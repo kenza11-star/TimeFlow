@@ -155,8 +155,8 @@ object HomeWall {
 
         // kabur: kecilkan, box blur beberapa putaran, naikkan saturasi 140%
         val lvl = GlassPrefs.get(ctx).blur
-        val r = when (lvl) { 0 -> 2; 2 -> 6; else -> 3 }
-        val passes = if (lvl == 0) 2 else 3
+        val r = when (lvl) { 0 -> 1; 2 -> 3; else -> 2 }
+        val passes = if (lvl == 2) 3 else 2
         val bw = max(2, w / DIV); val bh = max(2, h / DIV)
         val small = shrink(out, bw, bh)
         val px = IntArray(bw * bh)
@@ -195,11 +195,11 @@ object HomeWall {
  * Latar kaca (glassmorphism) untuk view [host]: menggambar potongan wallpaper kabur tepat di belakang posisi view di jendela
  * (ikut berubah saat view bergeser), lalu tint tipis, kilau diagonal, dan rim light halus. Panggil host.invalidate() saat view bergerak.
  */
-class GlassPanelDrawable(private val host: View, private val radius: Float, private val k: Float = 1f) : Drawable() {
+class GlassPanelDrawable(private val host: View, private val radius: Float, private val k: Float = 1f, private val white: Int = 38, private val dark: Float = 1f) : Drawable() {
     private val cfg = GlassPrefs.get(host.context)
     private val bmp = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
     private val tintBlack = Paint()
-    private val tintWhite = Paint().apply { color = Color.argb((38 * k).toInt().coerceIn(0, 255), 255, 255, 255) }
+    private val tintWhite = Paint().apply { color = Color.argb((white * k).toInt().coerceIn(0, 255), 255, 255, 255) }
     private val sheen = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rim = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = max(1f, host.resources.displayMetrics.density) }
     private val box = RectF()
@@ -242,7 +242,7 @@ class GlassPanelDrawable(private val host: View, private val radius: Float, priv
         } else c.drawColor(Color.argb(70, 24, 24, 32))
         // tint hitam tipis (lebih kuat di wallpaper terang agar teks putih terbaca) + tint putih tipis
         val extra = (((HomeWall.lum - 0.35f) / 0.5f).coerceIn(0f, 1f) * 56f)
-        tintBlack.color = Color.argb((cfg.darkAlpha * k + extra).toInt().coerceIn(0, 255), 0, 0, 0)
+        tintBlack.color = Color.argb(((cfg.darkAlpha * k + extra) * dark).toInt().coerceIn(0, 255), 0, 0, 0)
         c.drawRect(box, tintBlack)
         c.drawRect(box, tintWhite)
         c.drawRect(box, sheen)

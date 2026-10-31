@@ -254,3 +254,12 @@ File baru: `HomeActivity.kt`, `HomeData.kt`, `HomeWall.kt`, `FolderWidget.kt`, `
 - Geser turun di layar utama: panel notifikasi (izin EXPAND_STATUS_BAR); dari sisi kanan = Control Center bila layanan aksesibilitas aktif.
 - Pengaturan: nama ikon tampil/sembunyi, gaya ikon kaca/warna asli, blur dan gaya kaca.
 - Bila wallpaper sistem tidak bisa dibaca, peluncur menawarkan memilih wallpaper dari galeri satu kali.
+
+## Stage 10 (2.11.0): tampilan seperti iPhone + prompt launcher bawaan
+- **Prompt launcher bawaan**: ikon "Flow Launcher" kini membuka peluncur; bila belum jadi launcher utama muncul dialog "Jadikan Flow Launcher launcher utama?" (dialog sistem RoleManager, cadangan: pengaturan aplikasi layar utama). Ada "Nanti" dan "Jangan tanya lagi". Aplikasi pengaturan lama tetap ada dengan nama "TimeFlow".
+- **Gaya iPhone** (`HomeActivity.kt`, `FolderWidget.kt`): ikon berwarna squircle penuh (latar + depan ikon adaptif dipotong sudut iOS), nama ikon medium, folder berupa kotak frosted 3x3 ikon mini dengan kaca asli dari wallpaper, dock frosted 4 ikon bersudut besar (tanpa tombol laci), tombol kaca "Cari" di atas dock (membuka laci dengan kolom pencarian aktif), titik halaman di atasnya. Geser ke atas tetap membuka laci. Gaya "Kaca putih" (ikon clear) tetap ada di Pengaturan peluncur.
+- **Blur dikurangi** (`GlassPrefs.kt`, `HomeWall.kt`): Rendah / Sedang / Tinggi kini setara sekitar 3 / 4,5 / 8dp (sebelumnya 5 / 9 / 17dp), dock dan folder lebih terang dan tembus.
+- **Lirik**: pencarian LRCLIB diperluas (judul saja, pencarian bebas) dan bila hanya ada lirik tanpa waktu, baris dibagi rata sepanjang lagu sebagai perkiraan. Kode ambil lirik lainnya tidak berubah; lirik tetap membutuhkan internet dan lagu yang ada di LRCLIB.
+- Belum dikompilasi dan belum diuji di perangkat; `.github/workflows` tidak diubah.
+
+File diubah: `AndroidManifest.xml`, `HomeActivity.kt`, `HomeWall.kt`, `FolderWidget.kt`, `GlassPrefs.kt`, `CcLyrics.kt`, `build.gradle.kts`, `README.md`.
