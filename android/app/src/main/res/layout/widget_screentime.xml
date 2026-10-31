@@ -100,7 +100,7 @@
             <TextView android:id="@+id/st_msg" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:textSize="13sp" android:textColor="#FFFFFFFF" android:includeFontPadding="false" android:shadowColor="#59000000" android:shadowDx="0" android:shadowDy="1" android:shadowRadius="2" />
             <TextView android:id="@+id/st_grant" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="10dp"
                 android:background="@drawable/gw_pill_on" android:paddingStart="16dp" android:paddingEnd="16dp" android:paddingTop="8dp" android:paddingBottom="8dp"
-                android:text="Buka pengaturan" android:textSize="13sp" android:textStyle="bold" android:textColor="#FF1C1C1E" android:includeFontPadding="false" android:visibility="gone" />
+                android:text="Buka pengaturan" android:textSize="13sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:includeFontPadding="false" android:visibility="gone" />
         </LinearLayout>
     </LinearLayout>
 </FrameLayout>

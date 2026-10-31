@@ -8,7 +8,7 @@
         android:orientation="vertical" android:padding="14dp">
         <LinearLayout android:id="@+id/cal_pills" android:layout_width="match_parent" android:layout_height="34dp" android:orientation="horizontal" android:layout_marginBottom="8dp" android:visibility="gone">
             <TextView android:id="@+id/cal_pw" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center"
-                android:text="Mingguan" android:textSize="13sp" android:textColor="#FF1C1C1E" android:fontFamily="sans-serif-medium" android:background="@drawable/gw_pill_on" android:layout_marginEnd="6dp" />
+                android:text="Mingguan" android:textSize="13sp" android:textColor="#FFFFFFFF" android:fontFamily="sans-serif-medium" android:background="@drawable/gw_pill_on" android:layout_marginEnd="6dp" />
             <TextView android:id="@+id/cal_pm" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center"
                 android:text="Bulanan" android:textSize="13sp" android:textColor="#B3FFFFFF" android:fontFamily="sans-serif-medium" android:background="@drawable/gw_pill_off" />
         </LinearLayout>

@@ -12,6 +12,8 @@ import android.graphics.ColorMatrixColorFilter
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
@@ -28,6 +30,7 @@ import kotlin.math.min
  * Dipanggil dari CcAccessibilityService. Satu bitmap per jenis widget (disimpan di berkas + cache memori kecil).
  */
 object GlassBg {
+    private const val SAT = 1.4f           // saturasi isi kaca (140%)
     @Volatile var hidden = false          // true selama widget disembunyikan untuk mengambil tangkapan layar bersih
     @Volatile var lastTry = 0L            // percobaan terakhir (supaya tidak mengulang terus bila gagal)
     private val keys = java.util.concurrent.ConcurrentHashMap<String, String>()   // posisi + ukuran widget saat latar dibuat
@@ -82,20 +85,37 @@ object GlassBg {
         return was != light
     }
 
-    /** Buat latar kaca dari tangkapan layar [shot] untuk area widget [r] (koordinat layar). */
+    /** Kecilkan bertahap (dibagi dua berkali-kali) supaya warna tidak "bergerigi" saat pembagi besar; hasilnya jadi bahan blur yang halus. */
+    private fun shrink(src: Bitmap, tw: Int, th: Int): Bitmap {
+        var cur = src
+        while (cur.width / 2 >= tw && cur.height / 2 >= th) {
+            val n = Bitmap.createScaledBitmap(cur, cur.width / 2, cur.height / 2, true)
+            if (cur !== src) cur.recycle()
+            cur = n
+        }
+        val fin = Bitmap.createScaledBitmap(cur, tw, th, true)
+        if (cur !== src && fin !== cur) cur.recycle()
+        return fin
+    }
+
+    /**
+     * Buat latar kaca (glassmorphism) dari tangkapan layar [shot] untuk area widget [r] (koordinat layar).
+     * Urutan: blur tebal multi-pass -> saturasi dinaikkan -> tint tipis -> kilau diagonal (terang kiri atas, bening kanan bawah)
+     * -> cahaya tepi dalam -> sudut dihaluskan -> garis tepi (rim light) bergradasi.
+     */
     fun render(ctx: Context, shot: Bitmap, r: Rect, radiusDp: Float = 28f): Bitmap {
         val cfg = GlassPrefs.get(ctx)
         val d = ctx.resources.displayMetrics.density
-        val pad = (40 * d).toInt()
+        val pad = (56 * d).toInt()           // blur tebal butuh bahan lebih lebar di sekeliling widget
         val x0 = max(0, r.left - pad); val y0 = max(0, r.top - pad)
         val x1 = min(shot.width, r.right + pad); val y1 = min(shot.height, r.bottom + pad)
         val region = Bitmap.createBitmap(shot, x0, y0, x1 - x0, y1 - y0)
 
-        // kabur: kecilkan, kaburkan beberapa kali, lalu perbesar lagi (halus, tanpa RenderScript)
+        // kabur: kecilkan bertahap, kaburkan beberapa kali (box blur ~ gaussian), lalu perbesar lagi (halus, tanpa RenderScript)
         val sw = max(2, region.width / cfg.blurDiv); val sh = max(2, region.height / cfg.blurDiv)
-        val small = Bitmap.createScaledBitmap(region, sw, sh, true)
+        val small = shrink(region, sw, sh)
         val px = IntArray(sw * sh); small.getPixels(px, 0, sw, 0, 0, sw, sh)
-        // kecerahan rata-rata sebelum diblur (untuk gaya Otomatis)
+        // kecerahan rata-rata sebelum diblur (untuk gaya Otomatis dan pelindung kontras teks putih)
         var sum = 0L
         for (v in px) sum += ((v shr 16) and 255) * 299 + ((v shr 8) and 255) * 587 + (v and 255) * 114
         val lum = (sum / (px.size.toFloat() * 1000f * 255f)).coerceIn(0f, 1f)
@@ -112,45 +132,64 @@ object GlassBg {
         val c = Canvas(out)
         val rad = cfg.radiusDp * d * f
         val box = RectF(0f, 0f, ow.toFloat(), oh.toFloat())
-        val clip = Path().apply { addRoundRect(box, rad, rad, Path.Direction.CW) }
-        c.save(); c.clipPath(clip)
 
-        // 1) isi kabur, sedikit lebih hidup warnanya (seperti kaca)
-        val sat = ColorMatrix().apply { setSaturation(1.35f) }
+        // 1) isi kabur, warnanya dihidupkan (saturasi ~140%) supaya wallpaper tetap terlihat tembus, tidak abu-abu
+        val sat = ColorMatrix().apply { setSaturation(SAT) }
         val bp = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply { colorFilter = ColorMatrixColorFilter(sat) }
         c.drawBitmap(blurred, Rect(r.left - x0, r.top - y0, r.right - x0, r.bottom - y0), box, bp)
         // lepas bitmap perantara segera (hemat memori di HP RAM kecil); cek identitas karena createBitmap/createScaledBitmap bisa mengembalikan objek yang sama
         if (blurred !== small && blurred !== region && blurred !== shot) blurred.recycle()
         if (small !== region && small !== shot) small.recycle()
         if (region !== shot) region.recycle()
-        // 2) gaya gelap: peredup hitam supaya teks putih jelas; gaya terang: kabut putih supaya teks gelap jelas
-        if (light) c.drawColor(Color.argb(cfg.lightAlpha, 255, 255, 255)) else c.drawColor(Color.argb(cfg.darkAlpha, 0, 0, 0))
-        // 3) lapisan kaca: putih tipis + kilau diagonal
-        c.drawColor(Color.argb(if (light) 10 else 20, 255, 255, 255))
+
+        // 2) tint sangat tipis: gaya gelap = hitam tipis (+ sedikit tambahan bila wallpaper terang agar teks putih terbaca), gaya terang = kabut putih
+        if (light) c.drawColor(Color.argb(cfg.lightAlpha, 255, 255, 255))
+        else {
+            val extra = (((lum - 0.35f) / 0.5f).coerceIn(0f, 1f) * 56f).toInt()
+            c.drawColor(Color.argb((cfg.darkAlpha + extra).coerceIn(0, 255), 0, 0, 0))
+        }
+        // 3) tint putih tipis di atas blur (~12%), ini yang membuat kaca terasa "frosted"
+        c.drawColor(Color.argb(if (light) 16 else 30, 255, 255, 255))
+        // 3b) gradasi pantulan cahaya: lebih terang di kiri atas, makin bening ke kanan bawah
         val k = cfg.sheenK
         val sheen = Paint().apply {
-            shader = LinearGradient(0f, 0f, ow * 0.9f, oh.toFloat(),
-                intArrayOf(Color.argb((70 * k).toInt().coerceIn(0, 255), 255, 255, 255), Color.argb((18 * k).toInt().coerceIn(0, 255), 255, 255, 255), Color.argb(0, 255, 255, 255)),
-                floatArrayOf(0f, 0.45f, 1f), Shader.TileMode.CLAMP)
+            shader = LinearGradient(0f, 0f, ow * 0.95f, oh.toFloat(),
+                intArrayOf(Color.argb((64 * k).toInt().coerceIn(0, 255), 255, 255, 255), Color.argb((16 * k).toInt().coerceIn(0, 255), 255, 255, 255), Color.argb(0, 255, 255, 255)),
+                floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP)
         }
         c.drawRect(box, sheen)
-        // 3b) kedalaman: bayangan sangat tipis di bagian bawah supaya kaca terasa tebal
+        // 3c) kedalaman: bayangan sangat tipis dan lembut di dasar kartu (tanpa garis keras)
         val depth = Paint().apply {
-            shader = LinearGradient(0f, oh * 0.6f, 0f, oh.toFloat(),
-                Color.argb(0, 0, 0, 0), Color.argb(if (light) 22 else 46, 0, 0, 0), Shader.TileMode.CLAMP)
+            shader = LinearGradient(0f, oh * 0.55f, 0f, oh.toFloat(),
+                Color.argb(0, 0, 0, 0), Color.argb(if (light) 10 else 20, 0, 0, 0), Shader.TileMode.CLAMP)
         }
         c.drawRect(box, depth)
-        c.restore()
+        // 3d) cahaya tepi bagian dalam: pita lebar dan lembut di sepanjang tepi, terang di kiri atas
+        val gw = max(2f, 4f * d * f)
+        val glow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE; strokeWidth = gw
+            shader = LinearGradient(0f, 0f, ow.toFloat(), oh.toFloat(),
+                intArrayOf(Color.argb(46, 255, 255, 255), Color.argb(6, 255, 255, 255), Color.argb(20, 255, 255, 255)),
+                floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP)
+        }
+        val gh = gw / 2f
+        c.drawRoundRect(RectF(gh, gh, ow - gh, oh - gh), max(0f, rad - gh), max(0f, rad - gh), glow)
 
-        // 4) tepi kaca: terang di kiri atas, memudar di kanan bawah
-        val sw1 = max(1f, 1.2f * d * f)
+        // 4) sudut membulat dengan tepi halus (anti-alias): hapus area di luar kartu
+        val outside = Path().apply { addRoundRect(box, rad, rad, Path.Direction.CW); fillType = Path.FillType.INVERSE_WINDING }
+        val clear = Paint(Paint.ANTI_ALIAS_FLAG).apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR) }
+        c.drawPath(outside, clear)
+
+        // 5) rim light 1dp: putih ~35% di kiri atas, memudar ke kanan bawah
+        val sw1 = max(1f, 1f * d * f)
         val edge = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE; strokeWidth = sw1
             shader = LinearGradient(0f, 0f, ow.toFloat(), oh.toFloat(),
-                Color.argb(150, 255, 255, 255), Color.argb(40, 255, 255, 255), Shader.TileMode.CLAMP)
+                intArrayOf(Color.argb(92, 255, 255, 255), Color.argb(40, 255, 255, 255), Color.argb(22, 255, 255, 255)),
+                floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP)
         }
         val h = sw1 / 2f
-        c.drawRoundRect(RectF(h, h, ow - h, oh - h), rad - h, rad - h, edge)
+        c.drawRoundRect(RectF(h, h, ow - h, oh - h), max(0f, rad - h), max(0f, rad - h), edge)
         return out
     }
 

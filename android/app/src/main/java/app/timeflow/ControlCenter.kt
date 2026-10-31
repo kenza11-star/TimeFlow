@@ -396,7 +396,7 @@ class ControlCenter(private val svc: Context, private val host: CcHost, private 
         private val fmtT = java.text.SimpleDateFormat("HH:mm", java.util.Locale.ENGLISH)
         private val fmtD = java.text.SimpleDateFormat("EEEE\nMMMM d, yyyy", java.util.Locale.ENGLISH)
         private val hint = TextView(ctx)
-        private val scrimA = if (blur || shot != null) 70 else 165
+        private val scrimA = if (blur || shot != null) 52 else 165   // tint hitam sangat tipis: warna wallpaper tetap terlihat tembus
         private var hadFocus = false
         private var x0 = 0f
         private var y0 = 0f
@@ -418,11 +418,15 @@ class ControlCenter(private val svc: Context, private val host: CcHost, private 
                 backdrop.scaleType = ImageView.ScaleType.CENTER_CROP
                 if (Build.VERSION.SDK_INT >= 31) {
                     backdrop.setImageBitmap(shot)
-                    backdrop.setRenderEffect(RenderEffect.createBlurEffect(32f, 32f, Shader.TileMode.CLAMP))
+                    // blur tebal + saturasi 140% supaya warna wallpaper tetap hidup (tidak abu-abu)
+                    val blurFx = RenderEffect.createBlurEffect(40f, 40f, Shader.TileMode.CLAMP)
+                    val satCf = android.graphics.ColorMatrixColorFilter(android.graphics.ColorMatrix().apply { setSaturation(CcGlass.SAT) })
+                    backdrop.setRenderEffect(RenderEffect.createColorFilterEffect(satCf, blurFx))
                 } else {
                     // tanpa RenderEffect: kecilkan lalu perbesar = kabur kasar
-                    val w = max(1, shot.width / 14); val h = max(1, shot.height / 14)
+                    val w = max(1, shot.width / 18); val h = max(1, shot.height / 18)
                     backdrop.setImageBitmap(Bitmap.createScaledBitmap(Bitmap.createScaledBitmap(shot, w, h, true), shot.width, shot.height, true))
+                    backdrop.setColorFilter(android.graphics.ColorMatrixColorFilter(android.graphics.ColorMatrix().apply { setSaturation(CcGlass.SAT) }))
                 }
                 addView(backdrop, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
             }
@@ -440,7 +444,7 @@ class ControlCenter(private val svc: Context, private val host: CcHost, private 
 
         private fun sp(v: Float) = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, v, resources.displayMetrics)
 
-        private fun glass(r: Float) = GradientDrawable().apply { setColor(CcColor.glass); cornerRadius = r; setStroke(1, CcColor.glassEdge) }
+        private fun glass(r: Float): android.graphics.drawable.Drawable = CcGlassDrawable(r, resources.displayMetrics.density)
 
         private fun place(v: View, col: Float, row: Float, cw: Float, rh: Float, u: Float, gap: Float) {
             val w = cw * u + (cw - 1f) * gap

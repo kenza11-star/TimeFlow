@@ -23,10 +23,10 @@ import kotlin.math.sin
 
 /** Warna dasar gaya iOS dipakai bersama oleh semua kontrol. */
 object CcColor {
-    val glass = Color.argb(120, 66, 66, 74)
-    val glassEdge = Color.argb(34, 255, 255, 255)
-    val off = Color.argb(150, 98, 98, 106)
-    val offCircle = Color.argb(205, 52, 52, 58)
+    val glass = Color.argb(34, 255, 255, 255)          // tint putih tipis (glassmorphism), bukan abu-abu solid
+    val glassEdge = Color.argb(70, 255, 255, 255)
+    val off = Color.argb(46, 255, 255, 255)            // kontrol nonaktif = kaca bening
+    val offCircle = Color.argb(54, 255, 255, 255)
     val dark = Color.rgb(28, 28, 30)
     val orange = Color.rgb(255, 159, 10)
     val green = Color.rgb(48, 209, 88)
@@ -340,11 +340,19 @@ class CcTile(ctx: Context, private val art: CcArt, val kind: String, private val
     private var on = false
     private var flag = false
     private val bg = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val edge = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 1f; color = CcColor.glassEdge }
+    private val edge = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = max(1f, ctx.resources.displayMetrics.density); color = CcColor.glassEdge }
+    private val sheen = Paint(Paint.ANTI_ALIAS_FLAG)
     private val txt = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL) }
     private val rect = RectF()
+    private val rim = RectF()
 
     init { isClickable = true }
+
+    override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) {
+        super.onSizeChanged(w, h, ow, oh)
+        sheen.shader = CcGlass.fillShader(0f, 0f, w.toFloat(), h.toFloat())
+        edge.shader = CcGlass.rimShader(0f, 0f, w.toFloat(), h.toFloat())
+    }
 
     fun state(on: Boolean, flag: Boolean = false) {
         if (on != this.on || flag != this.flag) { this.on = on; this.flag = flag; invalidate() }
@@ -376,7 +384,12 @@ class CcTile(ctx: Context, private val art: CcArt, val kind: String, private val
         val rad = if (style == 0) min(w, h) / 2f else min(w, h) * 0.3f
         bg.color = if (on) onBg else if (style == 0) CcColor.offCircle else CcColor.off
         c.drawRoundRect(rect, rad, rad, bg)
-        if (!on) c.drawRoundRect(rect, rad, rad, edge)
+        // kilau diagonal + rim light (kontrol aktif berwarna tetap diberi kilau halus)
+        sheen.alpha = if (on) 120 else 255
+        c.drawRoundRect(rect, rad, rad, sheen)
+        val eh = edge.strokeWidth / 2f
+        rim.set(eh, eh, w - eh, h - eh)
+        c.drawRoundRect(rim, rad, rad, edge)
         val fg = if (on) onFg else Color.WHITE
         txt.color = fg
         when (style) {
@@ -410,9 +423,17 @@ class CcSlider(ctx: Context, private val art: CcArt, private val kind: String) :
     private var denied = false
     private val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = CcColor.off }
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(240, 255, 255, 255) }
-    private val edge = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 1f; color = CcColor.glassEdge }
+    private val edge = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = max(1f, ctx.resources.displayMetrics.density); color = CcColor.glassEdge }
+    private val sheen = Paint(Paint.ANTI_ALIAS_FLAG)
     private val clip = Path()
     private val rect = RectF()
+    private val rim = RectF()
+
+    override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) {
+        super.onSizeChanged(w, h, ow, oh)
+        sheen.shader = CcGlass.fillShader(0f, 0f, w.toFloat(), h.toFloat())
+        edge.shader = CcGlass.rimShader(0f, 0f, w.toFloat(), h.toFloat())
+    }
 
     fun setValue(v: Float, flag: Boolean = false) {
         if (dragging) return
@@ -447,10 +468,13 @@ class CcSlider(ctx: Context, private val art: CcArt, private val kind: String) :
         clip.reset(); clip.addRoundRect(rect, rad, rad, Path.Direction.CW)
         c.save(); c.clipPath(clip)
         c.drawRect(rect, bg)
+        c.drawRect(rect, sheen)
         val top = h * (1f - frac)
         c.drawRect(0f, top, w, h, fill)
         c.restore()
-        c.drawRoundRect(rect, rad, rad, edge)
+        val eh = edge.strokeWidth / 2f
+        rim.set(eh, eh, w - eh, h - eh)
+        c.drawRoundRect(rim, rad, rad, edge)
         val iy = h - w * 0.52f
         val ur = w * 0.21f
         c.save(); c.clipRect(0f, top, w, h)
@@ -519,9 +543,7 @@ class CcMedia(ctx: Context, art: CcArt, private val host: CcHost, u: Float, priv
     private val empty = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
 
     init {
-        background = GradientDrawable().apply {
-            setColor(CcColor.glass); cornerRadius = 26f * d; setStroke(1, CcColor.glassEdge)
-        }
+        background = CcGlassDrawable(26f * d, d)
         val tx = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
         tx.addView(title); tx.addView(artist)
         tx.setOnClickListener { onOpen() }

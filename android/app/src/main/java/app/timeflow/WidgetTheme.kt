@@ -34,8 +34,9 @@ object WidgetTheme {
 
     fun fg(light: Boolean) = if (light) INK else 0xFFFFFFFF.toInt()
     fun mu(light: Boolean) = if (light) INK_MUTED else 0xB3FFFFFF.toInt()
-    /** Teks di atas pil/kotak terpilih: gaya gelap = pil putih + teks gelap; gaya terang = pil gelap + teks putih. */
-    fun inv(light: Boolean) = if (light) 0xFFFFFFFF.toInt() else INK
+    /** Teks di atas pil/kotak terpilih: pil kaca (gaya gelap) dan pil gelap (gaya terang) sama-sama memakai teks putih bersih. */
+    @Suppress("UNUSED_PARAMETER")
+    fun inv(light: Boolean) = 0xFFFFFFFF.toInt()
 
     /** Drawable kecil (pil, kolom, kotak terpilih) untuk gaya terang. */
     fun dr(light: Boolean, res: Int): Int = if (!light || res == 0) res else when (res) {
