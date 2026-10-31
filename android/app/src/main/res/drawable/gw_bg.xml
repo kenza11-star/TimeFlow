@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- cadangan glassmorphism (bila latar blur belum ada): tint tipis + kilau diagonal kiri atas + tepi putih tipis; wallpaper tetap tembus -->
+    <item>
+        <shape android:shape="rectangle"><solid android:color="#40101018" /><corners android:radius="28dp" /></shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <gradient android:type="linear" android:angle="315" android:startColor="#33FFFFFF" android:centerColor="#14FFFFFF" android:endColor="#05FFFFFF" />
+            <corners android:radius="28dp" />
+            <stroke android:width="1dp" android:color="#2EFFFFFF" />
+        </shape>
+    </item>
+</layer-list>

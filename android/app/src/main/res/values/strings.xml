@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">Flow Launcher</string>
+    <string name="widget_clock_name">Flow Jam</string>
+    <string name="widget_clock_desc">Jam, tanggal, dan cuaca singkat.</string>
+    <string name="widget_weather_name">Flow Cuaca</string>
+    <string name="widget_music_name">Flow Musik</string>
+    <string name="widget_weather_desc">Cuaca hari ini dan beberapa jam ke depan.</string>
+    <string name="widget_agenda_name">Flow Agenda</string>
+    <string name="widget_agenda_desc">Acara hari ini dan jumlah tugas.</string>
+    <string name="widget_calendar_name">Flow Kalender</string>
+    <string name="widget_calendar_desc">Kalender bulan ini, hari ini ditandai.</string>
+    <string name="widget_folder_name">Flow Folder App</string>
+    <string name="widget_folder_desc">Folder aplikasi bergaya kaca: ketuk ikon untuk membuka aplikasinya.</string>
+    <string name="widget_screentime_name">Flow Waktu Layar</string>
+    <string name="widget_screentime_desc">Waktu layar hari ini, grafik Minggu–Sabtu, dan aplikasi teratas. Butuh Akses penggunaan.</string>
+    <string name="cc_a11y_desc">Dipakai Flow Launcher untuk menampilkan Control Center saat kamu menggeser dari kanan atas layar, dan untuk menekan tombol Wi-Fi, Bluetooth, dll. di panel sistem saat kamu mengetuknya di Control Center. Isi layar hanya dibaca saat itu; ketikan tidak dibaca.</string>
+</resources>

@@ -1,0 +1,33 @@
+<resources>
+    <style name="Theme.TimeFlow" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/tf_white</item>
+        <item name="android:statusBarColor">@color/tf_white</item>
+        <item name="android:navigationBarColor">@color/tf_white</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+    <style name="Theme.TimeFlow.Ring" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/tf_ink</item>
+        <item name="android:statusBarColor">@color/tf_ink</item>
+        <item name="android:navigationBarColor">@color/tf_ink</item>
+    </style>
+    <style name="Theme.TimeFlow.Lock" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">false</item>
+        <item name="android:windowShowWallpaper">false</item>
+    </style>
+    <!-- Folder terbuka (FolderActivity): jendela tembus di atas layar utama -->
+    <style name="Theme.TimeFlow.Folder" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.Translucent</item>
+    </style>
+    <!-- TimeFlow Home (peluncur): jendela penuh, bilah sistem tembus -->
+    <style name="Theme.TimeFlow.Home" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>
