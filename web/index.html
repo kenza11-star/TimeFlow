@@ -1,0 +1,837 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content">
+<meta name="theme-color" content="#F4F2EE"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><link rel="manifest" href="manifest.json">
+<title>TimeFlow</title><link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--bg:#F4F2EE;--card:#fff;--ink:#1c1c1e;--mut:#77737a;--line:#e6e2dc;--acc:#8E4B57;--cor:#E8683E;--lav:#8E91DE;--sag:#86B070;--blu:#A9C7EC;--sh:0 6px 20px rgba(60,40,30,.07)}
+[data-theme=dark]{--bg:#151416;--card:#232125;--ink:#f3f0ec;--mut:#a39fa6;--line:#343136;--sh:none}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow-x:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+h1,h2,h3,p{margin:0}h1{font-size:28px}h2{font-size:20px;margin-bottom:12px}h3{font-size:16px}
+.mut{color:var(--mut);font-size:14px}
+.auth{min-height:100dvh;padding:calc(env(safe-area-inset-top) + 32px) 24px 32px;max-width:440px;margin:auto;display:flex;flex-direction:column;gap:14px;background:radial-gradient(120% 40% at 50% 105%,#c9a5ad55,transparent)}
+.auth.center{align-items:center;justify-content:center;text-align:center}
+.logo{width:76px;height:76px;border-radius:22px;background:var(--acc);color:#fff;display:grid;place-items:center}
+.bar{width:160px;height:3px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:24px}
+.bar i{display:block;height:100%;width:40%;background:var(--acc);animation:ld 1.2s ease-in-out infinite alternate}
+@keyframes ld{to{transform:translateX(150%)}}
+.pill{height:50px;border-radius:25px;background:#1c1c1e;color:#fff;font-weight:600;width:100%;transition:transform .1s}
+[data-theme=dark] .pill{background:#f3f0ec;color:#151416}
+.pill:active,.tile:active{transform:scale(.97)}.pill:disabled{opacity:.5}
+.pill.ghost{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+.fld{height:52px;border-radius:26px;border:1.5px solid var(--line);background:var(--card);padding:0 20px;width:100%}
+.fld.bad{border-color:#d9534f;background:#d9534f12}.err{color:#d9534f;font-size:13px;min-height:18px}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{border-radius:18px;padding:16px;color:#fff;text-align:left;min-height:96px;display:flex;flex-direction:column;gap:4px;transition:transform .1s}
+.tile small{opacity:.85}
+.c0{background:var(--acc)}.c1{background:var(--cor)}.c2{background:var(--lav)}.c3{background:var(--sag)}.c4{background:var(--blu);color:#1c1c1e}
+.shell{min-height:100dvh}
+main{padding:calc(env(safe-area-inset-top) + 18px) 18px calc(96px + env(safe-area-inset-bottom));max-width:720px;margin:auto}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-around;background:var(--card);border-top:1px solid var(--line);padding:8px 4px calc(8px + env(safe-area-inset-bottom));z-index:5}
+nav button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;color:var(--mut);min-width:56px;min-height:44px}
+nav button.on{color:var(--acc);font-weight:700}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px}
+.card{background:var(--card);border-radius:20px;padding:16px;box-shadow:var(--sh);margin-bottom:12px}
+.ev{display:flex;gap:12px;align-items:center;border-radius:16px;padding:14px;color:#fff;margin-bottom:8px;width:100%;text-align:left}
+.ev b{display:block}.ev span{font-size:13px;opacity:.9}
+.ev.c4{color:#1c1c1e}
+.list>*{margin-bottom:8px}
+.row{display:flex;gap:10px;align-items:center}.row>*{flex:1}
+.ico{width:40px;height:40px;border-radius:20px;background:var(--card);display:grid;place-items:center;box-shadow:var(--sh);flex:none}
+.fab{position:fixed;right:20px;bottom:calc(84px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:28px;background:#1c1c1e;color:#fff;display:grid;place-items:center;box-shadow:0 8px 20px #0004;z-index:4}
+[data-theme=dark] .fab{background:#f3f0ec;color:#151416}
+.seg{display:flex;background:var(--card);border-radius:22px;padding:4px;margin-bottom:12px;box-shadow:var(--sh);overflow-x:auto}
+.seg button{flex:1;padding:8px 12px;border-radius:18px;font-size:14px;white-space:nowrap}
+.seg button.on{background:#1c1c1e;color:#fff}[data-theme=dark] .seg button.on{background:#f3f0ec;color:#151416}
+.grid7{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}
+.grid7 .h{font-size:12px;color:var(--mut);padding:4px}
+.d{aspect-ratio:1;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:15px;position:relative;max-height:48px;margin:auto;width:100%}
+.d.today{color:var(--acc);font-weight:700}.d.sel{background:var(--acc);color:#fff}
+.d i{position:absolute;bottom:5px;width:4px;height:4px;border-radius:2px;background:var(--cor)}.d.sel i{background:#fff}
+.hr{position:absolute;left:0;right:0;border-top:1px solid var(--line);text-align:left;color:var(--mut);font-size:12px;padding:2px 0 0 4px;background:none}
+.tb{position:absolute;margin:0;padding:5px 8px;overflow:hidden;display:block;border-radius:10px;font-size:13px;line-height:1.25;z-index:2}.tb b{font-size:13px}
+.now{position:absolute;left:48px;right:0;height:2px;background:var(--cor);z-index:3;pointer-events:none}
+.card.c0{background:var(--acc)}.card.c1{background:var(--cor)}.card.c2{background:var(--lav)}.card.c3{background:var(--sag)}
+.row>svg{flex:none}
+.clk{background:var(--acc);color:#fff;border-radius:24px;padding:22px 16px 18px;text-align:center;margin-bottom:14px;box-shadow:var(--sh)}
+.clk .tm{font-size:clamp(48px,16vw,72px);font-weight:300;line-height:1;font-variant-numeric:tabular-nums;display:flex;justify-content:center;align-items:baseline;gap:10px}
+.clk .tm span{font-size:.4em;font-weight:600;background:#ffffff26;padding:.12em .4em;border-radius:.5em}
+.clk .dd{opacity:.85;margin-top:10px;font-size:14px}
+.clk .pr{height:4px;background:#ffffff33;border-radius:2px;margin-top:14px;overflow:hidden}.clk .pr i{display:block;height:100%;background:#fff;transition:width .25s linear}
+:root{--nw:480px}
+html{-webkit-text-size-adjust:100%;max-width:100vw;overflow-x:hidden}
+body{min-height:100vh;min-height:100dvh;max-width:100vw;overscroll-behavior-y:none;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+input,textarea{-webkit-user-select:text;user-select:text}
+.shell{max-width:var(--nw);margin:0 auto;min-height:100dvh}
+main{padding-left:16px;padding-right:16px;max-width:var(--nw)}
+nav{left:50%;right:auto;width:100%;max-width:var(--nw);transform:translateX(-50%)}
+.fab{right:max(16px,calc(50% - var(--nw)/2 + 16px))}
+.sh{max-width:var(--nw);width:100%}
+.auth{width:100%;min-height:100vh;min-height:100dvh}
+#rot{display:none;position:fixed;inset:0;z-index:100;background:var(--bg);place-items:center;text-align:center;padding:24px}
+#rot svg{animation:rt 2.4s ease-in-out infinite}
+@keyframes rt{0%,20%{transform:rotate(90deg)}60%,100%{transform:rotate(0)}}
+@media(orientation:landscape) and (pointer:coarse) and (max-height:600px){#rot{display:grid}}
+.bgfx{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.bgfx i{position:absolute;width:46vmax;height:46vmax;border-radius:50%;filter:blur(64px);opacity:.26;animation:dr 18s ease-in-out infinite alternate}
+.bgfx i:nth-child(1){background:var(--acc);left:-15vmax;top:-12vmax}
+.bgfx i:nth-child(2){background:var(--lav);right:-18vmax;top:25vh;animation-duration:23s;animation-delay:-6s}
+.bgfx i:nth-child(3){background:var(--sag);left:10vw;bottom:-22vmax;animation-duration:27s;animation-delay:-11s}
+[data-theme=dark] .bgfx i{opacity:.15}
+@keyframes dr{to{transform:translate(8vmax,6vmax) scale(1.15)}}
+.wave{display:none;position:fixed;left:0;bottom:0;width:200%;height:150px;pointer-events:none;z-index:0;animation:wv 16s linear infinite}
+.wave.w2{height:110px;color:var(--lav);opacity:.45;animation-duration:24s;animation-direction:reverse}.wave.w1{color:var(--acc);opacity:.35}
+html[data-auth] .wave{display:block}
+@keyframes wv{to{transform:translateX(-50%)}}
+@keyframes rise{from{opacity:0;transform:translateY(18px)}}
+@keyframes pop{from{opacity:0;transform:scale(.6)}}
+@keyframes fade{from{opacity:0}}
+@keyframes bob{50%{transform:translateY(-6px)}}
+@keyframes inR{from{opacity:0;transform:translateX(56px)}}
+@keyframes inL{from{opacity:0;transform:translateX(-56px)}}
+@keyframes mq{to{transform:translateX(-50%)}}
+main{position:relative;z-index:1}.auth{position:relative;z-index:1}
+main.fromR{animation:inR .42s cubic-bezier(.2,.8,.2,1)}main.fromL{animation:inL .42s cubic-bezier(.2,.8,.2,1)}
+main.pg>*{animation:rise .5s cubic-bezier(.2,.8,.2,1) both}
+main.pg>*:nth-child(2){animation-delay:.05s}main.pg>*:nth-child(3){animation-delay:.1s}main.pg>*:nth-child(4){animation-delay:.15s}main.pg>*:nth-child(5){animation-delay:.2s}main.pg>*:nth-child(n+6){animation-delay:.25s}
+.auth.fr{animation:inR .5s cubic-bezier(.2,.8,.2,1)}.auth.fb{animation:inL .5s cubic-bezier(.2,.8,.2,1)}
+.logo{animation:pop .8s cubic-bezier(.3,1.5,.5,1) both,bob 3s 1s ease-in-out infinite}
+.auth.center>*:not(.logo){animation:rise .6s .3s both}.auth.center>h1,.auth.center>h2{animation-delay:.4s}
+.mq{overflow:hidden;margin:6px -24px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+.mqt{display:flex;width:max-content;animation:mq 26s linear infinite}.mqt.rev{animation-direction:reverse;animation-duration:32s}
+.mqt .tile{width:148px;flex:none;margin-right:12px}.bobi{display:inline-block;animation:bob 2.4s ease-in-out infinite}
+button{transition:transform .12s,background-color .25s,color .25s,opacity .2s}
+button:not(:disabled):active{transform:scale(.95)}
+.card,.chk,.sw{transition:background-color .35s,color .35s,border-color .2s,box-shadow .2s}
+@media(hover:hover){.card:hover,.ev:hover{box-shadow:0 10px 26px rgba(60,40,30,.13)}.tile:hover{transform:translateY(-3px)}}
+nav button svg{transition:transform .25s}nav button.on svg{transform:translateY(-2px) scale(1.15)}
+.ov{animation:fade .2s}.pop{animation:pop .5s .25s both}
+.d{transition:background-color .2s,color .2s}.d.sel{animation:pop .25s}
+.pk{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;margin-top:4px;padding:11px 14px;border-radius:14px;border:1.5px solid var(--line);background:var(--bg);font-size:16px;text-align:left;color:var(--ink)}.pk svg{flex:none;color:var(--mut)}
+.mnw{position:fixed;inset:0;display:grid;place-items:center;z-index:41;pointer-events:none}
+.mn{pointer-events:auto;background:var(--card);border-radius:22px;padding:10px;width:min(320px,92vw);max-height:76dvh;overflow:auto;box-shadow:0 20px 50px #0005;animation:pop .22s cubic-bezier(.3,1.4,.5,1)}
+.mi{display:flex;justify-content:space-between;align-items:center;width:100%;padding:13px 16px;border-radius:14px;text-align:left;font-size:16px}.mi:hover{background:var(--bg)}.mi.on{background:var(--bg);font-weight:600;color:var(--acc)}
+.tcw{display:flex;gap:10px}.tc{flex:1;height:208px;overflow:auto;scroll-snap-type:y mandatory;padding:82px 0;border-radius:14px;background:var(--bg);scrollbar-width:none}.tc button{display:block;width:100%;height:44px;scroll-snap-align:center;font-size:20px;color:var(--mut)}.tc button.on{color:var(--ink);font-weight:700;font-size:24px}
+.dy{border:1.5px solid var(--line)}
+.chk{width:26px;height:26px;border-radius:8px;border:2px solid var(--line);display:grid;place-items:center;flex:none;color:#fff}
+.chk.on{background:var(--sag);border-color:var(--sag)}
+.badge{font-size:12px;padding:3px 10px;border-radius:12px;background:var(--bg)}
+.p2{background:#d9534f22;color:#d9534f}.p1{background:#E8683E22;color:var(--cor)}.p0{background:#86B07033;color:#4d7a38}
+.done .t{text-decoration:line-through;opacity:.5}
+.prog{height:8px;border-radius:4px;background:var(--line);overflow:hidden}.prog i{display:block;height:100%;background:var(--sag);transition:width .3s}
+.sw{width:50px;height:30px;border-radius:15px;background:#0004;position:relative;flex:none;transition:.2s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#fff;transition:.2s}
+.sw.on{background:#1c1c1e}.sw.on::after{left:23px}
+.al{display:flex;align-items:center;gap:12px;border-radius:18px;padding:16px;color:#fff;margin-bottom:8px}
+.al .tm{font-size:28px;font-weight:600;flex:1;text-align:left}.al.off{opacity:.55}
+.calc{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.calc button{aspect-ratio:1.1;border-radius:50%;background:var(--card);font-size:22px;box-shadow:var(--sh)}
+.calc .op{background:var(--cor);color:#fff}.calc .fn{color:var(--acc)}.calc .eq{background:#1c1c1e;color:#fff}.calc .z{grid-column:span 2;aspect-ratio:auto;border-radius:40px}
+.disp{text-align:right;padding:20px 8px;min-height:120px;word-break:break-all}.disp b{font-size:52px;font-weight:500;display:block}
+.ring{display:block;margin:10px auto;max-width:260px;width:100%}
+.ov{position:fixed;inset:0;background:#0007;z-index:20}
+.sh{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-radius:24px 24px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));max-height:88dvh;overflow:auto;z-index:21;max-width:520px;margin:auto;animation:up .2s ease-out}
+@keyframes up{from{transform:translateY(40px);opacity:0}}
+label{display:block;font-size:13px;color:var(--mut);margin-bottom:10px}
+label input,label select,label textarea{display:block;width:100%;margin-top:4px;padding:11px 14px;border-radius:14px;border:1.5px solid var(--line);background:var(--bg);font-size:16px}
+textarea{min-height:200px;resize:vertical}
+.nhc{content-visibility:auto;contain-intrinsic-size:auto 130px;box-shadow:0 1px 2px rgba(60,40,30,.08);transition:none}.seg.nhs button{flex:1;padding:8px 2px;font-size:13px;white-space:nowrap}#nhlist{touch-action:pan-y}.nhscr{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;margin:0 -16px;padding:0 16px 12px}.nhi{touch-action:pan-y;display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;cursor:pointer}.nhav{width:40px;height:40px;border-radius:12px;flex:none;display:grid;place-items:center;color:#fff;font-weight:600;overflow:hidden}.nhav img{width:100%;height:100%;object-fit:cover}.nhb{flex:1;min-width:0}.nhl{display:flex;gap:8px;align-items:baseline}.nhl b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.nhl .mut{flex:none;font-size:12px}.nhtx{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}.nhx .nhtx{display:block}.nhd{font-size:12px;margin-top:6px}.nhg{font-size:13px;font-weight:600;color:var(--mut);margin:16px 4px 8px}.chips button img{width:18px;height:18px;border-radius:5px;vertical-align:-4px;margin-right:6px}
+.chips{display:flex;gap:8px;overflow-x:auto;margin-bottom:12px}.chips button{padding:6px 14px;border-radius:16px;background:var(--card);font-size:14px;white-space:nowrap}.chips .on{background:var(--acc);color:#fff}
+.set{display:flex;align-items:center;gap:12px;width:100%;padding:14px 0;border-bottom:1px solid var(--line);text-align:left}.set>span{flex:1}
+.dot{width:30px;height:30px;border-radius:15px;border:3px solid transparent}.dot.on{border-color:var(--ink)}
+#toast{position:fixed;left:50%;bottom:calc(100px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:#1c1c1e;color:#fff;padding:10px 18px;border-radius:20px;opacity:0;pointer-events:none;transition:.25s;z-index:30;font-size:14px;max-width:90vw}
+#toast.show{opacity:1;transform:translate(-50%,0)}#toast.err{background:#d9534f}
+.empty{text-align:center;color:var(--mut);padding:28px 10px}
+
+.av{border-radius:50%;object-fit:cover;display:block;width:100%;height:100%}
+.crw{position:relative;margin:0 auto;border-radius:16px;overflow:hidden;touch-action:none;background:#000}
+.crw canvas{display:block;width:100%;height:100%;cursor:grab}
+.crm{position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 400px rgba(0,0,0,.55);pointer-events:none}
+.sw[disabled]{opacity:.4}
+.ccp{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;background:linear-gradient(160deg,#2b2f4a,#0e0f18);border-radius:18px;padding:12px;margin-bottom:12px}
+.ccp>i{display:block;aspect-ratio:1;border-radius:14px;background:#ffffff2e}
+.ccp .b{grid-column:span 2;grid-row:span 2;border-radius:16px;background:#ffffff24}
+.ccp .cx{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:7px}
+.ccp .cx i{aspect-ratio:1;border-radius:50%;background:#ffffff38}
+.ccp .md{display:flex;flex-direction:column;justify-content:space-between;padding:9px}
+.ccp .md i{display:block;width:34%;aspect-ratio:1;border-radius:7px;background:#ffffff55}
+.ccp .md u{display:block;height:6px;border-radius:3px;background:#ffffff66;width:70%;text-decoration:none}
+.ccp .s{position:relative;overflow:hidden;grid-row:span 2;aspect-ratio:auto}
+.ccp .s b{position:absolute;left:0;right:0;bottom:0;background:#fffffff2}
+.ccp .w{grid-column:span 2;aspect-ratio:2.04;background:#5e5ce6}
+input[type=range]{accent-color:var(--acc)}
+#ringov{position:fixed;inset:0;z-index:200;background:var(--acc);color:#fff;display:grid;place-items:center;text-align:center;padding:24px;animation:fade .25s}
+.rg{width:100%;max-width:360px;display:flex;flex-direction:column;gap:12px;align-items:center}.rg h1{font-size:64px;font-weight:300;font-variant-numeric:tabular-nums}.rg .mut{color:#fff;opacity:.85}.rgi{animation:bob 1s ease-in-out infinite}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.wxc{display:block;width:100%;text-align:left;padding:16px}
+.wxm{display:flex;align-items:center;gap:14px}.wxm>*{flex:none}
+.wxi{font-size:46px;line-height:1}
+.wxt{font-size:40px;font-weight:300;line-height:1.05;font-variant-numeric:tabular-nums}
+.wxh{display:flex;gap:8px;overflow-x:auto;margin-top:14px;scrollbar-width:none}.wxh::-webkit-scrollbar{display:none}
+.wxh div{flex:none;min-width:54px;text-align:center;font-size:12px;color:var(--mut);background:var(--bg);border-radius:14px;padding:8px 6px}
+.wxh span{display:block;font-size:20px;line-height:1.3}.wxh b{display:block;font-size:15px;color:var(--ink);font-weight:600;margin-top:2px}
+</style></head><body>
+<div class="bgfx" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="wave w2" aria-hidden="true"><svg viewBox="0 0 1200 150" preserveAspectRatio="none" width="100%" height="100%"><path d="M0 80C150 20 450 140 600 80C750 20 1050 140 1200 80V150H0Z" fill="currentColor"/></svg></div>
+<div class="wave w1" aria-hidden="true"><svg viewBox="0 0 1200 150" preserveAspectRatio="none" width="100%" height="100%"><path d="M0 100C150 40 450 160 600 100C750 40 1050 160 1200 100V150H0Z" fill="currentColor"/></svg></div>
+<div id="app"></div><div id="sheet"></div><div id="menu"></div><div id="rot" role="alert"><div><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/></svg><h2 style="margin-top:14px">Putar ke mode portrait</h2><p class="mut">TimeFlow dirancang untuk layar HP tegak.</p></div></div><div id="toast" role="status" aria-live="polite"></div>
+<script>
+const $=s=>document.querySelector(s),KEY='timeflow:',pad=n=>String(n).padStart(2,'0');
+const ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const pd=s=>{const[a,b,c]=s.split('-').map(Number);return new Date(a,b-1,c)};
+const uid=()=>Math.random().toString(36).slice(2,9);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const IC={home:'M3 11l9-8 9 8v10H3z',cal:'M4 5h16v16H4zM4 10h16M8 3v4M16 3v4',check:'M12 21a9 9 0 100-18 9 9 0 000 18zM8 12l3 3 5-6',note:'M5 3h14v18H5zM9 8h6M9 12h6M9 16h3',more:'M5 12h.01M12 12h.01M19 12h.01',plus:'M12 5v14M5 12h14',bell:'M6 9a6 6 0 1112 0c0 6 2 7 2 7H4s2-1 2-7zM10 20h4',calc:'M6 3h12v18H6zM9 7h6M9 12h.01M12 12h.01M15 12h.01M9 16h.01M12 16h.01M15 16h.01',timer:'M12 21a8 8 0 100-16 8 8 0 000 16zM12 9v4l2 2M9 2h6',gear:'M12 15a3 3 0 100-6 3 3 0 000 6zM12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2',trash:'M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14',back:'M15 5l-7 7 7 7',user:'M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0',pin:'M12 17v5M8 3h8l-1 7 3 4H6l3-4z',search:'M11 18a7 7 0 100-14 7 7 0 000 14zM21 21l-5-5',x:'M6 6l12 12M18 6L6 18',r:'M9 5l7 7-7 7',chev:'M6 9l6 6 6-6',play:'M8 5v14l11-7z',hist:'M3 12a9 9 0 109-9 9.7 9.7 0 00-6.7 2.8L3 8M3 3v5h5M12 7v5l3 2'};
+const ic=(n,s=22)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${IC[n]}"/></svg>`;
+const MON=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'],DAY=['Min','Sen','Sel','Rab','Kam','Jum','Sab'],COLN=['Burgundy','Coral','Lavender','Sage'],PRI=['Rendah','Sedang','Tinggi'],CATS=['Personal','Work','Study'];
+const fmtD=s=>{const d=pd(s);return DAY[d.getDay()]+', '+d.getDate()+' '+MON[d.getMonth()].slice(0,3)+' '+d.getFullYear()};
+// ---------- data ----------
+let U=localStorage.getItem(KEY+'session'),D=null,page='home',sub=null,stage='splash',mode='login',pending='',calM=new Date(),calSel=ymd(new Date()),tf='Today',tq='',nq='',ncat='All',qaT='event';
+calM.setDate(1);
+const blank=()=>({events:[],tasks:[],notes:[],alarms:[],sessions:[],theme:'light',accent:'#8E4B57'});
+const ldUser=n=>{try{return Object.assign(blank(),JSON.parse(localStorage.getItem(KEY+'u:'+n)))}catch{return blank()}};
+const exists=n=>localStorage.getItem(KEY+'u:'+n)!==null;
+function save(){try{localStorage.setItem(KEY+'u:'+U,JSON.stringify(D))}catch{toast('Gagal menyimpan. Penyimpanan penuh atau diblokir.','err')}wSyncSoon()}
+function toast(m,t){const e=$('#toast');e.textContent=m;e.className='show '+(t||'');clearTimeout(toast.t);toast.t=setTimeout(()=>e.className='',2600)}
+if(U){if(exists(U)){D=ldUser(U);stage='in'}else U=null}
+function beep(){try{const a=new(window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator();o.connect(a.destination);o.frequency.value=880;o.start();o.stop(a.currentTime+.4)}catch{}}
+function notify(t,b){beep();toast(t+(b?': '+b:''));if('Notification'in window&&Notification.permission==='granted')try{new Notification(t,{body:b})}catch{}}
+// ---------- jembatan Android native (aktif hanya di APK native; di mode web fungsi ini tidak dipakai) ----------
+const NATIVE=typeof window.TimeFlowNative==='object'&&window.TimeFlowNative!==null&&typeof window.TimeFlowNative.postMessage==='function',BV=2,SND_DEF='builtin:classic';
+const NI={sounds:[],status:null,hasVib:true,vol:80,photo:null,ver:'',asked:false,prev:0,view:null};
+const nPend=new Map();let nSeq=0,CR=null,nvt=0,lastTheme=null;
+function nat(cmd,args,tmo){return new Promise((res,rej)=>{if(!NATIVE)return rej(new Error('Fitur ini hanya tersedia di aplikasi Android TimeFlow.'));const id=++nSeq;const tm=setTimeout(()=>{if(nPend.delete(id))rej(new Error('Native tidak merespons. Tutup lalu buka ulang aplikasi.'))},tmo||12000);nPend.set(id,{res:v=>{clearTimeout(tm);res(v)},rej:e=>{clearTimeout(tm);rej(e)}});try{window.TimeFlowNative.postMessage(JSON.stringify(Object.assign({},args,{id,cmd})))}catch(e){clearTimeout(tm);nPend.delete(id);rej(e)}})}
+if(NATIVE)window.TimeFlowNative.addEventListener('message',e=>{let m;try{m=JSON.parse(e.data)}catch{return}
+ if(m.id!=null){const p=nPend.get(m.id);if(!p)return;nPend.delete(m.id);m.ok?p.res(m.data):p.rej(new Error(m.error||'Kesalahan native'))}
+ else if(m.event==='alarms'||m.event==='resume'){nRefresh();if(m.event==='resume'){wxEnsure();gotoCheck()}}});
+// pintasan widget kalender (Tambah Pengingat / Acara Baru): native menyimpan tujuan, UI mengambilnya sekali lalu membuka form yang sama dengan tombol tambah
+function gotoCheck(){if(!NATIVE||!D||!U||stage!=='in')return;nat('app.goto').then(t=>{if(t==='event'||t==='alarm')sheet(t)}).catch(()=>{})}
+const nerr=e=>toast(e&&e.message?e.message:'Terjadi kesalahan','err');
+const nUi=()=>{if(!NATIVE||!D||lastTheme===D.theme)return;lastTheme=D.theme;nat('ui.theme',{dark:D.theme==='dark'}).catch(()=>{})};
+const stopPrev=()=>{if(NATIVE&&NI.prev){NI.prev=0;nat('sounds.stopPreview').catch(()=>{})}};
+const EVERY=[[0,'Tidak berulang'],[5,'Setiap 5 menit'],[10,'Setiap 10 menit'],[15,'Setiap 15 menit'],[30,'Setiap 30 menit'],[60,'Setiap 1 jam'],[120,'Setiap 2 jam']],VIBP=[[0,'Standar'],[1,'Pendek'],[2,'Panjang']],SNZ=[[5,'5 menit'],[10,'10 menit'],[15,'15 menit'],[30,'30 menit']];
+const nAl=a=>({id:a.id,time:a.time,label:a.label||'',days:a.days||[],on:a.on!==false,sound:a.sound||SND_DEF,vibrate:a.vibrate!==false,vib:a.vib|0,snooze:a.snooze||10,every:a.every|0,until:a.until||'23:59'});
+const sounds=()=>NATIVE?NI.sounds:WEB.snd;
+function nSoundOpts(cur){const o=sounds().filter(s=>!s.missing||s.id===cur).map(s=>[s.id,s.name+(s.missing?' (hilang)':'')]);if(!o.length)o.push([SND_DEF,'Klasik']);if(!o.some(x=>x[0]===cur))o.push([cur,'Audio tidak tersedia (pakai Klasik)']);return o}
+const avatar=(s=40)=>NI.photo?`<img class="av" src="${esc(NI.photo)}" alt="">`:ic('user',Math.round(s*.55));
+const alDesc=a=>alDays(a)+(a.every?' · tiap '+(a.every>=60&&a.every%60===0?a.every/60+' jam':a.every+' mnt'):'')+(a.label?' · '+esc(a.label):'')+(a.snoozeAt>Date.now()?' · ditunda':'');
+function nProb(){const s=NI.status;if(!NATIVE||!s)return[];const p=[];
+ if(s.exact.needed&&!s.exact.granted)p.push('Izin alarm tepat waktu belum diberikan, alarm bisa terlambat.');
+ if((s.notif.runtime&&!s.notif.granted)||!s.notif.enabled)p.push('Notifikasi alarm nonaktif, tombol Tunda dan Stop tidak tampil di notifikasi.');
+ if(s.vol.cur===0)p.push('Volume alarm sistem 0, alarm tidak akan terdengar.');return p}
+async function nRefresh(){if(!NATIVE||!D||!U)return;try{const[a,s,st]=await Promise.all([nat('alarms.list',{owner:U}),nat('sounds.list'),nat('status.get')]);D.alarms=a;NI.sounds=s;NI.status=st;save();
+ if(NI.view==='perms'&&$('#sheet').innerHTML)permsSheet();
+ if(NI.view==='cc'&&$('#sheet').innerHTML)ccLoad().then(()=>{if(NI.view==='cc')ccStatus()});
+ const busy=$('#sheet').innerHTML||$('#menu').innerHTML;if(!busy&&(sub==='alarm'||sub==='settings'||(!sub&&page==='home')))render()}catch(e){}}
+async function nPhoto(){try{const r=await nat('profile.info',{owner:U});NI.photo=r.url||null}catch{NI.photo=null}}
+async function nBoot(){if(!NATIVE||!D||!U)return;try{const h=await nat('hello');NI.hasVib=h.hasVibrator;NI.vol=h.alarmVolume;NI.ver=h.version;
+ let a=await nat('alarms.list',{owner:U});
+ if(!a.length&&D.alarms.length){for(const x of D.alarms)try{await nat('alarm.upsert',{owner:U,alarm:nAl(x)})}catch{}a=await nat('alarms.list',{owner:U})}
+ D.alarms=a;save();lastTheme=null;nUi();await nPhoto();await nRefresh();render()}catch(e){nerr(e)}}
+// izin diminta secara kontekstual: hanya setelah pengguna menyimpan/mengaktifkan alarm
+function nEnsurePerms(){if(!NATIVE||NI.asked)return;nat('status.get').then(st=>{NI.status=st;const need=[];
+ if((st.notif.runtime&&!st.notif.granted)||!st.notif.enabled)need.push(['notifications','notifikasi alarm','menampilkan tombol Tunda dan Stop serta layar alarm']);
+ if(st.exact.needed&&!st.exact.granted)need.unshift(['exact','alarm tepat waktu','membunyikan alarm tepat pada menit yang diatur']);
+ if(!need.length)return;NI.asked=true;const n=need[0];
+ ask('Izin '+n[1],'TimeFlow membutuhkan izin ini untuk '+n[2]+'. Kamu bisa mengubahnya kapan saja di Settings, menu Izin &amp; notifikasi Android.','Lanjut',()=>nat('perm.request',{what:n[0]}).then(()=>setTimeout(nRefresh,300)).catch(nerr))}).catch(()=>{})}
+const NCH={cfg:null,st:null,t:0};
+const NCH_SL=[['width','Lebar notch',60,260,'dp'],['height','Tinggi notch',20,60,'dp'],['top','Jarak dari atas',0,90,'dp'],['x','Geser kiri / kanan',-160,160,'dp'],['scale','Ukuran saat membesar',80,130,'%'],['autoHide','Lama notifikasi tampil',2,15,'dtk']];
+const NCH_TG=[['enabled','Aktifkan notch'],['idleVisible','Tampilkan pil saat diam'],['showMedia','Musik (Spotify, YouTube Music, dll.)'],['showNotif','Notifikasi semua aplikasi (WA, dll.)'],['hideLandscape','Sembunyikan saat layar landscape']];
+async function nchLoad(){try{const r=await nat('notch.get');NCH.cfg=r.cfg;NCH.st=r.st}catch(e){nerr(e)}}
+function nchSend(part){Object.assign(NCH.cfg,part);NCH.pend=Object.assign(NCH.pend||{},part);clearTimeout(NCH.t);NCH.t=setTimeout(()=>{const q=NCH.pend;NCH.pend=null;return nat('notch.set',{cfg:q}).then(r=>{NCH.st=r.st;nchStatus()}).catch(nerr)},120)}
+function nchPrev(){const c=NCH.cfg,el=$('#nchp');if(!el)return;const k=.62;el.style.width=c.width*k+'px';el.style.height=c.height*k+'px';el.style.borderRadius=c.height*k/2+'px';el.style.marginTop=c.top*k*.5+'px';el.style.transform=`translateX(${c.x*k*.5}px)`}
+function nchStatus(){const e=$('#nchs');if(!e||!NCH.st)return;const s=NCH.st,r=(t,ok,w,b)=>`<div class="set" style="gap:8px"><span>${t}</span>${ok?'<span class="badge" style="flex:none">Aktif</span>':`<button class="pill" style="height:36px;width:auto;padding:0 14px;flex:none" data-a="nchperm" data-w="${w}">${b}</button>`}</div>`;
+ e.innerHTML=r('Tampil di atas aplikasi lain',s.overlay,'overlay','Izinkan')+r('Akses notifikasi (baca &amp; kontrol musik)',s.access,'access','Izinkan')+(s.access&&!s.running?'<p class="mut">Layanan notifikasi belum tersambung. Matikan lalu nyalakan lagi izin "Akses notifikasi" TimeFlow, atau buka ulang aplikasi.</p>':'')}
+async function notchSheet(){NI.view='notch';if(!NCH.cfg)await nchLoad();if(!NCH.cfg)return;const c=NCH.cfg;
+ $('#sheet').innerHTML=`<div class="ov" data-a="close"></div><div class="sh" role="dialog" aria-modal="true"><div class="top"><h2 style="margin:0">Dynamic Notch</h2><button class="ico" data-a="close" aria-label="Tutup">${ic('x')}</button></div>
+ <div style="height:64px;border-radius:16px;background:#2c2c2e;display:flex;justify-content:center;align-items:flex-start;overflow:hidden;margin-bottom:12px"><div id="nchp" style="background:#000;transition:.15s"></div></div>
+ <div id="nchs"></div>
+ ${NCH_TG.map(([k,t])=>`<button class="set" data-a="nchtog" data-k="${k}"><span>${t}</span><i class="sw ${c[k]?'on':''}"></i></button>`).join('')}
+ ${NCH_SL.map(([k,t,a,b,u])=>`<div style="padding:10px 0"><div class="row" style="gap:8px"><span style="flex:1">${t}</span><span class="mut" id="nv_${k}">${c[k]} ${u}</span></div><input type="range" data-in="nch" data-k="${k}" data-u="${u}" min="${a}" max="${b}" step="1" value="${c[k]}" aria-label="${t}" style="width:100%"></div>`).join('')}
+ <div class="row" style="margin:6px 0"><button class="pill ghost" style="height:42px" data-a="nchtest" data-w="notif">Uji notifikasi</button><button class="pill ghost" style="height:42px" data-a="nchtest" data-w="media">Uji musik</button></div>
+ <div class="row" style="margin:6px 0"><button class="pill ghost" style="height:42px" data-a="nchtest" data-w="alarm">Uji alarm</button><button class="pill ghost" style="height:42px" data-a="nchtest" data-w="timer">Uji timer</button></div>
+ <button class="pill ghost" style="height:42px;margin-bottom:8px" data-a="nchreset">Kembalikan ke bawaan</button>
+ <p class="mut">Ketuk banner notifikasi untuk membuka kartunya (balas, kirim, atau buka aplikasi), geser ke atas untuk menutup. Alarm yang berbunyi (dengan tombol Tunda dan Matikan) dan hitung mundur Focus Timer juga tampil di notch. Saat musik diputar, ketuk notch untuk kontrol putar, jeda, dan ganti lagu. Notch tetap bekerja walau aplikasi ditutup selama izin di atas aktif. Jika tombol "Izinkan" akses notifikasi ditolak sistem: Info aplikasi TimeFlow &gt; menu ⋮ &gt; "Izinkan setelan terbatas", lalu coba lagi.</p></div>`;
+ nchPrev();nchStatus();nchLoad().then(()=>{if(NI.view==='notch'){nchStatus();nchPrev()}})}
+const CC={cfg:null,st:null,t:0};
+const CC_TILES=[['torch','Lampu Senter'],['timer','TimeFlow (buka aplikasi)'],['calc','Kalkulator'],['camera','Kamera'],['record','Perekam Layar (perekam bawaan HP)'],['hotspot','Hotspot'],['location','Lokasi'],['battery','Penghemat Baterai'],['display','Tema Gelap'],['nightlight','Cahaya Malam'],['dim','Ekstra Redup'],['invert','Inversi Warna'],['daltonizer','Koreksi Warna'],['fontsize','Ukuran Font'],['datasaver','Penghemat Data'],['alarm','Alarm'],['share','Quick Share'],['qr','Pemindai Kode QR'],['mic','Akses Mikrofon'],['cam','Akses Kamera'],['security','Keamanan & Privasi'],['hearing','Alat Bantu Dengar'],['tts','Teks ke Ucapan'],['focus','Fokus'],['remote','Remote TV'],['devices','Kontrol Perangkat'],['song','Penelusuran Lagu'],['photo','Foto untuk Bertanya'],['pay','Bayar'],['chatgpt','ChatGPT'],['deepseek','Tanya DeepSeek'],['dns','1.1.1.1'],['floatee','Floatee']];
+async function ccLoad(){try{const r=await nat('cc.get');CC.cfg=r.cfg;CC.st=r.st}catch(e){nerr(e)}}
+function ccSend(part){Object.assign(CC.cfg,part);CC.pend=Object.assign(CC.pend||{},part);clearTimeout(CC.t);CC.t=setTimeout(()=>{const q=CC.pend;CC.pend=null;return nat('cc.set',{cfg:q}).then(r=>{CC.st=r.st;ccStatus()}).catch(nerr)},120)}
+function ccStatus(){const e=$('#ccs');if(!e||!CC.st)return;const s=CC.st,r=(t,ok,a,w,opt)=>`<div class="set" style="gap:8px"><span>${t}${opt?`<br><small class="mut">${opt}</small>`:''}</span>${ok?'<span class="badge" style="flex:none">Aktif</span>':`<button class="pill" style="height:36px;width:auto;padding:0 14px;flex:none" data-a="${a}" data-w="${w}">Izinkan</button>`}</div>`;
+ e.innerHTML=r('Layanan aksesibilitas TimeFlow',s.a11y,'ccperm','a11y','WAJIB agar ketukan Wi-Fi, Bluetooth, Data, Pesawat, Hotspot, dll. langsung aktif/mati (tanpa pindah ke pengaturan), dan agar geser dari kanan atas bekerja. Di daftar, pilih TimeFlow Control Center lalu nyalakan. Isi layar hanya dibaca saat menekan tombol sistem.')+r('Tampil di atas aplikasi lain',s.overlay,'nchperm','overlay','Tidak perlu bila layanan aksesibilitas di atas aktif (notch dan Control Center dipasang lewat sana, jadi notifikasi sistem "ditampilkan di atas aplikasi lain" tidak muncul lagi)')+r('Akses notifikasi',s.access,'nchperm','access','Untuk kartu musik di Control Center dan notch')+r('Ubah pengaturan sistem',s.write,'ccperm','write','Opsional: agar slider kecerahan dan tombol rotasi bisa dipakai')+r('Akses Jangan ganggu',s.dnd,'ccperm','dnd','Opsional: agar tombol Jangan Ganggu bisa menyala langsung')+(s.access&&!s.running?'<p class="mut">Layanan belum tersambung. Matikan lalu nyalakan lagi izin "Akses notifikasi" TimeFlow, atau buka ulang aplikasi.</p>':'')+(s.diag?`<p class="mut" style="padding:8px 0">Mode: ${s.diag.mode==='a11y'?'aksesibilitas (di atas bar status)':'jendela biasa (bisa diblokir sistem)'} · Pemicu bar status: ${s.diag.trigger?'terpasang':'belum terpasang'} · Pegangan tepi kanan: ${s.diag.handle?'terpasang':'belum terpasang'}${s.diag.err?'<br>Error terakhir: '+esc(s.diag.err):''}</p>${s.diag.log&&s.diag.log.length?`<details style="padding:0 0 8px"><summary class="mut">Catatan teknis (kirim screenshot ini bila panel tidak muncul)</summary><pre class="mut" style="white-space:pre-wrap;font-size:11px;margin:6px 0">${s.diag.log.map(esc).join('\n')}</pre></details>`:''}`:'')}
+async function ccSheet(){NI.view='cc';if(!CC.cfg)await ccLoad();if(!CC.cfg)return;const c=CC.cfg;
+ $('#sheet').innerHTML=`<div class="ov" data-a="close"></div><div class="sh" role="dialog" aria-modal="true"><div class="top"><h2 style="margin:0">Control Center</h2><button class="ico" data-a="close" aria-label="Tutup">${ic('x')}</button></div>
+ <div class="ccp" aria-hidden="true"><div class="b cx"><i style="background:#ff9f0a"></i><i style="background:#30d158"></i><i style="background:#0a84ff"></i><i style="background:#0a84ff"></i></div><div class="b md"><i></i><u></u></div><i></i><i></i><i class="s"><b style="height:68%"></b></i><i class="s"><b style="height:52%"></b></i><i class="w"></i><i style="background:#fff"></i><i></i><i></i><i></i></div>
+ <div id="ccs"></div>
+ <button class="set" data-a="cctog" data-k="enabled"><span>Aktifkan Control Center<br><small class="mut">Panel kontrol cepat gaya iPhone</small></span><i class="sw ${c.enabled?'on':''}"></i></button>
+ <button class="set" data-a="cctog" data-k="handle"><span>Pegangan di tepi kanan<br><small class="mut">Garis kecil di tepi kanan layar: ketuk atau geser ke bawah untuk membuka. Saat landscape, pegangan ini selalu dipakai (swipe atas dimatikan agar ketukan di game tidak tertelan)</small></span><i class="sw ${c.handle?'on':''}"></i></button>
+ <button class="set" data-a="cctog" data-k="haptic"><span>Getar saat menyentuh</span><i class="sw ${c.haptic?'on':''}"></i></button>
+ <div style="padding:10px 0"><div class="row" style="gap:8px"><span style="flex:1">Lebar area geser (kanan atas)</span><span class="mut" id="ccv_zone">${c.zone} %</span></div><input type="range" data-in="cc" data-k="zone" min="20" max="60" step="1" value="${c.zone}" aria-label="Lebar area geser" style="width:100%"></div>
+ <h3 style="margin:14px 0 2px">Kontrol cepat</h3><p class="mut" style="margin-bottom:2px">Pilih yang tampil di baris bawah panel.</p>
+ ${CC_TILES.map(([k,t])=>`<button class="set" data-a="cctile" data-k="${k}"><span>${t}</span><i class="sw ${c.tiles.includes(k)?'on':''}"></i></button>`).join('')}
+ <div class="row" style="margin:12px 0 8px"><button class="pill ghost" style="height:42px" data-a="cctest">Coba sekarang</button><button class="pill ghost" style="height:42px" data-a="ccreset">Atur ulang</button></div>
+ <p class="mut"><b>Cara pakai:</b> geser ke bawah dari area kanan atas layar (di bar status), di portrait. Di landscape, ketuk garis pegangan di tepi kanan layar. Geser dari tengah atau kiri tetap membuka bar notifikasi biasa. Agar gestur ini menang atas gestur bawaan HP (HyperOS/MIUI punya pusat kontrol sendiri di kanan atas), nyalakan layanan aksesibilitas di paling atas. Tanpa itu, pakai ubin "Control Center" di Quick Settings (bar notifikasi &gt; Edit) atau nyalakan pegangan tepi kanan. Senter, kecerahan, volume musik, rotasi layar, dan kontrol musik langsung bekerja. Tombol Mode pesawat, Data seluler, Wi-Fi, dan Bluetooth menampilkan status asli, tetapi saat diketuk membuka panel pengaturan sistem karena Android tidak mengizinkan aplikasi menyalakannya langsung; tahan untuk halaman lengkap. Jika tombol "Izinkan" ditolak sistem: Info aplikasi TimeFlow &gt; menu ⋮ &gt; "Izinkan setelan terbatas", lalu coba lagi.</p></div>`;
+ ccStatus();ccLoad().then(()=>{if(NI.view==='cc')ccStatus()})}
+const LK={cfg:null,st:null};
+async function lkLoad(){try{const r=await nat('lock.get');LK.cfg=r.cfg;LK.st=r.st}catch(e){nerr(e)}}
+async function lkSheet(){NI.view='lock';if(!LK.cfg)await lkLoad();if(!LK.cfg)return;const c=LK.cfg,s=LK.st||{};
+ const row=(t,ok,w,d)=>`<div class="set" style="gap:8px"><span>${t}${d?`<br><small class="mut">${d}</small>`:''}</span>${ok?'<span class="badge" style="flex:none">Aktif</span>':`<button class="pill" style="height:36px;width:auto;padding:0 14px;flex:none" data-a="lockperm" data-w="${w}">Atur</button>`}</div>`;
+ $('#sheet').innerHTML=`<div class="ov" data-a="close"></div><div class="sh" role="dialog" aria-modal="true"><div class="top"><h2 style="margin:0">Layar Kunci</h2><button class="ico" data-a="close" aria-label="Tutup">${ic('x')}</button></div>
+ <button class="set" data-a="locktog" data-k="enabled"><span>Aktifkan Layar Kunci TimeFlow<br><small class="mut">Tampil di atas layar kunci bawaan saat layar menyala</small></span><i class="sw ${c.enabled?'on':''}"></i></button>
+ <button class="set" data-a="locktog" data-k="music"><span>Kartu musik<br><small class="mut">Muncul bila ada lagu diputar (dengan lirik)</small></span><i class="sw ${c.music?'on':''}"></i></button>
+ <h3 style="margin:14px 0 6px">Wallpaper</h3>
+ <div id="lkp" style="height:150px;border-radius:14px;border:1px solid var(--line);background:#222 ${c.wall?'':''};display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;overflow:hidden">${c.wall?'<span>Wallpaper dipilih</span>':'<span>Belum ada: memakai latar gradasi</span>'}</div>
+ <input type="file" id="lkf" accept="image/*" hidden>
+ <div class="row" style="margin:10px 0"><button class="pill ghost" style="height:42px" data-a="lockwall">Pilih wallpaper</button><button class="pill ghost" style="height:42px" data-a="lockwallclear">Hapus</button></div>
+ <h3 style="margin:14px 0 2px">Izin</h3>
+ ${row('Layar penuh di atas kunci',s.fsi!==false,'fsi','Dipakai agar layar kunci TimeFlow bisa muncul saat HP terkunci')}
+ ${row('Tampil di atas aplikasi lain',s.overlay,'overlay','Membantu layar kunci muncul dari latar belakang')}
+ ${s.xiaomi?`<div class="set" style="gap:8px"><span>Izin khusus Xiaomi / Poco / HyperOS<br><small class="mut">Buka Izin lainnya &gt; nyalakan "Tampilkan di layar kunci" dan "Tampilkan jendela pop-up saat berjalan di latar belakang"</small></span><button class="pill" style="height:36px;width:auto;padding:0 14px;flex:none" data-a="lockperm" data-w="miui">Buka</button></div>`:''}
+ <div class="row" style="margin:12px 0 8px"><button class="pill ghost" style="height:42px" data-a="locktest">Coba sekarang</button></div>
+ <p class="mut"><b>Cara kerja:</b> Android tidak mengizinkan aplikasi biasa mengganti layar kunci sistem, jadi TimeFlow menampilkan layarnya di atas layar kunci bawaan. Geser ke atas untuk membuka: Android lalu meminta PIN, pola, sidik jari, atau wajah sesuai pengaturan HP-mu (${s.secure?'HP-mu memakai kunci layar':'HP-mu belum memakai PIN/pola, jadi langsung terbuka'}). Layar alarm tetap tampil di atas layar kunci ini. Jika layar kunci tidak muncul, cek izin di atas lalu matikan penghemat baterai untuk TimeFlow.</p></div>`;
+ const f=$('#lkf');if(f)f.onchange=()=>lkPick(f.files&&f.files[0])}
+function lkPick(file){if(!file)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=async()=>{try{const M=1600,k=Math.min(1,M/Math.max(im.width,im.height)),cv=document.createElement('canvas');cv.width=Math.round(im.width*k);cv.height=Math.round(im.height*k);cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);const d=cv.toDataURL('image/jpeg',.86);const x=await nat('lock.wall',{data:d},30000);LK.cfg=x.cfg;LK.st=x.st;toast('Wallpaper disimpan');if(NI.view==='lock')lkSheet()}catch(e){nerr(e)}};im.onerror=()=>toast('Gambar tidak bisa dibuka','err');im.src=r.result};r.readAsDataURL(file)}
+function permsSheet(){NI.view='perms';const s=NI.status;
+ const row=(t,d,good,w,b,okT,badT)=>`<div class="set" style="flex-direction:column;align-items:stretch;gap:6px"><div class="row" style="gap:8px"><b style="flex:1">${t}</b><span class="badge ${good?'':'p1'}" style="flex:none">${good?(okT||'Aktif'):(badT||'Perlu tindakan')}</span></div><p class="mut">${d}</p>${good||!w?'':`<button class="pill ghost" style="height:40px" data-a="preq" data-w="${w}">${b}</button>`}</div>`;
+ const body=!s?'<p class="mut">Memuat status...</p>':
+  row('Notifikasi alarm','Menampilkan tombol Tunda dan Stop serta layar alarm di layar kunci. Tanpa izin ini alarm tetap berbunyi, tetapi kontrolnya tidak tampil.',s.notif.granted&&s.notif.enabled,'notifications','Izinkan notifikasi')+
+  row('Alarm tepat waktu','Agar alarm berbunyi tepat pada menit yang diatur. Tanpa izin ini Android dapat menunda alarm.',!s.exact.needed||s.exact.granted,'exact','Buka pengaturan')+
+  row('Layar alarm di layar kunci','Menampilkan layar alarm penuh saat HP terkunci.',!s.fsi.needed||s.fsi.granted,'fullscreen','Buka pengaturan')+
+  row('Penghematan baterai','Disarankan. Sebagian HP menghentikan aplikasi di latar belakang. Jika alarm terlambat, atur TimeFlow ke "Tidak dibatasi".',s.battery.unrestricted,'battery','Buka pengaturan','Tidak dibatasi','Dibatasi')+
+  row('Volume alarm sistem','Volume alarm saat ini '+s.vol.cur+' dari '+s.vol.max+'. Volume ini diatur di pengaturan suara Android.',s.vol.cur>0,'sound','Buka pengaturan suara','Terdengar','Senyap')+
+  (s.dnd?'<p class="mut" style="margin-top:10px">Mode Jangan Ganggu sedang aktif. Alarm umumnya tetap berbunyi, tetapi pengecualian alarm dapat berbeda di tiap perangkat.</p>':'');
+ $('#sheet').innerHTML=`<div class="ov" data-a="close"></div><div class="sh" role="dialog" aria-modal="true"><div class="top"><h2 style="margin:0">Izin &amp; notifikasi Android</h2><button class="ico" data-a="close" aria-label="Tutup">${ic('x')}</button></div>${body}<p class="mut" style="margin-top:12px">Batasan: setelah dihentikan paksa (Force stop), alarm baru terjadwal lagi saat TimeFlow dibuka kembali. Pembatasan baterai khusus produsen (mis. Xiaomi, Oppo, Vivo, Huawei, Samsung) dapat menunda alarm walau semua izin aktif.</p></div>`}
+function sndSheet(){NI.view='snd';const S=sounds(),st=NI.status,ib='box-shadow:none;border:1px solid var(--line)';
+ $('#sheet').innerHTML=`<div class="ov" data-a="close"></div><div class="sh" role="dialog" aria-modal="true"><div class="top"><h2 style="margin:0">Suara &amp; volume</h2><button class="ico" data-a="close" aria-label="Tutup">${ic('x')}</button></div>
+ <label>Volume alarm: <b id="avv">${NI.vol}%</b><input type="range" min="0" max="100" step="5" value="${NI.vol}" data-in="avol" aria-label="Volume alarm" style="padding:0;border:0;background:none"></label>
+ ${NATIVE?`<p class="mut" style="margin-bottom:12px">Ini skala di dalam TimeFlow. Volume sebenarnya juga mengikuti volume alarm sistem${st?' (saat ini '+st.vol.cur+' dari '+st.vol.max+')':''}, pengaturan perangkat, dan kebijakan Android. TimeFlow tidak mengubah volume sistem.</p>
+ <button class="pill ghost" style="height:42px;margin-bottom:14px" data-a="preq" data-w="sound">Buka pengaturan suara</button>`:`<p class="mut" style="margin-bottom:12px">Volume sebenarnya juga mengikuti volume media perangkat. Audio kustom disimpan di perangkat ini.</p>`}
+ <h3 style="margin:6px 0">Nada alarm</h3>${S.map(s=>`<div class="set"><span>${esc(s.name)}${s.missing?' <span class="mut">(file hilang)</span>':''}</span><button class="ico" style="${ib}" data-a="splay" data-id="${esc(s.id)}" aria-label="Putar ${esc(s.name)}">${ic('play',16)}</button>${s.builtin?'':`<button class="ico" style="${ib}" data-a="sdel" data-id="${esc(s.id)}" aria-label="Hapus ${esc(s.name)}">${ic('trash',16)}</button>`}</div>`).join('')}
+ <button class="pill" style="margin-top:14px" data-a="sadd">Upload audio alarm</button><button class="pill ghost" style="margin-top:10px" data-a="stest">${NATIVE?'Uji alarm (10 detik lagi)':'Uji alarm (5 detik lagi)'}</button></div>`}
+function cropClamp(){const w=CR.im.width*CR.base*CR.z,h=CR.im.height*CR.base*CR.z;CR.x=Math.min(0,Math.max(CR.S-w,CR.x));CR.y=Math.min(0,Math.max(CR.S-h,CR.y))}
+function cropDraw(){const c=$('#crc');if(!c||!CR)return;cropClamp();const g=c.getContext('2d'),s=CR.base*CR.z;g.fillStyle='#000';g.fillRect(0,0,CR.S,CR.S);g.drawImage(CR.im,CR.x,CR.y,CR.im.width*s,CR.im.height*s)}
+function cropOpen(src){const im=new Image();im.onload=()=>{const S=280,base=Math.max(S/im.width,S/im.height);CR={im,S,base,z:1,x:(S-im.width*base)/2,y:(S-im.height*base)/2,drag:null};
+ $('#sheet').innerHTML=`<div class="ov" data-a="close"></div><div class="sh" role="dialog" aria-modal="true"><div class="top"><h2 style="margin:0">Atur foto</h2><button class="ico" data-a="close" aria-label="Tutup">${ic('x')}</button></div><p class="mut" style="margin-bottom:10px">Geser untuk memosisikan dan atur zoom. Lingkaran adalah bagian yang tampil sebagai foto profil.</p><div class="crw" style="width:${S}px;height:${S}px"><canvas id="crc" width="${S}" height="${S}"></canvas><i class="crm"></i></div><input type="range" id="crz" data-in="crz" min="1" max="4" step="0.01" value="1" aria-label="Zoom" style="width:100%;margin:14px 0"><div class="row"><button class="pill ghost" data-a="close">Batal</button><button class="pill" data-a="crsave">Simpan</button></div></div>`;cropDraw()};
+ im.onerror=()=>toast('Gambar tidak dapat dibaca','err');im.src=src}
+document.addEventListener('pointerdown',e=>{if(CR&&e.target.id==='crc'){CR.drag={px:e.clientX,py:e.clientY,x:CR.x,y:CR.y};try{e.target.setPointerCapture(e.pointerId)}catch{}}});
+document.addEventListener('pointermove',e=>{if(CR&&CR.drag){CR.x=CR.drag.x+e.clientX-CR.drag.px;CR.y=CR.drag.y+e.clientY-CR.drag.py;cropDraw()}});
+document.addEventListener('pointerup',()=>{if(CR)CR.drag=null});
+const A_NAT={ lock:()=>{lkSheet()},locktog:async(d,el)=>{const k=d.k,v=!LK.cfg[k],i=el.querySelector('.sw');if(i)i.classList.toggle('on',v);LK.cfg[k]=v;try{const r=await nat('lock.set',{cfg:{[k]:v}});LK.cfg=r.cfg;LK.st=r.st}catch(e){nerr(e)}},
+ lockwall:()=>{const f=$('#lkf');if(f)f.click()},lockwallclear:async()=>{try{const r=await nat('lock.wallclear');LK.cfg=r.cfg;LK.st=r.st;lkSheet()}catch(e){nerr(e)}},
+ lockperm:async d=>{try{await nat('lock.perm',{what:d.w})}catch(e){nerr(e)}},locktest:async()=>{try{await nat('lock.test');toast('Layar kunci akan tampil. Matikan layar lalu nyalakan untuk uji sebenarnya')}catch(e){nerr(e)}},
+ cc:()=>{ccSheet()},cctog:(d,el)=>{const k=d.k,v=!CC.cfg[k],i=el.querySelector('.sw');if(i)i.classList.toggle('on',v);ccSend({[k]:v});if(k==='enabled'&&v&&CC.st&&!CC.st.a11y&&!CC.st.overlay)toast('Nyalakan layanan aksesibilitas TimeFlow dulu (paling atas)','err')},
+ cctile:(d,el)=>{const a=CC.cfg.tiles.slice(),i=a.indexOf(d.k);if(i>=0)a.splice(i,1);else a.push(d.k);const sw=el.querySelector('.sw');if(sw)sw.classList.toggle('on',i<0);ccSend({tiles:a})},
+ ccperm:async d=>{try{await nat('cc.perm',{what:d.w})}catch(e){nerr(e)}},
+ cctest:async()=>{try{const r=await nat('cc.test');toast(r.sent?'Panel akan muncul sebentar lagi':'Aktifkan Control Center dan nyalakan layanan aksesibilitas dulu',r.sent?'':'err')}catch(e){nerr(e)}},
+ ccreset:async()=>{try{const r=await nat('cc.reset');CC.cfg=r.cfg;CC.st=r.st;ccSheet()}catch(e){nerr(e)}},
+ notch:()=>{notchSheet()},nchtog:(d,el)=>{const k=d.k,v=!NCH.cfg[k],i=el.querySelector('.sw');if(i)i.classList.toggle('on',v);nchSend({[k]:v});if(k==='enabled'&&v&&NCH.st&&(!NCH.st.overlay||!NCH.st.access))toast('Beri dua izin di bagian atas dulu','err')},
+ nchperm:async d=>{try{await nat('notch.perm',{what:d.w})}catch(e){nerr(e)}},nchtest:async d=>{try{const r=await nat('notch.test',{what:d.w});if(!r.sent)toast('Aktifkan notch dan beri dua izin dulu','err')}catch(e){nerr(e)}},
+ nchreset:async()=>{try{const r=await nat('notch.reset');NCH.cfg=r.cfg;NCH.st=r.st;notchSheet()}catch(e){nerr(e)}},
+ 
+ photo:()=>{$('#sheet').innerHTML=`<div class="ov" data-a="close"></div><div class="sh" role="dialog" aria-modal="true"><h2>Foto profil</h2><div style="display:flex;justify-content:center;margin-bottom:16px"><div class="ico" style="width:96px;height:96px;border-radius:48px;background:var(--acc);color:#fff;overflow:hidden">${avatar(96)}</div></div><button class="pill" data-a="pick">Pilih dari galeri</button>${NI.photo?'<button class="pill ghost" style="margin-top:10px" data-a="pdel">Hapus foto</button>':''}<button class="pill ghost" style="margin-top:10px" data-a="close">Batal</button></div>`},
+ pick:async()=>{if(!NATIVE){$('#pf').value='';$('#pf').click();return}try{const r=await nat('profile.pick');if(r.cancelled)return;cropOpen(r.image)}catch(e){nerr(e)}},
+ pdel:()=>ask('Hapus foto profil?','Avatar bawaan akan dipakai kembali.','Hapus',async()=>{try{if(NATIVE)await nat('profile.delete',{owner:U});else{await kv('del','photo:'+U);if(NI.photo)URL.revokeObjectURL(NI.photo)}NI.photo=null;close();toast('Foto dihapus');render()}catch(e){nerr(e)}}),
+ crsave:async()=>{if(!CR)return;try{cropClamp();const o=document.createElement('canvas');o.width=o.height=512;const g=o.getContext('2d'),r=512/CR.S,s=CR.base*CR.z;g.fillStyle='#fff';g.fillRect(0,0,512,512);g.drawImage(CR.im,CR.x*r,CR.y*r,CR.im.width*s*r,CR.im.height*s*r);
+  if(NATIVE){const res=await nat('profile.save',{owner:U,image:o.toDataURL('image/jpeg',.9)});NI.photo=res.url}
+  else{const b=await new Promise((ok,no)=>o.toBlob(x=>x?ok(x):no(Error('Gagal membuat foto')),'image/jpeg',.9));await kv('set','photo:'+U,b);if(NI.photo&&NI.photo.startsWith('blob:'))URL.revokeObjectURL(NI.photo);NI.photo=URL.createObjectURL(b)}
+  close();toast('Foto profil tersimpan');render()}catch(e){nerr(e)}},
+ perms:()=>{permsSheet();nRefresh()},wperm:()=>webPermsSheet(),wall:async()=>{await webAllPerms();webPermsSheet()},
+ keep:()=>{D.keep=D.keep===false;save();keepAlive();render()},
+ preq:async d=>{try{await nat('perm.request',{what:d.w})}catch(e){nerr(e)}setTimeout(nRefresh,400)},
+ snd:()=>{sndSheet();if(NATIVE)nRefresh().then(()=>{if(NI.view==='snd'&&$('#sheet').innerHTML)sndSheet()})},
+ splay:d=>{if(NATIVE){NI.prev=1;nat('sounds.preview',{ref:d.id}).catch(nerr)}else webPreview(d.id)},
+ sprev:()=>{const id=$('#f_sound').value;if(NATIVE){NI.prev=1;nat('sounds.preview',{ref:id}).catch(nerr)}else webPreview(id)},
+ sdel:d=>ask('Hapus audio ini?','Alarm yang memakainya akan beralih ke nada Klasik.','Hapus',()=>{if(NATIVE){nat('sounds.delete',{ref:d.id}).then(l=>{NI.sounds=l;sndSheet();toast('Audio dihapus')}).catch(nerr);return}
+  kv('del','snd:'+d.id).then(()=>{WEB.snd=WEB.snd.filter(x=>x.id!==d.id);sndSheet();toast('Audio dihapus')}).catch(nerr)}),
+ sadd:async()=>{if(!NATIVE){$('#sf').value='';$('#sf').click();return}try{const r=await nat('sounds.pick');if(r.cancelled)return;NI.sounds=r.sounds;sndSheet();toast('Audio ditambahkan')}catch(e){nerr(e)}},
+ stest:()=>{if(NATIVE){nat('alarm.test').then(()=>toast('Alarm uji berbunyi 10 detik lagi. Kunci layar untuk menguji.')).catch(nerr);return}
+  unlockAudio();toast('Alarm uji berbunyi 5 detik lagi.');setTimeout(()=>{const n=new Date();ringStart({id:'test',time:pad(n.getHours())+':'+pad(n.getMinutes()),label:'Uji alarm',sound:SND_DEF,snooze:1,vibrate:true,vib:0})},5000)},
+ vtog:(d,el)=>{el.classList.toggle('on');el.setAttribute('aria-checked',el.classList.contains('on'))},
+ bimport:()=>nat('backup.pick').then(r=>{if(!r.cancelled)restoreText(r.text)}).catch(nerr)};
+window.tfBack=()=>{if($('#menu').innerHTML){mclose();return true}if($('#sheet').innerHTML){cn?A.nclose():close();return true}
+ if(!D){if(stage==='login'){stage='welcome';render();return true}return false}
+ if(sub){sub=null;render();return true}if(page!=='home'){page='home';render();return true}return false};
+// ---------- validasi backup ----------
+const ACCS=['#8E4B57','#E8683E','#8E91DE','#86B070','#5b8fc9'],TRE=/^([01]\d|2[0-3]):[0-5]\d$/,DRE=/^\d{4}-\d{2}-\d{2}$/,IDRE=/^[A-Za-z0-9_-]{1,40}$/;
+function cleanBackup(j){
+ if(!j||typeof j!=='object'||j.app!=='timeflow')throw Error('Ini bukan file backup TimeFlow.');
+ const ver=j.v===undefined?1:j.v;if(!Number.isInteger(ver)||ver<1)throw Error('Versi skema backup tidak valid.');
+ if(ver>BV)throw Error('Backup dibuat oleh TimeFlow versi lebih baru (skema v'+ver+'). Perbarui aplikasi dulu.');
+ const d=j.data;if(!d||typeof d!=='object'||Array.isArray(d))throw Error('Data dalam backup kosong atau rusak.');
+ const rep={dropped:0,sound:0},S=x=>typeof x==='string',N=x=>Number.isFinite(x),seen=new Set();
+ const part=(k,ok,fix)=>{if(d[k]===undefined)return[];if(!Array.isArray(d[k]))throw Error('Bagian "'+k+'" pada backup rusak.');
+  return d[k].filter(x=>{const g=!!x&&typeof x==='object'&&!Array.isArray(x)&&ok(x);if(!g)rep.dropped++;return g}).map(x=>{const y=fix(x);if(!S(x.id)||!IDRE.test(x.id)||seen.has(x.id))y.id=uid();else y.id=x.id;seen.add(y.id);return y})};
+ const events=part('events',x=>S(x.title)&&DRE.test(x.date)&&TRE.test(x.start)&&TRE.test(x.end),x=>({title:x.title.slice(0,200),date:x.date,start:x.start,end:x.end,loc:S(x.loc)?x.loc.slice(0,200):'',color:[0,1,2,3].includes(x.color)?x.color:0,rep:['none','daily','weekly'].includes(x.rep)?x.rep:'none'}));
+ const tasks=part('tasks',x=>S(x.title),x=>({title:x.title.slice(0,200),pri:[0,1,2].includes(x.pri)?x.pri:1,date:S(x.date)&&DRE.test(x.date)?x.date:'',done:x.done===true}));
+ const notes=part('notes',x=>S(x.title)||S(x.body),x=>({title:S(x.title)?x.title:'',body:S(x.body)?x.body:'',cat:CATS.includes(x.cat)?x.cat:'Personal',pin:x.pin===true,ts:N(x.ts)?x.ts:Date.now()}));
+ const sessions=part('sessions',x=>DRE.test(x.day)&&N(x.min),x=>({day:x.day,min:x.min,task:S(x.task)?x.task:'',ts:N(x.ts)?x.ts:0}));
+ const have=new Set(sounds().filter(s=>!s.missing).map(s=>s.id));
+ const alarms=part('alarms',x=>S(x.time)&&TRE.test(x.time),x=>{let sd=S(x.sound)&&/^(builtin|custom):[A-Za-z0-9_-]{1,40}$/.test(x.sound)?x.sound:SND_DEF;
+  if(sd.startsWith('custom:')&&!have.has(sd)){sd=SND_DEF;rep.sound++}
+  const days=Array.isArray(x.days)?[...new Set(x.days.filter(n=>Number.isInteger(n)&&n>=0&&n<=6))].sort():[];
+  let every=Number.isInteger(x.every)&&x.every>=0&&x.every<=720?x.every:0;const until=S(x.until)&&TRE.test(x.until)?x.until:'23:59';if(every&&until<=x.time)every=0;
+  return{time:x.time,label:S(x.label)?x.label.slice(0,60):'',days,on:x.on!==false,sound:sd,vibrate:x.vibrate!==false,vib:[0,1,2].includes(x.vib)?x.vib:0,snooze:Number.isInteger(x.snooze)&&x.snooze>=1&&x.snooze<=60?x.snooze:10,every,until}});
+ return{data:{events,tasks,notes,alarms,sessions,theme:d.theme==='dark'?'dark':'light',accent:ACCS.includes(d.accent)?d.accent:ACCS[0]},rep}}
+function restoreText(t){let c;try{c=cleanBackup(JSON.parse(t))}catch(e){return toast(e instanceof SyntaxError?'File backup rusak (bukan JSON yang valid).':e.message,'err')}
+ const d=c.data,r=c.rep;
+ ask('Pulihkan backup?',`Berisi ${d.events.length} acara, ${d.tasks.length} tugas, ${d.notes.length} catatan, ${d.alarms.length} alarm.${r.dropped?` ${r.dropped} item rusak dilewati.`:''}${r.sound?` ${r.sound} alarm memakai audio kustom yang tidak ada di perangkat ini dan dialihkan ke nada Klasik.`:''} Data saat ini akan diganti.`,'Pulihkan',async()=>{
+  try{const nd=Object.assign(blank(),d);if(NATIVE)nd.alarms=await nat('alarms.replace',{owner:U,alarms:nd.alarms.map(nAl)});else nd.alarms.forEach(a=>{a.lk=nowKey()});D=nd;save();apply();toast('Backup dipulihkan');render()}catch(e){nerr(e)}})}
+function doImport(f,inp){if(!f)return;const r=new FileReader();r.onload=()=>{restoreText(r.result);inp.value=''};r.onerror=()=>toast('Gagal membaca file','err');r.readAsText(f)}
+// ---------- auth ----------
+const STG=['splash','welcome','login','done'],FT=[['cal','Calendar','Atur jadwal & acara'],['bell','Alarm','Jangan sampai terlambat'],['check','Tasks','Kelola tugas & target'],['calc','Calculator','Hitung cepat'],['timer','Focus Timer','Fokus per sesi'],['note','Notes','Catat ide kamu']];let lastStage=null;
+const mq=(a,rev)=>`<div class="mq" aria-hidden="true"><div class="mqt${rev?' rev':''}">${[...a,...a].map((t,i)=>`<div class="tile c${FT.indexOf(t)%5}"><span class="bobi" style="animation-delay:${-(i%6)*.4}s">${ic(t[0],24)}</span><b>${t[1]}</b><small>${t[2]}</small></div>`).join('')}</div></div>`;
+function auth(){const a=$('#app'),cls=lastStage===stage?'':(STG.indexOf(stage)>=STG.indexOf(lastStage)?' fr':' fb');lastStage=stage;
+ if(stage==='splash'){a.innerHTML=`<div class="auth center${cls}"><div class="logo">${ic('cal',40)}</div><h1>TimeFlow</h1><p class="mut">Plan Today, Better Tomorrow</p><div class="bar"></div></div>`;setTimeout(()=>{if(stage==='splash'){stage='welcome';render()}},1500);return}
+ if(stage==='welcome'){a.innerHTML=`<div class="auth${cls}"><p class="mut">Welcome to</p><h1>TimeFlow</h1><p class="mut">Semua yang kamu butuhkan untuk mengatur hidup, dalam satu tempat.</p>${mq(FT)}${mq([...FT].reverse(),1)}<button class="pill" style="margin-top:auto" data-a="stage" data-s="login">Mulai</button></div>`;return}
+ if(stage==='login'){const cr=mode==='create';
+  a.innerHTML=`<div class="auth${cls}"><button class="ico" data-a="stage" data-s="welcome" aria-label="Kembali">${ic('back')}</button><h1>${cr?'Buat username':'Masuk'}</h1><p class="mut">${cr?'Pilih username untuk profil di perangkat ini.':'Masukkan username kamu untuk melanjutkan.'}</p>
+  <input id="un" class="fld" placeholder="Username" autocomplete="username" autocapitalize="none" maxlength="20" aria-label="Username"><div class="err" id="err" role="alert"></div>
+  <button class="pill" data-a="submit" id="go">${cr?'Buat & lanjut':'Lanjut'}</button>
+  <button class="pill ghost" data-a="mode">${cr?'Sudah punya username? Masuk':'Belum punya akun? Buat username baru'}</button>
+  <p class="mut">Catatan: username bukan autentikasi yang aman. Data disimpan lokal di perangkat ini dan tidak tersinkron ke perangkat lain.</p></div>`;return}
+ if(stage==='done'){a.innerHTML=`<div class="auth center${cls}"><div class="logo" style="background:var(--sag)">${ic('check',40)}</div><h2>Selamat datang,<br>${esc(pending)}</h2><p class="mut">Profil kamu sudah siap digunakan.</p><button class="pill" data-a="enter" style="margin-top:24px">Masuk ke aplikasi</button></div>`}}
+function setErr(m){$('#err').textContent=m;$('#un').classList.add('bad')}
+function submitUser(){const v=$('#un').value.trim().toLowerCase();
+ if(!v)return setErr('Username tidak boleh kosong.');
+ if(v.length<4)return setErr('Username tidak boleh kurang dari 4 karakter.');
+ if(!/^[a-z0-9_]+$/.test(v))return setErr('Gunakan huruf, angka, dan garis bawah (_) saja.');
+ if(mode==='login'&&!exists(v))return setErr('Username belum terdaftar. Pilih "Buat username baru".');
+ if(mode==='create'&&exists(v))return setErr('Username sudah dipakai di perangkat ini.');
+ if(mode==='create'){try{localStorage.setItem(KEY+'u:'+v,JSON.stringify(blank()))}catch{return setErr('Penyimpanan perangkat tidak tersedia.')}}
+ pending=v;stage='done';render()}
+// ---------- helpers ----------
+const COLS=['c0','c1','c2','c3'];
+function evOn(d){return D.events.filter(e=>e.date===d||(d>e.date&&(e.rep==='daily'||(e.rep==='weekly'&&Math.round((pd(d)-pd(e.date))/864e5)%7===0)))).sort((a,b)=>a.start.localeCompare(b.start))}
+const evCard=(e,d)=>`<button class="ev ${COLS[e.color||0]}" data-a="edit" data-t="event" data-id="${e.id}">${ic('cal')}<div style="flex:1"><b>${esc(e.title)}</b><span>${e.start} - ${e.end}${e.end<e.start?' (+1 hari)':''}${e.loc?' · '+esc(e.loc):''}${e.rep&&e.rep!=='none'?' · berulang':''}</span></div></button>`;
+const alDays=a=>!a.days.length?'Sekali':a.days.length===7?'Setiap hari':a.days.map(i=>DAY[i]).join(', ');
+const today=()=>ymd(new Date());
+const head=(t,s,back)=>`<div class="top"><div class="row" style="flex:none;gap:12px">${back?`<button class="ico" data-a="back" aria-label="Kembali">${ic('back')}</button>`:''}<div><h1>${t}</h1><p class="mut">${s}</p></div></div></div>`;
+// ---------- views ----------
+function home(){const h=new Date().getHours(),g=h<11?'Selamat pagi':h<15?'Selamat siang':h<18?'Selamat sore':'Selamat malam',td=today(),ev=evOn(td),open=D.tasks.filter(t=>!t.done),ses=D.sessions.filter(s=>s.day===td);
+ return `<div class="top"><div><p class="mut">${g},</p><h1>${esc(U)}</h1></div><button class="ico" data-a="sub" data-p="settings" aria-label="Pengaturan" style="overflow:hidden">${avatar(40)}</button></div>
+ <input class="fld" data-in="gs" placeholder="Cari acara, tugas, atau catatan" aria-label="Cari" style="margin-bottom:12px"><div id="gres"></div>${wxCard()}
+ <div class="tiles" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:12px">${[['cal','Calendar','c0','go','cal'],['bell','Alarm','c1','sub','alarm'],['check','Tasks','c2','go','tasks'],['calc','Calc','c3','sub','calc']].map(t=>`<button class="tile ${t[2]}" style="min-height:80px;align-items:center;justify-content:center;font-size:12px" data-a="${t[3]}" data-p="${t[4]}">${ic(t[0])}${t[1]}</button>`).join('')}</div>
+ <h3 style="margin:16px 0 8px">Jadwal hari ini</h3>${ev.length?ev.map(e=>evCard(e)).join(''):`<div class="card empty">Belum ada acara hari ini.<br><button class="mut" style="text-decoration:underline" data-a="qa" data-t="event">Tambah acara</button></div>`}
+ <div class="tiles"><button class="card c2" style="color:#fff;margin:0;text-align:left;display:flex;flex-direction:column;justify-content:flex-start" data-a="go" data-p="tasks"><h1>${open.length}</h1>Tugas belum selesai</button><button class="card c1" style="color:#fff;margin:0;text-align:left;display:flex;flex-direction:column;justify-content:flex-start" data-a="sub" data-p="alarm"><h1>${D.alarms.filter(a=>a.on).length}</h1>Alarm aktif</button></div>
+ <button class="card" style="display:flex;align-items:center;gap:14px;margin-top:12px;width:100%;text-align:left" data-a="sub" data-p="focus">${ic('timer',28)}<div><b>Focus Timer</b><p class="mut">${ses.length} sesi fokus hari ini</p></div></button>`}
+let cv='Month';
+const addD=(s,n)=>{const d=pd(s);d.setDate(d.getDate()+n);return ymd(d)};
+const wkStart=s=>{const d=pd(s);d.setDate(d.getDate()-(d.getDay()+6)%7);return ymd(d)};
+const mins=t=>+t.slice(0,2)*60+ +t.slice(3);
+function dcPaint(){const e=$('#dh');if(!e)return;const n=new Date();e.textContent=pad(n.getHours())+':'+pad(n.getMinutes());$('#ds').textContent=pad(n.getSeconds());$('#dp').style.width=(n.getSeconds()+1)/60*100+'%'}
+const dclock=()=>`<div class="clk" role="timer" aria-label="Jam digital"><div class="tm"><b id="dh" style="font-weight:300">00:00</b><span id="ds">00</span></div><div class="dd">${fmtD(today())}</div><div class="pr"><i id="dp"></i></div></div>`;
+const dagenda=d=>{const L=evOn(d);return L.length?L.map(e=>evCard(e)).join(''):'<div class="card empty">Tidak ada acara. Tekan + untuk menambah.</div>'};
+function cal(){const td=today(),y=calM.getFullYear(),m=calM.getMonth(),WD=['Sen','Sel','Rab','Kam','Jum','Sab','Min'];let body,ttl;
+ const dayBtn=k=>`<button class="d ${k===td?'today':''} ${k===calSel?'sel':''}" data-a="sel" data-d="${k}" aria-label="${fmtD(k)}">${pd(k).getDate()}${evOn(k).length?'<i></i>':''}</button>`;
+ const dh=`<div class="top"><h3>${calSel===td?'Hari ini, ':''}${fmtD(calSel)}</h3><button class="mut" data-a="sel" data-d="${td}">Hari ini</button></div>`;
+ if(cv==='Month'){const first=(calM.getDay()+6)%7,n=new Date(y,m+1,0).getDate();let cells='<div></div>'.repeat(first);
+  for(let d=1;d<=n;d++)cells+=dayBtn(y+'-'+pad(m+1)+'-'+pad(d));
+  const ev=evOn(calSel);ttl=MON[m]+' '+y;
+  body=`<div class="card"><div class="grid7">${WD.map(x=>`<div class="h">${x}</div>`).join('')}${cells}</div></div>${dh}${ev.length?ev.map(e=>evCard(e)).join(''):'<div class="card empty">Tidak ada acara. Tekan + untuk menambah.</div>'}`}
+ else if(cv==='Week'){const ws=wkStart(calSel),a=pd(ws),b=pd(addD(ws,6));ttl=a.getDate()+(a.getMonth()!==b.getMonth()?' '+MON[a.getMonth()].slice(0,3):'')+' – '+b.getDate()+' '+MON[b.getMonth()].slice(0,3)+' '+b.getFullYear();
+  body=`<div class="card"><div class="grid7">${WD.map(x=>`<div class="h">${x}</div>`).join('')}${Array.from({length:7},(_,i)=>dayBtn(addD(ws,i))).join('')}</div></div>${dh}${dclock()+dagenda(calSel)}`}
+ else{ttl=(calSel===td?'Hari ini · ':'')+fmtD(calSel);body=`<div class="top"><span class="mut">${evOn(calSel).length} acara</span><button class="mut" data-a="sel" data-d="${td}">Hari ini</button></div>${dclock()+dagenda(calSel)}`}
+ return `<div class="top"><div><h1>Calendar</h1><p class="mut">Atur waktumu, hidup lebih tertata.</p></div></div>
+ <div class="seg">${['Month','Week','Day'].map(x=>`<button class="${cv===x?'on':''}" data-a="cv" data-v="${x}">${x}</button>`).join('')}</div>
+ <div class="top"><button class="ico" data-a="mon" data-n="-1" aria-label="Sebelumnya">${ic('back')}</button><h3 style="text-align:center">${ttl}</h3><button class="ico" data-a="mon" data-n="1" aria-label="Berikutnya" style="transform:scaleX(-1)">${ic('back')}</button></div>${body}`}
+function tlist(){const td=today();let L=D.tasks.filter(t=>t.title.toLowerCase().includes(tq.toLowerCase()));
+ if(tf==='Today')L=L.filter(t=>!t.done&&(!t.date||t.date<=td));else if(tf==='Upcoming')L=L.filter(t=>!t.done&&t.date>td);else if(tf==='Completed')L=L.filter(t=>t.done);
+ L.sort((a,b)=>b.pri-a.pri||(a.date||'9').localeCompare(b.date||'9'));
+ return L.length?L.map(t=>`<div class="card row ${t.done?'done':''}" style="margin:0 0 8px"><button class="chk ${t.done?'on':''}" data-a="tog" data-id="${t.id}" aria-label="Tandai selesai">${t.done?ic('check',16):''}</button><button style="text-align:left;flex:1" data-a="edit" data-t="task" data-id="${t.id}"><div class="t">${esc(t.title)}</div><span class="mut">${t.date?fmtD(t.date):'Tanpa tanggal'}</span></button><span class="badge p${t.pri}" style="flex:none">${PRI[t.pri]}</span></div>`).join(''):'<div class="card empty">Tidak ada tugas di sini.</div>'}
+function tasks(){const dn=D.tasks.filter(t=>t.done).length,tot=D.tasks.length;
+ return `${head('Tasks','Langkah kecil, kemajuan besar.')}<div class="card"><div class="row" style="margin-bottom:8px"><b>Progres</b><span class="mut" style="text-align:right">${dn}/${tot} selesai</span></div><div class="prog"><i style="width:${tot?dn/tot*100:0}%"></i></div></div>
+ <div class="seg">${['Today','Upcoming','Completed','All'].map(x=>`<button class="${tf===x?'on':''}" data-a="tf" data-v="${x}">${x}</button>`).join('')}</div>
+ <input class="fld" data-in="tq" value="${esc(tq)}" placeholder="Cari tugas" aria-label="Cari tugas" style="margin-bottom:12px"><div id="list">${tlist()}</div>`}
+function nlist(){let L=D.notes.filter(n=>(ncat==='All'||n.cat===ncat)&&(n.title+n.body).toLowerCase().includes(nq.toLowerCase()));
+ L.sort((a,b)=>(b.pin?1:0)-(a.pin?1:0)||b.ts-a.ts);
+ return L.length?L.map(n=>`<button class="card" style="display:block;width:100%;text-align:left;margin:0 0 8px" data-a="note" data-id="${n.id}"><div class="row"><b style="flex:1">${n.pin?ic('pin',14)+' ':''}${esc(n.title)||'Tanpa judul'}</b><span class="badge" style="flex:none">${esc(n.cat)}</span></div><p class="mut" style="white-space:pre-line;max-height:60px;overflow:hidden">${esc(n.body.slice(0,140))}</p><p class="mut" style="font-size:12px;margin-top:4px">${new Date(n.ts).toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'})}</p></button>`).join(''):'<div class="card empty">Belum ada catatan. Tekan + untuk membuat.</div>'}
+function notes(){return `${head('Notes','Tangkap pikiranmu.')}<input class="fld" data-in="nq" value="${esc(nq)}" placeholder="Cari catatan" aria-label="Cari catatan" style="margin-bottom:12px"><div class="chips">${['All',...CATS].map(c=>`<button class="${ncat===c?'on':''}" data-a="nc" data-v="${c}">${c}</button>`).join('')}</div><div id="list">${nlist()}</div>`}
+function more(){const L=[['bell','Alarm','alarm'],['calc','Calculator','calc'],['timer','Focus Timer','focus'],['hist','Riwayat notifikasi','notifh'],['gear','Settings','settings']];
+ return `${head('More','Fitur lainnya.')}${L.map(l=>`<button class="card row" style="width:100%;text-align:left" data-a="sub" data-p="${l[2]}">${ic(l[0],26)}<b>${l[1]}</b>${ic('r',18)}</button>`).join('')}`}
+function alarm(){const L=[...D.alarms].sort((a,b)=>a.time.localeCompare(b.time)),P=nProb();
+ return `${head('Alarm','Jangan lewatkan yang penting.',1)}
+ ${P.length?`<div class="card"><b>Perlu perhatian</b>${P.map(x=>`<p class="mut" style="margin-top:6px">${x}</p>`).join('')}<button class="pill ghost" style="margin-top:10px;height:42px" data-a="perms">Periksa izin</button></div>`:''}
+ ${L.length?L.map((a,i)=>`<div class="al ${COLS[i%4]} ${a.on?'':'off'}"><button class="tm" style="color:#fff" data-a="edit" data-t="alarm" data-id="${a.id}">${a.time}<div style="font-size:13px;font-weight:400">${alDesc(a)}</div></button><button class="sw ${a.on?'on':''}" data-a="atog" data-id="${a.id}" role="switch" aria-checked="${a.on}" aria-label="Aktifkan alarm"></button></div>`).join(''):'<div class="card empty">Belum ada alarm.</div>'}
+ <button class="pill" data-a="qa" data-t="alarm">${ic('plus',18)} Tambah alarm</button>`}
+let cs={e:'',r:''};
+const cdisp=s=>s.replace(/\*/g,'×').replace(/\//g,'÷').replace(/-/g,'−');
+function calc(){const K=[['C','fn'],['±','fn'],['%','fn'],['/','op','÷'],'7','8','9',['*','op','×'],'4','5','6',['-','op','−'],'1','2','3',['+','op','+'],['0','z'],'.',['=','eq']];
+ return `${head('Calculator','Cepat dan andal.',1)}<div class="disp"><p class="mut" id="ce">${cdisp(cs.e)||'&nbsp;'}</p><b id="cr">${esc(cs.r)||'0'}</b></div><div class="calc">${K.map(k=>{k=[].concat(k);return `<button class="${k[1]||''}" data-a="ck" data-k="${k[0]}" aria-label="${k[2]||k[0]}">${k[2]||k[0]}</button>`}).join('')}<button data-a="ck" data-k="del" aria-label="Hapus digit" style="grid-column:span 4;aspect-ratio:auto;height:48px;border-radius:24px">⌫ Hapus</button></div>`}
+function calcEval(s){const t=s.match(/\d+\.?\d*|\.\d+|[-+*/()%]/g)||[];let i=0;const p=()=>t[i];
+ const ex=()=>{let v=tm();while(p()=='+'||p()=='-'){const o=t[i++],r=tm();v=o=='+'?v+r:v-r}return v};
+ const tm=()=>{let v=un();while(p()=='*'||p()=='/'){const o=t[i++],r=un();if(o=='/'&&r===0)throw Error('div0');v=o=='*'?v*r:v/r}return v};
+ const un=()=>{if(p()=='-'){i++;return -un()}if(p()=='+'){i++;return un()}return po()};
+ const po=()=>{let v=pr();while(p()=='%'){i++;v/=100}return v};
+ const pr=()=>{const x=t[i++];if(x=='('){const v=ex();if(t[i++]!=')')throw Error('x');return v}if(x===undefined||isNaN(+x))throw Error('x');return +x};
+ const v=ex();if(i<t.length)throw Error('x');return v}
+function ckey(k){if(k==='C'){cs={e:'',r:''}}else if(k==='del'){cs.e=cs.e.slice(0,-1)}else if(k==='±'){cs.e=cs.e.startsWith('-')?cs.e.slice(1):'-'+cs.e}
+ else if(k==='='){if(!cs.e)return;try{const v=calcEval(cs.e);cs.r=String(+v.toPrecision(12));cs.e=cs.r}catch(e){cs.r=e.message==='div0'?'Tidak bisa dibagi nol':'Ekspresi tidak valid';cs.e=''}}
+ else{if(cs.r&&!/^-?[\d.]+$/.test(cs.r)){cs.r=''}cs.e+=k;try{cs.r=String(+calcEval(cs.e).toPrecision(12))}catch{cs.r=''}}
+ $('#ce').innerHTML=cdisp(cs.e)||'&nbsp;';$('#cr').textContent=cs.r||'0'}
+// focus timer
+const ft={mode:'focus',p:[25,5],left:25*60,end:0,run:false,task:''};
+const ftTotal=()=>ft.p[ft.mode==='focus'?0:1]*60;
+function ftTick(){if(ft.run){ft.left=Math.max(0,Math.round((ft.end-Date.now())/1000));if(ft.left===0)ftDone(true)}ftPaint()}
+function ftDone(auto){if(ft.mode==='focus'&&auto){D.sessions.push({day:today(),min:ft.p[0],task:ft.task,ts:Date.now()});save()}
+ if(auto)notify(ft.mode==='focus'?'Sesi fokus selesai':'Istirahat selesai',ft.mode==='focus'?'Waktunya istirahat.':'Siap fokus lagi?');
+ ft.mode=ft.mode==='focus'?'break':'focus';ft.run=false;ft.left=ftTotal();if(!$('#fr'))return;render()}
+function ftPaint(){const e=$('#ft'),r=$('#fr');if(!e)return;e.textContent=pad(Math.floor(ft.left/60))+':'+pad(ft.left%60);r.style.strokeDashoffset=565.5*(1-ft.left/ftTotal())}
+function focus(){const td=today(),ss=D.sessions.filter(s=>s.day===td),mins=ss.reduce((a,s)=>a+s.min,0),open=D.tasks.filter(t=>!t.done);
+ return `${head('Focus Timer','Fokus hari ini, raih esok.',1)}<div class="seg">${[[25,5],[50,10],[0,0]].map(p=>`<button class="${(p[0]?ft.p[0]===p[0]:![25,50].includes(ft.p[0]))?'on':''}" data-a="pre" data-a1="${p[0]}" data-b="${p[1]}">${p[0]?p[0]+'/'+p[1]:'Custom'}</button>`).join('')}</div>
+ <svg class="ring" viewBox="0 0 200 200"><circle cx="100" cy="100" r="90" fill="none" stroke="var(--line)" stroke-width="10"/><circle id="fr" cx="100" cy="100" r="90" fill="none" stroke="var(--acc)" stroke-width="10" stroke-linecap="round" stroke-dasharray="565.5" stroke-dashoffset="0" transform="rotate(-90 100 100)"/><text x="100" y="82" text-anchor="middle" fill="var(--mut)" font-size="14">${ft.mode==='focus'?'Focus':'Istirahat'}</text><text id="ft" x="100" y="120" text-anchor="middle" fill="var(--ink)" font-size="40" font-weight="600">25:00</text></svg>
+ <div class="row" style="margin-bottom:12px"><button class="pill" data-a="fgo">${ft.run?'Jeda':ft.left<ftTotal()?'Lanjutkan':'Mulai'}</button><button class="pill ghost" data-a="frs">Reset</button><button class="pill ghost" data-a="fsk">Lewati</button></div>
+ <label>Hubungkan dengan tugas${pickSel('ftask_v',[['','Tanpa tugas'],...open.map(t=>[t.title,t.title])],ft.task,'data-in="ftask"')}</label>
+ <div class="card"><b>Hari ini</b><p class="mut">${ss.length} sesi · ${mins} menit fokus</p></div>`}
+// ---------- riwayat notifikasi (disimpan native, dibaca lewat jembatan) ----------
+const NH={q:'',pkg:'',days:0,items:[],apps:[],icons:{},more:false,total:0,open:null,cfg:null,loading:false,sq:0,si:0,sig:'',tk:0,rl:0,t:0,tc:0,busy:false,io:null};
+const DAYF=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+const nhHue=s=>{let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))%360;return h};
+function nhAgo(ts){const s=Math.max(0,Math.floor((Date.now()-ts)/1000));if(s<10)return'Baru saja';if(s<60)return s+' detik lalu';const m=Math.floor(s/60);if(m<60)return m+' menit lalu';const h=Math.floor(m/60);if(h<24)return h+' jam lalu';const d=Math.floor(h/24);if(d<7)return d+' hari lalu';if(d<30)return Math.floor(d/7)+' minggu lalu';if(d<365)return Math.floor(d/30)+' bulan lalu';return Math.floor(d/365)+' tahun lalu'}
+const nhFull=ts=>{const d=new Date(ts);return DAYF[d.getDay()]+', '+d.getDate()+' '+MON[d.getMonth()]+' '+d.getFullYear()+' · '+pad(d.getHours())+'.'+pad(d.getMinutes())+'.'+pad(d.getSeconds())};
+const nhShort=ts=>{const d=new Date(ts);return DAY[d.getDay()]+', '+d.getDate()+' '+MON[d.getMonth()].slice(0,3)+' '+d.getFullYear()+' · '+pad(d.getHours())+'.'+pad(d.getMinutes())};
+const nhDK=ts=>{const d=new Date(ts);return d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate()};
+function nhGroup(ts){const t=new Date(),k=nhDK(ts);if(k===nhDK(t.getTime()))return'Hari ini';if(k===nhDK(new Date(t.getFullYear(),t.getMonth(),t.getDate()-1).getTime()))return'Kemarin';const d=new Date(ts);return DAYF[d.getDay()]+', '+d.getDate()+' '+MON[d.getMonth()]+' '+d.getFullYear()}
+function nhAv(pkg,app){const ic=NH.icons[pkg];return `<div class="nhav" style="${ic?'background:var(--bg)':`background:hsl(${nhHue(pkg)} 45% 48%)`}">${ic?`<img src="${ic}" alt="">`:esc((app||'?').trim().slice(0,1).toUpperCase())}</div>`}
+function nhSince(){if(NH.days===1){const t=new Date();return new Date(t.getFullYear(),t.getMonth(),t.getDate()).getTime()}return NH.days?Date.now()-NH.days*86400000:0}
+const NHV='v3',nhCount=()=>(NH.loading&&!NH.items.length?'Memuat...':NH.total+((NH.q||NH.pkg||NH.days)?' hasil':' notifikasi tersimpan'))+' · '+NHV;
+function nhItem(x){const o=NH.open===x.id;
+ return `<div class="card nhc ${o?'nhx':''}" id="nh${x.id}" style="padding:14px;margin-bottom:8px"><div class="nhi" role="button" tabindex="0" data-a="nhopen" data-hid="${x.id}" aria-expanded="${o}">${nhAv(x.pkg,x.app)}<div class="nhb"><div class="nhl"><b>${esc(x.app)}</b><span class="mut" data-ts="${x.ts}">${nhAgo(x.ts)}</span></div>${x.title&&x.title!==x.app?`<div style="font-weight:500;word-break:break-word">${esc(x.title)}</div>`:''}<div class="mut nhtx">${esc(x.text)||'&nbsp;'}</div><div class="mut nhd">${o?nhFull(x.ts):nhShort(x.ts)}</div></div></div>
+ ${o?`<div class="row" style="margin-top:12px;gap:8px"><button class="pill ghost" style="height:40px" data-a="nhapp" data-pkg="${esc(x.pkg)}">Buka</button><button class="pill ghost" style="height:40px" data-a="nhcopy" data-hid="${x.id}">Salin</button><button class="pill ghost" style="height:40px;color:#d9534f" data-a="nhdel" data-hid="${x.id}">Hapus</button></div>`:''}</div>`}
+function nhList(){if(!NH.items.length)return `<div class="card empty">${NH.loading?'Memuat...':(NH.q||NH.pkg||NH.days?'Tidak ada notifikasi yang cocok.':'Belum ada riwayat. Notifikasi yang masuk setelah izin akses notifikasi aktif akan tersimpan di sini.')}</div>`;
+ let g='',h='';for(const x of NH.items){const k=nhGroup(x.ts);if(k!==g){g=k;h+=`<div class="nhg">${esc(k)}</div>`}h+=nhItem(x)}
+ return h+(NH.more?'<div id="nhsent" style="height:1px"></div><button class="pill ghost" data-a="nhmore">Muat lebih banyak</button>':'')}
+function nhChips(){const P=[[0,'Semua'],[1,'Hari ini'],[7,'7 hari'],[30,'30 hari']];
+ return `<div class="chips">${P.map(p=>`<button class="${NH.days===p[0]?'on':''}" data-a="nhp" data-v="${p[0]}">${p[1]}</button>`).join('')}</div>
+ <div class="chips"><button class="${NH.pkg?'':'on'}" data-a="nha" data-pkg="">Semua aplikasi</button>${NH.apps.map(a=>`<button class="${NH.pkg===a.pkg?'on':''}" data-a="nha" data-pkg="${esc(a.pkg)}">${NH.icons[a.pkg]?`<img src="${NH.icons[a.pkg]}" alt="">`:''}${esc(a.app)} <span style="opacity:.7">${a.count}</span></button>`).join('')}</div>`}
+function nhSet(){const c=NH.cfg;if(!c)return'<p class="mut">Memuat...</p>';const R=[[30,'30 hari'],[90,'90 hari'],[365,'1 tahun'],[0,'Selamanya']];
+ return `<b>Pengaturan riwayat</b><button class="set" data-a="nhtog"><span>Simpan riwayat notifikasi</span><i class="sw ${c.enabled?'on':''}"></i></button>
+ <div style="padding:10px 0"><span>Simpan selama</span><div class="seg nhs" style="margin-top:8px">${R.map(r=>`<button class="${c.days===r[0]?'on':''}" data-a="nhret" data-v="${r[0]}">${r[1]}</button>`).join('')}</div></div>
+ <button class="pill ghost" style="height:42px;color:#d9534f" data-a="nhclr">Hapus semua riwayat</button>
+ <p class="mut" style="margin-top:10px">Riwayat hanya disimpan di perangkat ini dan tidak dikirim ke server. Maksimal 5000 notifikasi terbaru; yang lebih lama dari batas waktu di atas dihapus otomatis.</p>`}
+function notifh(){
+ if(!NATIVE)return `${head('Riwayat notifikasi','Semua notifikasi yang masuk.',1)}<div class="card empty">Riwayat notifikasi hanya tersedia di aplikasi Android TimeFlow, karena hanya aplikasi terpasang yang boleh membaca notifikasi.</div>`;
+ return `${head('Riwayat notifikasi','<span id="nhcnt">'+nhCount()+'</span>',1)}<div id="nhwarn"></div>
+ <input class="fld" data-in="nhq" value="${esc(NH.q)}" placeholder="Cari nama aplikasi, judul, atau isi" aria-label="Cari riwayat notifikasi" style="margin-bottom:12px">
+ <div id="nhch">${nhChips()}</div><div id="nhscr" class="nhscr"><div id="nhlist">${nhList()}</div><div class="card" id="nhset" style="margin-top:16px">${nhSet()}</div></div>`}
+function nhPaint(){const l=$('#nhlist');if(l)l.innerHTML=nhList();const c=$('#nhcnt');if(c)c.textContent=nhCount();nhWatch()}
+function nhWatch(){const e=$('#nhscr');if(!e||e._nh)return;e._nh=1;
+ e.addEventListener('scroll',()=>{if(NH.more&&!NH.busy&&!NH.loading&&e.scrollTop+e.clientHeight>=e.scrollHeight-900)nhLoad(false)},{passive:true})}
+function nhOne(id){const x=NH.items.find(i=>i.id===id),e=document.getElementById('nh'+id);if(x&&e)e.outerHTML=nhItem(x)}
+function nhFit(){const e=$('#nhscr');if(!e)return;const m=document.querySelector('main'),nv=document.querySelector('nav');if(m)m.style.paddingBottom='0';
+ const t=e.getBoundingClientRect().top;e.style.height=Math.max(180,Math.floor(innerHeight-t-(nv?nv.offsetHeight:80)-4))+'px'}
+addEventListener('resize',()=>{if((sub||page)==='notifh')nhFit()});
+function nhPaintCh(){const e=$('#nhch');if(e)e.innerHTML=nhChips();nhFit()}
+async function nhLoad(reset,silent){if(!NATIVE)return;if(!reset&&NH.busy)return;const my=++NH.sq,before=reset?0:(NH.items.length?NH.items[NH.items.length-1].id:0);if(!reset)NH.busy=true;
+ if(!silent&&reset){NH.loading=true;if(!NH.items.length)nhPaint()}
+ try{const r=await nat('history.list',{q:NH.q,pkg:NH.pkg,since:nhSince(),before,limit:30});if(!reset)NH.busy=false;if(my!==NH.sq)return;NH.loading=false;
+  const sig=r.items.map(x=>x.id).join(',')+'|'+r.total;if(silent&&sig===NH.sig){nhTick(true);return}
+  if(reset)NH.sig=sig;NH.items=reset?r.items:NH.items.concat(r.items);NH.more=r.more;NH.total=r.total;nhPaint()}catch(e){NH.loading=false;NH.busy=false;nerr(e)}}
+async function nhInit(){if(!NATIVE)return;const my=++NH.si;
+ try{const[cfg,apps]=await Promise.all([nat('history.get'),nat('history.apps')]);if(my!==NH.si)return;NH.cfg=cfg;NH.apps=apps;for(const a of apps)if(a.icon)NH.icons[a.pkg]=a.icon;
+  const w=$('#nhwarn');if(w)w.innerHTML=cfg.access?'':'<div class="card"><b>Akses notifikasi belum aktif</b><p class="mut" style="margin:6px 0 10px">Tanpa izin ini, notifikasi baru tidak bisa direkam.</p><button class="pill" style="height:42px" data-a="nchperm" data-w="access">Izinkan akses notifikasi</button></div>';
+  const st=$('#nhset');if(st)st.innerHTML=nhSet();nhPaintCh()}catch(e){nerr(e)}
+ nhLoad(true)}
+function nhTick(force){if(!NATIVE||(sub||page)!=='notifh')return;const n=Date.now();
+ if(!force&&n-NH.tk<5000)return;NH.tk=n;document.querySelectorAll('[data-ts]').forEach(e=>{e.textContent=nhAgo(+e.dataset.ts)});
+ if(!force&&!document.hidden&&NH.items.length<=30&&($('#nhscr')?$('#nhscr').scrollTop:0)<300&&n-NH.tc>4000&&!NH.loading&&n-NH.rl>=10000){NH.rl=n;nhLoad(true,true)}}
+document.addEventListener('touchstart',()=>{NH.tc=Date.now()},{passive:true});
+let ftSig='';
+function ftSync(){if(!NATIVE||!D)return;const sg=ft.run?'r'+ft.end:'p'+ft.left+'|'+ft.mode+'|'+ftTotal();if(sg===ftSig)return;ftSig=sg;nat('focus.sync',{running:ft.run,end:ft.run?ft.end:0,left:ft.left,total:ftTotal()}).catch(()=>{})}
+function settings(){const ACC=ACCS,ph='button';
+ return `${head('Settings','Atur sesuai gayamu.',1)}<div class="card"><${ph} class="row" style="width:100%;text-align:left" data-a="photo" aria-label="Ubah foto profil"><div class="ico" style="width:52px;height:52px;border-radius:26px;background:var(--acc);color:#fff;overflow:hidden">${avatar(52)}</div><div><b>${esc(U)}</b><p class="mut">Ketuk untuk ubah foto profil</p></div>${ic('r',16)}</${ph}></div>
+ <div class="card"><button class="set" data-a="theme"><span>Tema gelap</span><i class="sw ${D.theme==='dark'?'on':''}"></i></button>
+ <div class="set"><span>Warna aksen</span><div class="row" style="flex:none">${ACC.map(c=>`<button class="dot ${D.accent===c?'on':''}" style="background:${c}" data-a="acc" data-c="${c}" aria-label="Aksen ${c}"></button>`).join('')}</div></div>
+ ${NATIVE?`<button class="set" data-a="perms"><span>Izin &amp; notifikasi Android</span>${nProb().length?'<span class="badge p1" style="flex:none">Perlu perhatian</span>':''}${ic('r',16)}</button><button class="set" data-a="snd"><span>Suara &amp; volume alarm</span>${ic('r',16)}</button><button class="set" data-a="notch"><span>Dynamic Notch<br><small class="mut">Notifikasi &amp; musik di atas layar, seperti iPhone</small></span>${ic('r',16)}</button><button class="set" data-a="cc"><span>Control Center<br><small class="mut">Panel kontrol cepat gaya iPhone, geser dari kanan atas</small></span>${ic('r',16)}</button><button class="set" data-a="lock"><span>Layar Kunci<br><small class="mut">Wallpaper sendiri, jam besar, kartu musik, geser ke atas untuk membuka</small></span>${ic('r',16)}</button>`:`<button class="set" data-a="wperm"><span>Izin &amp; notifikasi</span>${ic('r',16)}</button><button class="set" data-a="snd"><span>Suara &amp; upload audio alarm</span>${ic('r',16)}</button><button class="set" data-a="keep"><span>Tetap aktif di latar belakang<br><small class="mut">Memutar audio senyap agar alarm tidak dihentikan sistem</small></span><i class="sw ${D.keep===false?'':'on'}"></i></button>`}
+ <button class="set" data-a="wxopen"><span>Cuaca &amp; widget<br><small class="mut">Lokasi cuaca dan widget layar utama</small></span>${ic('r',16)}</button>
+ <button class="set" data-a="export"><span>Ekspor backup (JSON)</span>${ic('r',16)}</button>
+ ${NATIVE?'<button class="set" data-a="bimport"><span>Pulihkan dari backup</span></button>':'<label class="set" style="margin:0;color:inherit;font-size:16px"><span>Pulihkan dari backup</span><input type="file" accept=".json" data-in="import" style="display:none"></label>'}
+ <button class="set" data-a="out"><span style="color:#d9534f">Keluar</span></button></div>
+ <div class="card"><b>Privasi &amp; tentang</b><p class="mut" style="margin-top:6px">${NATIVE?`TimeFlow v${esc(NI.ver||'1.1')}. Data disimpan di perangkat ini dan tidak dikirim ke server. Satu-satunya koneksi internet adalah fitur cuaca: hanya koordinat perkiraan atau nama kota yang dikirim ke Open-Meteo. Alarm dijadwalkan oleh sistem Android dan tetap berjalan tanpa internet. Foto profil dan nada alarm kustom disimpan di penyimpanan aplikasi dan tidak ikut backup JSON. Mencopot aplikasi menghapus semua data, jadi buat backup secara berkala.`:'TimeFlow v1.2. Semua data disimpan di perangkat ini (penyimpanan lokal), tidak dikirim ke server, kecuali koordinat atau nama kota untuk cuaca (Open-Meteo). Foto profil dan audio alarm disimpan terpisah dan tidak ikut backup JSON. Menghapus data aplikasi akan menghapus data TimeFlow, jadi buat backup secara berkala.'} Cuaca, habit tracker, jam dunia, dan stopwatch belum tersedia di versi ini.</p></div>`}
+// ---------- komponen kustom: select, tanggal, jam, dialog ----------
+const WDS=['Sen','Sel','Rab','Kam','Jum','Sab','Min'],REP=[['none','Tidak berulang'],['daily','Setiap hari'],['weekly','Setiap minggu']];
+const pickSel=(id,opts,val,extra='')=>{const o=opts.find(x=>String(x[0])===String(val))||opts[0];return `<input type="hidden" id="${id}" value="${esc(o[0])}" ${extra}><button type="button" class="pk" data-a="csel" data-f="${id}" data-o='${esc(JSON.stringify(opts))}' aria-haspopup="listbox"><span>${esc(o[1])}</span>${ic('chev',16)}</button>`};
+const sel=(id,arr,v)=>pickSel(id,arr.map((x,i)=>[i,x]),v);
+const dp=(id,val,clr)=>`<input type="hidden" id="${id}" value="${val||''}"><button type="button" class="pk" data-a="dopen" data-f="${id}" data-clr="${clr?1:''}"><span>${val?fmtD(val):'Pilih tanggal'}</span>${ic('cal',16)}</button>`;
+const tp=(id,val)=>`<input type="hidden" id="${id}" value="${val}"><button type="button" class="pk" data-a="topen" data-f="${id}"><span>${val}</span>${ic('timer',16)}</button>`;
+const openMenu=h=>{$('#menu').innerHTML=`<div class="ov" style="z-index:40" data-a="mclose"></div><div class="mnw"><div class="mn" id="mnb" role="dialog">${h}</div></div>`};
+const mclose=()=>{$('#menu').innerHTML=''};
+const setBtn=(h,t)=>{const b=h.nextElementSibling;if(b&&b.firstElementChild)b.firstElementChild.textContent=t};
+let askCb=null,dpv={f:'',clr:false,m:new Date()},tpv={f:'',h:0,m:0};
+function ask(t,m,ok,cb){askCb=cb;openMenu(`<div style="padding:10px"><h2>${t}</h2><p class="mut" style="margin-bottom:16px">${m}</p><div class="row"><button class="pill ghost" data-a="mclose">Batal</button><button class="pill" data-a="askok">${ok}</button></div></div>`)}
+function dpHtml(){const y=dpv.m.getFullYear(),m=dpv.m.getMonth(),first=(new Date(y,m,1).getDay()+6)%7,n=new Date(y,m+1,0).getDate(),cur=$('#'+dpv.f).value,td=today();let c='<div></div>'.repeat(first);
+ for(let d=1;d<=n;d++){const k=y+'-'+pad(m+1)+'-'+pad(d);c+=`<button class="d ${k===td?'today':''} ${k===cur?'sel':''}" data-a="dpick" data-d="${k}" aria-label="${fmtD(k)}">${d}</button>`}
+ return `<div class="top" style="padding:6px 4px 0"><button class="ico" data-a="dnav" data-n="-1" aria-label="Bulan sebelumnya">${ic('back')}</button><h3>${MON[m]} ${y}</h3><button class="ico" style="transform:scaleX(-1)" data-a="dnav" data-n="1" aria-label="Bulan berikutnya">${ic('back')}</button></div><div class="grid7">${WDS.map(x=>`<div class="h">${x}</div>`).join('')}${c}</div><div class="row" style="margin-top:10px"><button class="pill ghost" style="height:42px" data-a="dpick" data-d="${td}">Hari ini</button>${dpv.clr?'<button class="pill ghost" style="height:42px" data-a="dpick" data-d="">Hapus</button>':''}</div>`}
+const tpHtml=()=>`<h3 style="margin:6px 8px 10px">Pilih waktu</h3><div class="tcw"><div class="tc" id="tch" aria-label="Jam">${Array.from({length:24},(_,i)=>`<button class="${i===tpv.h?'on':''}" data-a="tpick" data-k="h" data-v="${i}">${pad(i)}</button>`).join('')}</div><div class="tc" id="tcm" aria-label="Menit">${Array.from({length:60},(_,i)=>`<button class="${i===tpv.m?'on':''}" data-a="tpick" data-k="m" data-v="${i}">${pad(i)}</button>`).join('')}</div></div><button class="pill" style="margin-top:12px" data-a="tok">Selesai</button>`;
+const A_EXTRA={
+ mclose,askok:()=>{const f=askCb;mclose();f&&f()},
+ csel:d=>{const o=JSON.parse(d.o),cur=$('#'+d.f).value;openMenu(o.map(x=>`<button class="mi ${String(x[0])===cur?'on':''}" role="option" data-a="cpick" data-f="${d.f}" data-v="${esc(x[0])}" data-l="${esc(x[1])}">${esc(x[1])}${String(x[0])===cur?ic('check',18):''}</button>`).join(''))},
+ cpick:d=>{const h=$('#'+d.f);h.value=d.v;setBtn(h,d.l);mclose();h.dispatchEvent&&h.dispatchEvent(new Event('input',{bubbles:true}))},
+ dopen:d=>{const v=$('#'+d.f).value,b=v?pd(v):new Date();dpv={f:d.f,clr:!!d.clr,m:new Date(b.getFullYear(),b.getMonth(),1)};openMenu(dpHtml())},
+ dnav:d=>{dpv.m=new Date(dpv.m.getFullYear(),dpv.m.getMonth()+ +d.n,1);$('#mnb').innerHTML=dpHtml()},
+ dpick:d=>{const h=$('#'+dpv.f);h.value=d.d;setBtn(h,d.d?fmtD(d.d):'Pilih tanggal');mclose()},
+ topen:d=>{const v=$('#'+d.f).value||'09:00';tpv={f:d.f,h:+v.slice(0,2),m:+v.slice(3)};openMenu(tpHtml());$('#tch').scrollTop=tpv.h*44;$('#tcm').scrollTop=tpv.m*44},
+ tpick:d=>{tpv[d.k]=+d.v;document.querySelectorAll('#mnb [data-k="'+d.k+'"]').forEach(b=>b.classList.toggle('on',b.dataset.v===d.v))},
+ tok:()=>{const h=$('#'+tpv.f),t=pad(tpv.h)+':'+pad(tpv.m);h.value=t;setBtn(h,t);mclose()},
+ dtog:(d,el)=>{el.classList.toggle('on');el.setAttribute('aria-pressed',el.classList.contains('on'))},
+ precust:()=>{const a=+$('#cf').value,b=+$('#cb').value;if(!(a>=1&&a<=180&&b>=1&&b<=60))return $('#cerr').textContent='Isi 1-180 menit untuk fokus dan 1-60 untuk istirahat.';ft.p=[a,b];ft.mode='focus';ft.run=false;ft.left=a*60;mclose();render()}};
+// ---------- forms ----------
+function sheet(type,it={}){qaT=type;const ed=!!it.id;let f='';
+ if(type==='event')f=`<label>Judul<input id="f_title" value="${esc(it.title)}" placeholder="mis. Meeting tim"></label><label>Tanggal${dp('f_date',it.date||calSel)}</label><div class="row"><label>Mulai${tp('f_start',it.start||'09:00')}</label><label>Selesai${tp('f_end',it.end||'10:00')}</label></div><label>Lokasi<input id="f_loc" value="${esc(it.loc)}"></label><div class="row"><label>Warna${sel('f_color',COLN,it.color||0)}</label><label>Ulangi${pickSel('f_rep',REP,it.rep||'none')}</label></div>`;
+ if(type==='task')f=`<label>Judul<input id="f_title" value="${esc(it.title)}" placeholder="mis. Selesaikan laporan"></label><div class="row"><label>Prioritas${sel('f_pri',PRI,it.pri??1)}</label><label>Deadline${dp('f_date',it.date||'',1)}</label></div>`;
+ if(type==='note')f=`<label>Judul<input id="f_title"></label><label>Isi<textarea id="f_body" style="min-height:90px"></textarea></label><label>Kategori${pickSel('f_cat',CATS.map(c=>[c,c]),'Personal')}</label>`;
+ if(type==='alarm'){const sd=it.sound||SND_DEF,ev=it.every||0;f=`<label>Waktu${tp('f_time',it.time||'06:00')}</label><label>Label<input id="f_label" value="${esc(it.label)}" maxlength="60"></label><p class="mut">Ulangi (kosong = sekali)</p><div class="chips">${DAY.map((d,i)=>`<button type="button" class="dy ${(it.days||[]).includes(i)?'on':''}" data-a="dtog" data-v="${i}" aria-pressed="${(it.days||[]).includes(i)}">${d}</button>`).join('')}</div>`+`<label>Ulangi berkala${pickSel('f_every',EVERY,ev,'data-in="every"')}</label><div id="f_untilw" style="${ev?'':'display:none'}"><label>Sampai pukul${tp('f_until',it.until||'23:59')}</label></div><label>Suara alarm${pickSel('f_sound',nSoundOpts(sd),sd)}</label><button type="button" class="pill ghost" style="height:40px;margin-bottom:12px" data-a="sprev">Dengarkan</button><div class="set" style="padding:8px 0"><span>Getar${NI.hasVib?'':' (tidak didukung perangkat)'}</span><button type="button" id="f_vibt" class="sw ${it.vibrate===false?'':'on'}" data-a="vtog" role="switch" aria-checked="${it.vibrate!==false}" aria-label="Getar"${NI.hasVib?'':' disabled'}></button></div><label>Pola getar${pickSel('f_vib',VIBP,it.vib||0)}</label><label>Durasi tunda${pickSel('f_snooze',SNZ,it.snooze||10)}</label>`}
+ $('#sheet').innerHTML=`<div class="ov" data-a="close"></div><div class="sh" role="dialog" aria-modal="true"><div class="top"><h2 style="margin:0">${ed?'Ubah':'Tambah cepat'}</h2><button class="ico" data-a="close" aria-label="Tutup">${ic('x')}</button></div>
+ ${ed?'':`<div class="seg">${['event','task','note','alarm'].map(t=>`<button class="${t===type?'on':''}" data-a="qa" data-t="${t}">${{event:'Event',task:'Task',note:'Note',alarm:'Alarm'}[t]}</button>`).join('')}</div>`}${f}<div class="err" id="err" role="alert"></div>
+ <div class="row">${ed?`<button class="pill ghost" data-a="del" data-t="${type}" data-id="${it.id}">Hapus</button>`:`<button class="pill ghost" data-a="close">Batal</button>`}<button class="pill" data-a="save" data-t="${type}" data-id="${it.id||''}">Simpan</button></div></div>`;
+ const t=$('#f_title')||$('#f_time');if(t&&!ed&&type!=='alarm')t.focus()}
+const close=()=>{$('#sheet').innerHTML='';CR=null;NI.view=null;stopPrev()};
+const v=id=>$('#'+id).value.trim();
+async function saveNativeAlarm(id){const bad=m=>($('#err').textContent=m,false);
+ const time=v('f_time'),every=+v('f_every'),until=v('f_until');if(!time)return bad('Pilih waktu alarm.');
+ if(every>0&&until<=time)return bad('Waktu "Sampai" harus setelah waktu mulai.');
+ const old=D.alarms.find(x=>x.id===id)||{},a=nAl({id:id||uid(),time,label:v('f_label'),days:[...document.querySelectorAll('.dy.on')].map(x=>+x.dataset.v),on:id?old.on!==false:true,sound:v('f_sound'),vibrate:$('#f_vibt').classList.contains('on'),vib:+v('f_vib'),snooze:+v('f_snooze'),every,until});
+ try{D.alarms=await nat('alarm.upsert',{owner:U,alarm:a});save();close();toast('Tersimpan');render();nEnsurePerms()}catch(e){bad(e.message)}}
+function saveItem(type,id){if(type==='alarm'&&NATIVE){saveNativeAlarm(id);return}const bad=m=>($('#err').textContent=m,false);let o,L;
+ if(type==='event'){if(!v('f_title'))return bad('Judul acara tidak boleh kosong.');if(!v('f_date'))return bad('Pilih tanggal.');if(v('f_start')===v('f_end'))return bad('Waktu mulai dan selesai tidak boleh sama.');
+  o={title:v('f_title'),date:v('f_date'),start:v('f_start'),end:v('f_end'),loc:v('f_loc'),color:+v('f_color'),rep:v('f_rep')};L=D.events;calSel=o.date;const d=pd(o.date);calM=new Date(d.getFullYear(),d.getMonth(),1)}
+ if(type==='task'){if(!v('f_title'))return bad('Judul tugas tidak boleh kosong.');o={title:v('f_title'),pri:+v('f_pri'),date:v('f_date')};L=D.tasks}
+ if(type==='note'){if(!v('f_title')&&!v('f_body'))return bad('Isi judul atau catatan.');o={title:v('f_title'),body:$('#f_body').value,cat:v('f_cat'),pin:false,ts:Date.now()};L=D.notes}
+ if(type==='alarm'){if(!v('f_time'))return bad('Pilih waktu alarm.');const ev=+v('f_every')||0;if(ev>0&&v('f_until')<=v('f_time'))return bad('Waktu "Sampai" harus setelah waktu mulai.');o={time:v('f_time'),label:v('f_label'),days:[...document.querySelectorAll('.dy.on')].map(x=>+x.dataset.v),sound:v('f_sound'),vibrate:$('#f_vibt').classList.contains('on'),vib:+v('f_vib'),snooze:+v('f_snooze'),every:ev,until:v('f_until')||'23:59',lk:nowKey(),snoozeAt:0};L=D.alarms}
+ const i=L.findIndex(x=>x.id===id);if(i>=0)L[i]=Object.assign(L[i],o);else L.push(Object.assign({id:uid(),done:false,on:true},o));
+ save();close();toast('Tersimpan');render();if(type==='alarm')webEnsure();return true}
+// notes editor
+let cn=null,nt;
+function openNote(id){cn=D.notes.find(n=>n.id===id);$('#sheet').innerHTML=`<div class="ov" data-a="nclose"></div><div class="sh" role="dialog" aria-modal="true"><div class="top"><button class="ico" data-a="nclose" aria-label="Tutup">${ic('back')}</button><span class="mut" id="ns">Tersimpan</span><div class="row" style="flex:none"><button class="ico" data-a="npin" aria-label="Sematkan">${ic('pin')}</button><button class="ico" data-a="ndel" aria-label="Hapus">${ic('trash')}</button></div></div>
+ <input class="fld" id="nt" data-in="ntitle" value="${esc(cn.title)}" placeholder="Judul" style="margin-bottom:10px"><textarea id="nb" class="fld" data-in="nbody" placeholder="Tulis sesuatu…" style="height:auto;border-radius:18px;padding:14px">${esc(cn.body)}</textarea><label style="margin-top:10px">Kategori${pickSel('ncat_v',CATS.map(c=>[c,c]),cn.cat,'data-in="ncatsel"')}</label></div>`}
+function nsave(){$('#ns').textContent='Menyimpan…';clearTimeout(nt);nt=setTimeout(()=>{cn.ts=Date.now();save();const e=$('#ns');if(e)e.textContent='Tersimpan'},400)}
+// ---------- shell ----------
+function apply(){document.documentElement.dataset.theme=D.theme;document.documentElement.style.setProperty('--acc',D.accent);nUi()}
+const ORD=['home','cal','tasks','notes','more','alarm','calc','focus','notifh','settings'];let lastCur=null;
+function render(){if(D)delete document.documentElement.dataset.auth;else document.documentElement.dataset.auth='1';if(!D){auth();return}apply();const V={home,cal,tasks,notes,more,alarm,calc,focus,notifh,settings},cur=sub||page;
+ const pg=cur!==lastCur?'pg '+(lastCur===null||ORD.indexOf(cur)>=ORD.indexOf(lastCur)?'fromR':'fromL'):'';lastCur=cur;
+ const N=[['home','Home','home'],['cal','Calendar','cal'],['tasks','Tasks','check'],['notes','Notes','note'],['more','More','more']];
+ $('#app').innerHTML=`<div class="shell"><nav aria-label="Navigasi utama">${N.map(n=>`<button class="${(sub?'more':page)===n[0]?'on':''}" data-a="go" data-p="${n[0]}">${ic(n[2])}${n[1]}</button>`).join('')}</nav><main class="${pg}">${V[cur]()}</main>${['home','cal','tasks','notes'].includes(cur)?`<button class="fab${pg?' pop':''}" data-a="${cur==='notes'?'qa':'qa'}" data-t="${{home:'event',cal:'event',tasks:'task',notes:'note'}[cur]}" aria-label="Tambah cepat">${ic('plus',26)}</button>`:''}</div>`;
+ if(cur==='focus')ftPaint();if(cur==='notifh'){nhInit();requestAnimationFrame(nhFit)}dcPaint()}
+const A={stage:d=>{stage=d.s;render()},mode:()=>{mode=mode==='login'?'create':'login';render()},submit:submitUser,
+ enter:()=>{U=pending;localStorage.setItem(KEY+'session',U);D=ldUser(U);stage='in';page='home';sub=null;render();nBoot();webInit()},
+ go:d=>{page=d.p;sub=null;render()},sub:d=>{sub=d.p;render()},back:()=>{sub=null;render()},
+ sel:d=>{calSel=d.d;const x=pd(d.d);calM=new Date(x.getFullYear(),x.getMonth(),1);render()},mon:d=>{const n=+d.n;if(cv==='Month')calM=new Date(calM.getFullYear(),calM.getMonth()+n,1);else{calSel=addD(calSel,(cv==='Week'?7:1)*n);const x=pd(calSel);calM=new Date(x.getFullYear(),x.getMonth(),1)}render()},
+ cv:d=>{cv=d.v;render()},slot:d=>{const h=+d.h;sheet('event',{date:calSel,start:pad(h)+':00',end:h===23?'23:59':pad(h+1)+':00'})},
+ qa:d=>sheet(d.t),close,save:d=>{saveItem(d.t,d.id)},
+ edit:d=>{const L={event:D.events,task:D.tasks,alarm:D.alarms}[d.t];sheet(d.t,L.find(x=>x.id===d.id))},
+ del:d=>ask('Hapus item ini?','Tindakan ini tidak bisa dibatalkan.','Hapus',()=>{if(NATIVE&&d.t==='alarm'){nat('alarm.delete',{owner:U,ref:d.id}).then(l=>{D.alarms=l;save();close();toast('Dihapus');render()}).catch(nerr);return}const k={event:'events',task:'tasks',alarm:'alarms'}[d.t];D[k]=D[k].filter(x=>x.id!==d.id);save();close();toast('Dihapus');render()}),
+ tog:(d,el)=>{const t=D.tasks.find(x=>x.id===d.id);t.done=!t.done;save();if(el&&el.classList){el.classList.toggle('on');setTimeout(render,260)}else render()},tf:d=>{tf=d.v;render()},nc:d=>{ncat=d.v;render()},
+ note:d=>openNote(d.id),npin:()=>{cn.pin=!cn.pin;save();toast(cn.pin?'Disematkan':'Sematan dilepas')},
+ nclose:()=>{if(cn&&!cn.title.trim()&&!cn.body.trim())D.notes=D.notes.filter(n=>n!==cn);save();cn=null;close();render()},
+ ndel:()=>ask('Hapus catatan ini?','Catatan akan dihapus permanen.','Hapus',()=>{D.notes=D.notes.filter(n=>n!==cn);save();cn=null;close();render()}),
+ atog:(d,el)=>{const a=D.alarms.find(x=>x.id===d.id);if(NATIVE){nat('alarm.setEnabled',{owner:U,ref:d.id,enabled:!a.on}).then(l=>{D.alarms=l;save();if(el&&el.classList)el.classList.toggle('on');setTimeout(render,260);if(l.some(x=>x.id===d.id&&x.on))nEnsurePerms()}).catch(nerr);return}a.on=!a.on;if(a.on){a.lk=nowKey();a.snoozeAt=0;webEnsure()}save();if(el&&el.classList){el.classList.toggle('on');setTimeout(render,260)}else render()},
+  ck:d=>ckey(d.k),
+ pre:d=>{const a=+d.a1,b=+d.b;if(!a){openMenu(`<div style="padding:10px"><h2>Durasi kustom</h2><label>Fokus (menit, 1-180)<input id="cf" inputmode="numeric" value="30"></label><label>Istirahat (menit, 1-60)<input id="cb" inputmode="numeric" value="5"></label><div class="err" id="cerr" role="alert"></div><div class="row"><button class="pill ghost" data-a="mclose">Batal</button><button class="pill" data-a="precust">Simpan</button></div></div>`);return}ft.p=[a,b];ft.mode='focus';ft.run=false;ft.left=a*60;render()},
+ fgo:()=>{if(ft.run){ft.left=Math.max(0,Math.round((ft.end-Date.now())/1000));ft.run=false}else{ft.end=Date.now()+ft.left*1000;ft.run=true}render()},
+ frs:()=>{ft.run=false;ft.left=ftTotal();render()},fsk:()=>ftDone(false),
+ theme:(d,el)=>{D.theme=D.theme==='dark'?'light':'dark';save();apply();const w=el&&el.querySelector&&el.querySelector('.sw');if(w){w.classList.toggle('on');setTimeout(render,260)}else render()},acc:d=>{D.accent=d.c;save();render()},
+ export:()=>{const j=JSON.stringify({app:'timeflow',v:BV,user:U,exported:new Date().toISOString(),data:D}),nm='timeflow-'+U+'-'+today()+'.json';
+ if(NATIVE){nat('backup.save',{json:j,name:nm}).then(r=>toast(r.saved?'Backup disimpan':'Ekspor dibatalkan')).catch(nerr);return}
+ const b=new Blob([j],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=nm;a.click();toast('Backup diunduh')},
+ out:()=>{$('#sheet').innerHTML=`<div class="ov" data-a="close"></div><div class="sh" role="dialog"><h2>Keluar dari akun?</h2><p class="mut" style="margin-bottom:16px">Kamu akan diarahkan ke halaman masuk. Data tetap tersimpan di perangkat ini.</p><div class="row"><button class="pill ghost" data-a="close">Batal</button><button class="pill" data-a="logout">Keluar</button></div></div>`},
+ logout:()=>{localStorage.removeItem(KEY+'session');ftSig='';if(NATIVE)nat('focus.sync',{clear:true}).catch(()=>{});if(NATIVE)nat('widget.sync',{clear:true}).catch(()=>{});WX.d=null;WX.st=null;if(NATIVE){lastTheme=null;NI.view=null;nat('ui.theme',{dark:false}).catch(()=>{})}if(NI.photo&&NI.photo.startsWith('blob:'))URL.revokeObjectURL(NI.photo);NI.photo=null;U=null;D=null;lastCur=null;mode='login';stage='login';close();document.documentElement.removeAttribute('style');document.documentElement.dataset.theme='light';render()}};
+Object.assign(A,A_EXTRA);Object.assign(A,A_NAT);
+Object.assign(A,{nhp:d=>{NH.days=+d.v;nhPaintCh();nhLoad(true)},nha:d=>{NH.pkg=d.pkg||'';nhPaintCh();nhLoad(true)},
+ nhopen:d=>{const id=+d.hid,old=NH.open;NH.open=old===id?null:id;if(old!=null)nhOne(old);nhOne(id)},nhmore:()=>nhLoad(false),
+ nhapp:d=>{nat('history.openApp',{pkg:d.pkg}).catch(nerr)},
+ nhcopy:d=>{const x=NH.items.find(i=>i.id===+d.hid);if(!x)return;nat('history.copy',{text:x.app+'\n'+(x.title&&x.title!==x.app?x.title+'\n':'')+x.text+'\n'+nhFull(x.ts)}).then(()=>toast('Disalin')).catch(nerr)},
+ nhdel:d=>{const id=+d.hid;nat('history.delete',{hid:id}).then(()=>{NH.items=NH.items.filter(i=>i.id!==id);NH.total=Math.max(0,NH.total-1);if(NH.open===id)NH.open=null;NH.sig='';nhPaint();toast('Dihapus')}).catch(nerr)},
+ nhtog:()=>{nat('history.set',{cfg:{enabled:!NH.cfg.enabled}}).then(c=>{NH.cfg=c;$('#nhset').innerHTML=nhSet()}).catch(nerr)},
+ nhret:d=>{nat('history.set',{cfg:{days:+d.v}}).then(c=>{NH.cfg=c;$('#nhset').innerHTML=nhSet();nhLoad(true)}).catch(nerr)},
+ nhclr:()=>ask('Hapus semua riwayat?','Semua notifikasi yang tersimpan akan dihapus dan tidak bisa dikembalikan.','Hapus',()=>{nat('history.clear').then(()=>{NH.items=[];NH.total=0;NH.apps=[];NH.pkg='';NH.open=null;NH.sig='';NH.cfg&&(NH.cfg.count=0);nhPaint();nhPaintCh();toast('Riwayat dihapus')}).catch(nerr)})});
+
+// ---------- cuaca & widget layar utama ----------
+const WXN=(()=>{const m={},a=(c,t,d,n)=>c.forEach(k=>m[k]=[t,d,n]);
+a([0],'Cerah','☀️','🌙');a([1],'Cerah berawan','🌤️','☁️');a([2],'Berawan sebagian','⛅','☁️');a([3],'Mendung','☁️','☁️');a([45,48],'Berkabut','🌫️','🌫️');a([51,53,55],'Gerimis','🌦️','🌧️');a([56,57],'Gerimis dingin','🌧️','🌧️');
+a([61],'Hujan ringan','🌧️','🌧️');a([63],'Hujan sedang','🌧️','🌧️');a([65],'Hujan lebat','🌧️','🌧️');a([66,67],'Hujan dingin','🌧️','🌧️');a([71,73,75,77,85,86],'Salju','❄️','❄️');a([80,81],'Hujan lokal','🌦️','🌧️');a([82],'Hujan deras','⛈️','⛈️');a([95],'Badai petir','⛈️','⛈️');a([96,99],'Badai petir & es','⛈️','⛈️');return m})();
+const WX={d:null,st:null,busy:false,next:0,err:'',res:[],q:'',msg:''};
+const wxi=(c,day)=>{const x=WXN[c]||['Cuaca','🌡️','🌡️'];return{t:x[0],e:day?x[1]:x[2]}},dg=n=>Math.round(+n)+'°';
+function wxInner(){const d=WX.d,st=WX.st;
+ if(d&&d.cur){const c=d.cur,x=wxi(c.code,c.day===1),dy=d.day||{},hs=d.hours||[];
+  return `<button class="card wxc" data-a="wxopen" aria-label="Cuaca hari ini. Ketuk untuk mengatur lokasi dan widget"><div class="wxm"><div class="wxi" aria-hidden="true">${x.e}</div><div style="flex:1;min-width:0"><div class="wxt">${dg(c.t)}</div><div class="mut">${x.t} · terasa ${dg(c.feel)}</div></div><div class="mut" style="text-align:right;max-width:42%"><b style="color:var(--ink)">${esc(d.name||'Lokasi saya')}</b><br>↑${dg(dy.max)} ↓${dg(dy.min)}<br>Hujan ${dy.pop|0}%</div></div>`+
+   (hs.length>1?`<div class="wxh">${hs.map((h,i)=>{const hr=+String(h.h).slice(0,2),y=wxi(h.code,hr>=6&&hr<18);return `<div><span aria-hidden="true">${y.e}</span>${i?String(h.h).slice(0,2)+':00':'Kini'}<b>${dg(h.t)}</b></div>`}).join('')}</div>`:'')+
+   `<p class="mut" style="font-size:12px;margin-top:10px">Lembap ${c.hum|0}% · Angin ${Math.round(c.wind)} km/j · Terbit ${esc(dy.sunrise||'--:--')} · Terbenam ${esc(dy.sunset||'--:--')}${WX.err?' · '+esc(WX.err):''}</p></button>`}
+ if(WX.busy)return `<div class="card wxc"><span class="mut">Memuat cuaca…</span></div>`;
+ const need=!st||!st.hasLoc;
+ return `<button class="card wxc" data-a="wxopen"><div class="wxm"><div class="wxi" aria-hidden="true">🌤️</div><div style="flex:1;min-width:0"><b>Cuaca hari ini</b><p class="mut">${esc(WX.err||(need?'Atur lokasi untuk melihat cuaca dan memasang widget.':'Ketuk untuk mencoba lagi.'))}</p></div>${ic('r',16)}</div></button>`}
+const wxCard=()=>{setTimeout(wxEnsure,0);return `<div id="wxc">${wxInner()}</div>`};
+function wxPaint(){const e=$('#wxc');if(e)e.innerHTML=wxInner();if($('#wxdb'))$('#wxdb').innerHTML=wxDlgBody()}
+function wxEnsure(){if(!D||!U||WX.busy||Date.now()<WX.next)return;if(WX.st&&!WX.st.hasLoc)return;if(!WX.d||Date.now()-WX.d.ts>20*60e3||!WX.st)wxLoad()}
+async function wxLoad(){if(WX.busy)return;WX.busy=true;wxPaint();
+ try{if(NATIVE){if(!WX.st){const s=await nat('weather.get');WX.st=s.state;if(s.data){WX.d=s.data;wxPaint()}}
+   if(WX.st.hasLoc){const s=await nat('weather.refresh',{},45000);WX.st=s.state;WX.d=s.data}}
+  else await wxWeb();
+  WX.err='';WX.next=0}
+ catch(e){WX.err=e&&e.message?e.message:'Gagal memuat cuaca';WX.next=Date.now()+2*60e3}
+ WX.busy=false;wxPaint()}
+// versi browser/PWA (di aplikasi Android, semua lewat native)
+const wxLoc=()=>{try{return JSON.parse(localStorage.getItem(KEY+'wxloc'))}catch{return null}};
+function wxParse(j,name){const c=j.current,dl=j.daily,h=j.hourly,k=String(c.time).slice(0,13);let i=h.time.findIndex(t=>t.slice(0,13)>=k);if(i<0)i=0;
+ return{ts:Date.now(),name,cur:{t:c.temperature_2m,feel:c.apparent_temperature,hum:c.relative_humidity_2m,code:c.weather_code,wind:c.wind_speed_10m,day:c.is_day},
+  day:{max:dl.temperature_2m_max[0],min:dl.temperature_2m_min[0],pop:(dl.precipitation_probability_max||[0])[0]||0,sunrise:String(dl.sunrise[0]).slice(-5),sunset:String(dl.sunset[0]).slice(-5)},
+  hours:h.time.slice(i,i+8).map((t,n)=>({h:t.slice(-5),t:h.temperature_2m[i+n],code:h.weather_code[i+n],pop:(h.precipitation_probability||[])[i+n]||0}))}}
+async function wxWeb(){const l=wxLoc();WX.st={hasLoc:!!l,mode:l?l.mode:'',name:l?l.name:'',perm:true};if(!l)return;
+ const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${(+l.lat).toFixed(4)}&longitude=${(+l.lon).toFixed(4)}&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day&hourly=temperature_2m,weather_code,precipitation_probability&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=auto&forecast_days=2&wind_speed_unit=kmh`).catch(()=>{throw new Error('Tidak bisa terhubung ke internet')});
+ if(!r.ok)throw new Error('Layanan cuaca membalas error '+r.status);WX.d=wxParse(await r.json(),l.name)}
+async function wxSearch(q){q=q.trim();if(q.length<2)throw new Error('Ketik minimal 2 huruf nama kota');
+ if(NATIVE)return nat('weather.search',{q},20000);
+ const r=await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(q.slice(0,60))+'&count=6&language=id&format=json').catch(()=>{throw new Error('Tidak bisa terhubung ke internet')});
+ const j=await r.json();return(j.results||[]).map(x=>({name:x.name,admin:x.admin1||'',country:x.country||'',lat:x.latitude,lon:x.longitude}))}
+function wxDlgBody(){const st=WX.st||{},cur=st.hasLoc?`${esc(st.name||'Lokasi saya')} <span class="mut">(${st.mode==='gps'?'lokasi perangkat':'kota pilihan'})</span>`:'belum diatur';
+ return `<p class="mut" style="margin-bottom:10px">Lokasi cuaca: <b style="color:var(--ink)">${cur}</b></p>
+ <button class="pill" style="margin-bottom:10px" data-a="wxgps">Pakai lokasi saya</button>
+ <div class="row" style="margin-bottom:6px"><input id="wxq" class="fld" style="height:46px" value="${esc(WX.q)}" placeholder="Atau cari kota" aria-label="Cari kota" autocomplete="off"><button class="pill ghost" style="flex:none;width:84px;height:46px" data-a="wxfind">Cari</button></div>
+ <div class="err" role="alert">${esc(WX.msg)}</div>
+ ${WX.res.map((r,i)=>`<button class="set" data-a="wxpick" data-i="${i}"><span>${esc(r.name)}<br><small class="mut">${esc([r.admin,r.country].filter(Boolean).join(', '))}</small></span></button>`).join('')}
+ ${NATIVE?`<h3 style="margin:12px 0 4px">Widget layar utama</h3><p class="mut" style="margin-bottom:6px">Ketuk untuk memasang. Warna widget mengikuti tema dan warna aksen aplikasi.</p><div class="row" style="flex-wrap:wrap;margin-bottom:6px">${[['clock','Jam'],['calendar','Kalender'],['weather','Cuaca'],['agenda','Agenda'],['screentime','Waktu Layar']].map(w=>`<button class="pill ghost" style="flex:1 1 40%;height:42px" data-a="wpin" data-w="${w[0]}">${w[1]}</button>`).join('')}</div><button class="pill ghost" style="width:100%;height:42px;margin-bottom:6px" data-a="stopen">Waktu Layar: lihat rincian &amp; sembunyikan aplikasi dari widget</button>`:''}
+ <div class="row" style="margin-top:10px"><button class="pill ghost" data-a="wxnow">Perbarui</button><button class="pill ghost" data-a="mclose">Tutup</button></div>`}
+const wxDlg=()=>openMenu(`<div style="padding:10px"><h2 style="margin-bottom:8px">Cuaca &amp; widget</h2><div id="wxdb">${wxDlgBody()}</div></div>`);
+const wxSet=s=>{WX.st=s.state;WX.d=s.data||WX.d;WX.err='';WX.next=0;WX.res=[];WX.msg='';WX.q='';wxPaint()};
+// sinkron tema + agenda 7 hari ke widget Android (didebounce)
+var wT=0;
+function wPayload(){const days={};for(let i=0;i<7;i++){const d=addD(today(),i);days[d]=evOn(d).slice(0,8).map(e=>({s:e.start,t:String(e.title||'').slice(0,60)}))}
+ return{dark:D.theme==='dark',acc:Math.max(0,ACCS.indexOf(D.accent)),days,open:D.tasks.filter(t=>!t.done).length,alarms:D.alarms.filter(a=>a.on).length}}
+function wSyncSoon(){if(!NATIVE||!D||!U)return;clearTimeout(wT);wT=setTimeout(()=>{if(D)nat('widget.sync',{data:wPayload()}).catch(()=>{})},1200)}
+Object.assign(A,{
+ wxopen:()=>{WX.res=[];WX.msg='';WX.q='';wxDlg();if(NATIVE&&!WX.st)nat('weather.get').then(s=>{WX.st=s.state;if(s.data)WX.d=s.data;wxPaint()}).catch(()=>{})},
+ wxnow:()=>{if(!WX.st||!WX.st.hasLoc){WX.msg='Pilih lokasi dulu.';wxPaint();return}WX.next=0;wxLoad().then(()=>{if(!WX.err)toast('Cuaca diperbarui');else toast(WX.err,'err')})},
+ wxgps:async()=>{WX.msg='';
+  if(NATIVE){try{toast('Mencari lokasi…');wxSet(await nat('weather.useGps',{},90000));toast('Lokasi diperbarui')}catch(e){WX.msg=e&&e.message?e.message:'Gagal';wxPaint()}return}
+  try{const p=await new Promise((ok,no)=>navigator.geolocation?navigator.geolocation.getCurrentPosition(ok,no,{timeout:12000,maximumAge:36e5}):no(new Error('x')));
+   let name='Lokasi saya';try{const r=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${p.coords.latitude.toFixed(4)}&longitude=${p.coords.longitude.toFixed(4)}&localityLanguage=id`),j=await r.json();name=j.locality||j.city||j.principalSubdivision||name}catch{}
+   localStorage.setItem(KEY+'wxloc',JSON.stringify({mode:'gps',lat:p.coords.latitude,lon:p.coords.longitude,name}));WX.next=0;await wxLoad();toast('Lokasi diperbarui')}
+  catch{WX.msg='Lokasi tidak tersedia. Izinkan lokasi di browser, atau cari kota.';wxPaint()}},
+ wxfind:async()=>{const el=$('#wxq');WX.q=el?el.value:WX.q;WX.msg='';WX.res=[];
+  try{WX.res=await wxSearch(WX.q);if(!WX.res.length)WX.msg='Kota tidak ditemukan.'}catch(e){WX.msg=e&&e.message?e.message:'Gagal mencari'}wxPaint()},
+ wxpick:async d=>{const r=WX.res[+d.i];if(!r)return;WX.msg='';
+  try{if(NATIVE){toast('Mengambil cuaca…');wxSet(await nat('weather.setCity',{name:r.name,lat:r.lat,lon:r.lon},45000))}
+   else{localStorage.setItem(KEY+'wxloc',JSON.stringify({mode:'city',lat:r.lat,lon:r.lon,name:r.name}));WX.res=[];WX.q='';WX.next=0;await wxLoad()}
+   toast('Cuaca: '+r.name)}catch(e){WX.msg=e&&e.message?e.message:'Gagal';wxPaint()}},
+ stopen:()=>nat('screentime.open',{}).catch(nerr),
+ wpin:d=>nat('widget.pin',{what:d.w}).then(r=>toast(r.pinned?'Pilih posisi widget di layar utama':'Launcher tidak mendukung. Tahan lama layar utama, pilih Widget, lalu TimeFlow.')).catch(nerr)});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='wxq')A.wxfind()});
+document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(t&&A[t.dataset.a]){if(t.tagName==='A')e.preventDefault();A[t.dataset.a](t.dataset,t)}});
+document.addEventListener('input',e=>{const k=e.target.dataset.in;if(!k)return;const x=e.target;
+ if(k==='cc'&&CC.cfg){const kk=x.dataset.k;$('#ccv_'+kk).textContent=x.value+' %';ccSend({[kk]:+x.value})}
+ if(k==='nch'&&NCH.cfg){const kk=x.dataset.k;$('#nv_'+kk).textContent=x.value+' '+x.dataset.u;nchSend({[kk]:+x.value});nchPrev()}
+ if(k==='every'){const w=$('#f_untilw');if(w)w.style.display=+x.value?'':'none'}
+ if(k==='crz'&&CR){const o=CR.base*CR.z,cx=(CR.S/2-CR.x)/o,cy=(CR.S/2-CR.y)/o;CR.z=+x.value;const n=CR.base*CR.z;CR.x=CR.S/2-cx*n;CR.y=CR.S/2-cy*n;cropDraw()}
+ if(k==='avol'){NI.vol=+x.value;$('#avv').textContent=NI.vol+'%';clearTimeout(nvt);nvt=setTimeout(()=>{if(NATIVE)nat('settings.setVolume',{value:NI.vol}).catch(nerr);else{D.vol=NI.vol;save()}},250)}
+ if(k==='tq'){tq=x.value;$('#list').innerHTML=tlist()}
+ if(k==='nq'){nq=x.value;$('#list').innerHTML=nlist()}
+ if(k==='gs')gsearch(x.value);
+ if(k==='nhq'){NH.q=x.value;clearTimeout(NH.t);NH.t=setTimeout(()=>nhLoad(true),250)}
+ if(k==='ntitle'){cn.title=x.value;nsave()}if(k==='nbody'){cn.body=x.value;nsave()}if(k==='ncatsel'){cn.cat=x.value;nsave()}
+ if(k==='ftask')ft.task=x.value;
+ if(k==='import')doImport(x.files[0],x)});
+try{screen.orientation&&screen.orientation.lock&&screen.orientation.lock('portrait').catch(()=>{})}catch{}
+document.addEventListener('focusin',e=>{if(/INPUT|TEXTAREA/.test(e.target.tagName)&&e.target.closest&&e.target.closest('.sh,.mn'))setTimeout(()=>e.target.scrollIntoView&&e.target.scrollIntoView({block:'center',behavior:'smooth'}),320)});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='un')submitUser();if(e.key==='Escape'){if($('#menu').innerHTML)mclose();else if($('#sheet').innerHTML)(cn?A.nclose():close())}
+ if(sub==='calc'&&!/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)){const k=e.key;if(/^[\d.+\-*\/%()]$/.test(k))ckey(k);else if(k==='Enter'||k==='=')ckey('=');else if(k==='Backspace')ckey('del');else if(k==='Escape')ckey('C')}});
+function gsearch(q){q=q.toLowerCase().trim();const o=$('#gres');if(!q){o.innerHTML='';return}
+ const r=[...D.events.filter(e=>e.title.toLowerCase().includes(q)).map(e=>['Acara',e.title,'cal']),...D.tasks.filter(t=>t.title.toLowerCase().includes(q)).map(t=>['Tugas',t.title,'tasks']),...D.notes.filter(n=>(n.title+n.body).toLowerCase().includes(q)).map(n=>['Catatan',n.title||n.body.slice(0,30),'notes'])];
+ o.innerHTML=r.length?`<div class="card">${r.slice(0,8).map(x=>`<button class="set" data-a="go" data-p="${x[2]}"><span>${esc(x[1])}</span><span class="badge" style="flex:none">${x[0]}</span></button>`).join('')}</div>`:'<div class="card empty">Tidak ada hasil.</div>'}
+// ---------- mode web: media (IndexedDB), suara, mesin alarm, izin ----------
+const WEB={snd:[],ring:null,wl:null,ctx:null,keep:null,reg:null,sw:null},BUILTIN=[['builtin:classic','Klasik'],['builtin:digital','Digital'],['builtin:soft','Lembut'],['builtin:melody','Melodi']];
+WEB.snd=BUILTIN.map(([id,name])=>({id,name,builtin:true}));
+const nowKey=()=>{const n=new Date();return ymd(n)+pad(n.getHours())+pad(n.getMinutes())};
+function kv(m,k,v){return new Promise((res,rej)=>{let r;const q=indexedDB.open('timeflow-media',1);q.onupgradeneeded=()=>q.result.createObjectStore('kv');q.onerror=()=>rej(q.error);
+ q.onsuccess=()=>{const d=q.result,t=d.transaction('kv',m==='get'||m==='keys'?'readonly':'readwrite'),s=t.objectStore('kv');r=m==='get'?s.get(k):m==='set'?s.put(v,k):m==='del'?s.delete(k):s.getAllKeys();t.oncomplete=()=>{d.close();res(r.result)};t.onerror=t.onabort=()=>rej(t.error||new Error('Penyimpanan media gagal'))}})}
+const TONES={'builtin:classic':{p:1.6,t:'square',n:[[880,0,.2],[880,.3,.2],[880,.6,.2],[880,.9,.2]]},'builtin:digital':{p:1.2,t:'square',n:[[1500,0,.08],[1500,.14,.08],[1500,.28,.08],[1500,.42,.08],[1500,.7,.3]]},'builtin:soft':{p:2.4,t:'sine',n:[[523,0,.5],[659,.5,.5],[784,1,.9]]},'builtin:melody':{p:3,t:'triangle',n:[[523,0,.3],[659,.35,.3],[784,.7,.3],[1047,1.05,.5],[784,1.7,.3],[659,2.05,.3],[523,2.4,.5]]}};
+const tone=id=>TONES[id]||TONES['builtin:classic'];
+function actx(){if(!WEB.ctx){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;try{WEB.ctx=new C()}catch{return null}}if(WEB.ctx.state==='suspended')WEB.ctx.resume().catch(()=>{});return WEB.ctx}
+function playTone(id,vol){const T=tone(id),c=actx();if(!c)return;const t0=c.currentTime+.02,g=c.createGain();g.gain.value=Math.max(0,Math.min(1,vol));g.connect(c.destination);
+ T.n.forEach(([f,st,d])=>{const o=c.createOscillator(),e=c.createGain();o.type=T.t;o.frequency.value=f;e.gain.setValueAtTime(0,t0+st);e.gain.linearRampToValueAtTime(.5,t0+st+.02);e.gain.linearRampToValueAtTime(0,t0+st+d);o.connect(e);e.connect(g);o.start(t0+st);o.stop(t0+st+d+.05)})}
+async function customUrl(id){try{const r=await kv('get','snd:'+id);return r&&r.blob?URL.createObjectURL(r.blob):null}catch{return null}}
+let prevT=0,prevEl=null;
+async function webPreview(id){webPreviewStop();unlockAudio();const vol=(NI.vol??80)/100;
+ if(String(id).startsWith('custom:')){const u=await customUrl(id);if(u){const e=new Audio(u);e.volume=vol;prevEl=e;e.play().catch(()=>toast('Audio tidak bisa diputar','err'));prevT=setTimeout(webPreviewStop,8000);return}}
+ playTone(id,vol);prevT=setTimeout(()=>{},0)}
+function webPreviewStop(){clearTimeout(prevT);if(prevEl){prevEl.pause();URL.revokeObjectURL(prevEl.src);prevEl=null}}
+// audio senyap: membuka kunci pemutaran otomatis dan menjaga halaman tetap hidup di latar belakang
+let unlocked=false;
+function silentWav(){if(WEB.sw)return WEB.sw;const n=8000,b=new Uint8Array(44+n),dv=new DataView(b.buffer),w=(o,x)=>[...x].forEach((c,i)=>b[o+i]=c.charCodeAt(0));
+ w(0,'RIFF');dv.setUint32(4,36+n,true);w(8,'WAVEfmt ');dv.setUint32(16,16,true);dv.setUint16(20,1,true);dv.setUint16(22,1,true);dv.setUint32(24,8000,true);dv.setUint32(28,8000,true);dv.setUint16(32,1,true);dv.setUint16(34,8,true);w(36,'data');dv.setUint32(40,n,true);for(let i=0;i<n;i++)b[44+i]=128+(i%2?1:-1);
+ return WEB.sw=URL.createObjectURL(new Blob([b],{type:'audio/wav'}))}
+function unlockAudio(){if(unlocked)return;unlocked=true;try{actx();const e=new Audio(silentWav());e.volume=.02;e.play().then(()=>e.pause()).catch(()=>{})}catch{}keepAlive()}
+['pointerdown','touchend','keydown'].forEach(ev=>document.addEventListener(ev,unlockAudio,{passive:true}));
+function keepAlive(){const need=!NATIVE&&D&&D.keep!==false&&D.alarms.some(a=>a.on||a.snoozeAt);
+ if(!need){if(WEB.keep){WEB.keep.pause();WEB.keep=null}return}if(WEB.keep||!unlocked)return;
+ const e=new Audio(silentWav());e.loop=true;e.volume=.02;e.play().then(()=>{WEB.keep=e;try{if(navigator.mediaSession){navigator.mediaSession.metadata=new MediaMetadata({title:'TimeFlow',artist:'Alarm aktif'})}}catch{}}).catch(()=>{})}
+async function wake(){try{if(navigator.wakeLock&&!WEB.wl)WEB.wl=await navigator.wakeLock.request('screen')}catch{}}
+function unwake(){try{WEB.wl&&WEB.wl.release()}catch{}WEB.wl=null}
+// ---- dering ----
+const ICON='icon-192.png';
+function swReg(){return WEB.reg?Promise.resolve(WEB.reg):('serviceWorker'in navigator&&navigator.serviceWorker.getRegistration?navigator.serviceWorker.getRegistration():Promise.resolve(null))}
+function sysNotify(a){if(!('Notification'in window)||Notification.permission!=='granted')return;const t=a.label||'Alarm',body='Pukul '+a.time+(a.label?' · '+a.label:'');
+ const o={body,tag:'tf-ring',renotify:true,requireInteraction:true,vibrate:[400,200,400,200,400],icon:ICON,badge:ICON,data:{id:a.id},actions:[{action:'snooze',title:'Tunda'},{action:'stop',title:'Stop'}]};
+ swReg().then(r=>r?r.showNotification(t,o):new Notification(t,{body,tag:'tf-ring'})).catch(()=>{try{new Notification(t,{body})}catch{}})}
+function sysClear(){swReg().then(r=>r&&r.getNotifications({tag:'tf-ring'}).then(l=>l.forEach(n=>n.close()))).catch(()=>{})}
+const VIBS=[[800,400],[300,200],[1500,500]];
+function ringUi(){const R=WEB.ring,a=R.items[0];let e=$('#ringov');if(!e){e=document.createElement('div');e.id='ringov';e.setAttribute('role','alertdialog');e.setAttribute('aria-label','Alarm berbunyi');document.body.appendChild(e)}
+ e.innerHTML=`<div class="rg"><div class="rgi">${ic('bell',54)}</div><h1>${esc(a.time)}</h1><p style="font-size:20px">${esc(a.label||'Alarm')}</p>${R.items.length>1?`<p class="mut">dan ${R.items.length-1} alarm lain</p>`:''}<button class="pill" style="margin-top:18px" data-a="rsnz">Tunda ${a.snooze||10} menit</button><button class="pill ghost" data-a="rstop">Stop</button></div>`}
+function ringSound(a){const R=WEB.ring,vol=(D.vol??80)/100,id=a.sound||SND_DEF;
+ const loop=()=>{playTone(id,vol);R.iv=setInterval(()=>playTone(id,vol),tone(id).p*1000)};
+ if(String(id).startsWith('custom:'))customUrl(id).then(u=>{if(WEB.ring!==R)return;if(!u)return loop();const e=new Audio(u);e.loop=true;e.volume=vol;R.el=e;e.play().catch(loop)});else loop()}
+function ringVib(a){const R=WEB.ring;if(a.vibrate===false||!navigator.vibrate)return;const p=VIBS[a.vib|0]||VIBS[0],go=()=>{try{navigator.vibrate(p)}catch{}};go();R.vi=setInterval(go,p.reduce((x,y)=>x+y,0)+300)}
+function ringStart(a){let R=WEB.ring;if(R&&R.items.some(x=>x.id===a.id)){return}
+ if(!R){R=WEB.ring={items:[],iv:0,vi:0,el:null,to:0};R.items.push(a);ringUi();ringSound(a);ringVib(a);wake();R.to=setTimeout(()=>ringStop(true),10*60e3)}else{R.items.push(a);ringUi()}
+ sysNotify(a);try{document.title='⏰ '+(a.label||'Alarm')}catch{}}
+function ringStop(auto){const R=WEB.ring;if(!R)return;WEB.ring=null;clearTimeout(R.to);clearInterval(R.iv);clearInterval(R.vi);if(R.el){R.el.pause();URL.revokeObjectURL(R.el.src)}try{navigator.vibrate&&navigator.vibrate(0)}catch{}
+ const e=$('#ringov');if(e)e.remove();unwake();sysClear();document.title='TimeFlow';
+ if(auto){const a=R.items[0];toast('Alarm terlewat: '+(a.label||a.time),'err');if('Notification'in window&&Notification.permission==='granted')swReg().then(r=>r&&r.showNotification('Alarm terlewat',{body:(a.label||'Alarm')+' pukul '+a.time,tag:'tf-missed',icon:ICON})).catch(()=>{})}
+ if(sub==='alarm'&&D&&!$('#sheet').innerHTML&&!$('#menu').innerHTML)render()}
+function ringSnooze(){const R=WEB.ring;if(!R)return;R.items.forEach(a=>{if(a.id==='test')return;const x=D.alarms.find(y=>y.id===a.id);if(x)x.snoozeAt=Date.now()+(x.snooze||10)*60000});save();ringStop();toast('Ditunda');keepAlive();if(sub==='alarm')render()}
+// ---- penjadwal (dicek tiap detik; toleransi 3 menit bila halaman sempat dibekukan sistem) ----
+function alarmTick(){if(!D||NATIVE)return;const n=new Date();let ch=false;
+ D.alarms.forEach(a=>{if(a.snoozeAt&&Date.now()>=a.snoozeAt){a.snoozeAt=0;ch=true;ringStart(a);return}
+  if(!a.on)return;
+  for(let back=0;back<=3;back++){const t=new Date(n.getTime()-back*60000),m=t.getHours()*60+t.getMinutes(),st=mins(a.time),key=ymd(t)+pad(t.getHours())+pad(t.getMinutes());
+   if(a.days&&a.days.length&&!a.days.includes(t.getDay()))continue;
+   const ev=a.every|0,un=mins(a.until||'23:59'),hit=ev?(m>=st&&m<=un&&(m-st)%ev===0):m===st;
+   if(!hit)continue;if(a.lk&&a.lk>=key)break;
+   a.lk=key;ch=true;if(!(a.days&&a.days.length)&&(!ev||m+ev>un))a.on=false;ringStart(a);break}});
+ if(ch){save();if(sub==='alarm'&&!$('#sheet').innerHTML&&!$('#menu').innerHTML)render()}}
+// ---- izin ----
+async function webAllPerms(){try{if('Notification'in window&&Notification.permission==='default')await Notification.requestPermission()}catch{}
+ try{navigator.storage&&navigator.storage.persist&&await navigator.storage.persist()}catch{}
+ unlockAudio();try{if(navigator.wakeLock){const w=await navigator.wakeLock.request('screen');w.release()}}catch{}try{navigator.vibrate&&navigator.vibrate(40)}catch{}}
+function webEnsure(){unlockAudio();try{if('Notification'in window&&Notification.permission==='default')Notification.requestPermission().then(()=>$('#sheet').innerHTML||0)}catch{}try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch{}keepAlive()}
+async function webPermsSheet(){const N='Notification'in window?Notification.permission:'unsupported';let per=false;try{per=await navigator.storage.persisted()}catch{}
+ const row=(t,d,ok,tx)=>`<div class="set" style="flex-direction:column;align-items:stretch;gap:4px"><div class="row" style="gap:8px"><b style="flex:1">${t}</b><span class="badge ${ok?'p0':'p1'}" style="flex:none">${tx}</span></div><p class="mut">${d}</p></div>`;
+ $('#sheet').innerHTML=`<div class="ov" data-a="close"></div><div class="sh" role="dialog" aria-modal="true"><div class="top"><h2 style="margin:0">Izin &amp; notifikasi</h2><button class="ico" data-a="close" aria-label="Tutup">${ic('x')}</button></div>
+ ${row('Notifikasi','Menampilkan alarm di bilah notifikasi dan layar kunci, lengkap dengan tombol Tunda dan Stop.',N==='granted',N==='granted'?'Aktif':N==='denied'?'Ditolak':N==='unsupported'?'Tidak didukung':'Belum')}
+ ${row('Penyimpanan permanen','Menjaga data, foto profil, dan audio alarm agar tidak dihapus sistem.',per,per?'Aktif':'Belum')}
+ ${row('Suara otomatis','Agar suara alarm boleh berbunyi sendiri tanpa disentuh.',unlocked,unlocked?'Aktif':'Belum')}
+ ${row('Layar menyala &amp; getar','Layar menyala dan perangkat bergetar saat alarm berbunyi.',!!(navigator.wakeLock||navigator.vibrate),navigator.wakeLock||navigator.vibrate?'Tersedia':'Tidak tersedia')}
+ <button class="pill" style="margin-top:12px" data-a="wall">Izinkan semua</button>
+ <p class="mut" style="margin-top:12px">Jika notifikasi ditolak, buka pengaturan aplikasi di Android, pilih Notifikasi, lalu aktifkan. Alarm versi web paling andal saat aplikasi terbuka atau berjalan di latar belakang; untuk alarm yang pasti berbunyi saat layar mati, pakai APK native (lihat README).</p></div>`}
+// ---- foto & audio dari perangkat ----
+function webFiles(){const mk=(id,acc,cb)=>{const i=document.createElement('input');i.type='file';i.id=id;i.accept=acc;i.hidden=true;i.addEventListener('change',()=>{const f=i.files&&i.files[0];if(f)cb(f)});document.body.appendChild(i)};
+ mk('pf','image/*',f=>{if(f.size>40e6)return toast('Foto terlalu besar (maks 40 MB)','err');cropOpen(URL.createObjectURL(f))});
+ mk('sf','audio/*,.mp3,.m4a,.aac,.ogg,.opus,.wav,.flac,.amr',async f=>{if(f.size>15e6)return toast('Audio terlalu besar (maks 15 MB)','err');
+  const u=URL.createObjectURL(f);try{await new Promise((ok,no)=>{const e=new Audio();e.preload='metadata';e.onloadedmetadata=ok;e.onerror=()=>no(Error('Format audio tidak didukung perangkat ini'));setTimeout(()=>no(Error('Audio tidak bisa dibaca')),6000);e.src=u})}catch(e){URL.revokeObjectURL(u);return nerr(e)}
+  URL.revokeObjectURL(u);const id='custom:'+uid(),name=f.name.replace(/\.[^.]+$/,'').slice(0,40)||'Audio';
+  try{await kv('set','snd:'+id,{id,name,blob:f});WEB.snd.push({id,name});if(NI.view==='snd'||$('#sheet').innerHTML.includes('Nada alarm'))sndSheet();toast('Audio ditambahkan')}catch(e){nerr(e)}})}
+async function webInit(){if(NATIVE||!D||!U)return;NI.hasVib=!!navigator.vibrate;NI.vol=D.vol??80;
+ try{const ks=await kv('keys'),rec=[];for(const k of ks)if(String(k).startsWith('snd:')){const r=await kv('get',k);if(r)rec.push({id:r.id,name:r.name})}WEB.snd=[...BUILTIN.map(([id,name])=>({id,name,builtin:true})),...rec]}catch{}
+ try{const p=await kv('get','photo:'+U);if(NI.photo&&NI.photo.startsWith('blob:'))URL.revokeObjectURL(NI.photo);NI.photo=p?URL.createObjectURL(p):null}catch{NI.photo=null}
+ if('serviceWorker'in navigator&&!WEB.reg)navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(r=>{WEB.reg=r}).catch(()=>{});
+ render();keepAlive();
+ try{if(!localStorage.getItem(KEY+'permq')){localStorage.setItem(KEY+'permq','1');webPermsSheet()}}catch{}}
+if(!NATIVE){webFiles();try{navigator.serviceWorker&&navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.tf==='act'){if(e.data.action==='snooze')ringSnooze();else if(e.data.action==='stop')ringStop()}})}catch{}}
+Object.assign(A,{rstop:()=>ringStop(),rsnz:ringSnooze});
+// background loops (alarm check + focus timer)
+setInterval(()=>{if(!D)return;ftTick();ftSync();nhTick();dcPaint();alarmTick();if(!NATIVE)keepAlive()},1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&D){ftTick();alarmTick();if(WEB.ring)wake()}});
+render();nBoot();webInit();setTimeout(gotoCheck,700);
+</script></body></html>
