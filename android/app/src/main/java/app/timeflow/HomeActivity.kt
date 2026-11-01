@@ -160,6 +160,7 @@ class HomeActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        if (HomeStore.dirty) { HomeStore.dirty = false; if (built()) rebuild() }
         val sp = getSharedPreferences(SP, MODE_PRIVATE)
         val def = HomeUtil.isDefaultHome(this)
         if (def != sp.getBoolean("was_default", false)) {
@@ -326,32 +327,9 @@ class HomeActivity : Activity() {
         }.start()
     }
 
-    /** Tawarkan menjadikan Flow Launcher launcher utama (dialog sistem RoleManager). Mengembalikan true bila dialog ditampilkan. */
-    private fun maybeAskDefault(): Boolean {
-        val sp = getSharedPreferences(SP, MODE_PRIVATE)
-        if (askedDefault || isFinishing || sp.getBoolean("no_default_ask", false) || HomeUtil.isDefaultHome(this)) return false
-        askedDefault = true
-        var chose = false
-        AlertDialog.Builder(this)
-            .setTitle("Jadikan Flow Launcher launcher utama?")
-            .setMessage("Supaya tombol Home membuka Flow Launcher dengan dock, folder, dan widget kaca. Kamu bisa kembali ke launcher lama kapan saja lewat Pengaturan.")
-            .setPositiveButton("Jadikan bawaan") { _, _ -> chose = true; requestHome() }
-            .setNegativeButton("Nanti", null)
-            .setNeutralButton("Jangan tanya lagi") { _, _ -> sp.edit().putBoolean("no_default_ask", true).apply() }
-            .setOnDismissListener { if (!chose) askWallpaperOnce() }
-            .show()
-        return true
-    }
+    private fun maybeAskDefault(): Boolean = HomeUtil.promptDefault(this, REQ_ROLE) { askWallpaperOnce() }
 
-    private fun requestHome() {
-        if (Build.VERSION.SDK_INT >= 29) {
-            val rm = getSystemService(RoleManager::class.java)
-            if (rm != null && rm.isRoleAvailable(RoleManager.ROLE_HOME) && !rm.isRoleHeld(RoleManager.ROLE_HOME)) {
-                try { startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_HOME), REQ_ROLE); return } catch (e: Exception) { }
-            }
-        }
-        runCatching { startActivity(Intent(Settings.ACTION_HOME_SETTINGS)) }
-    }
+    private fun requestHome() = HomeUtil.requestHome(this, REQ_ROLE)
 
     /** Bila wallpaper sistem tidak bisa dibaca (Android baru), tawarkan memilih wallpaper dari galeri satu kali. */
     private fun askWallpaperOnce() {
@@ -654,6 +632,7 @@ class HomeActivity : Activity() {
         target.apps = ArrayList<String>().apply { add(a); add(item.pkg) }
         target.pkg = ""
         target.name = "Folder"
+        target.wid = HomeStore.nextId()
     }
 
     private fun dropOnGrid(pl: Payload, p: Int, cx: Int, cy: Int) {
@@ -713,6 +692,7 @@ class HomeActivity : Activity() {
     // ---------- folder ----------
     private fun openFolder(f: HItem) {
         closeOverlay(false)
+        if (f.wid < 0) { f.wid = HomeStore.nextId(); HomeStore.save(this) }
         val ov = FrameLayout(this)
         ov.setBackgroundColor(Color.argb(110, 0, 0, 0))
         ov.setOnClickListener { closeOverlay(true) }
@@ -736,6 +716,16 @@ class HomeActivity : Activity() {
             for (i in row.size until 4) line.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
             panel.addView(line, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
         }
+        val manage = TextView(this).apply {
+            text = "Atur folder"; textSize = 13f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; setPadding(dp(18), 0, dp(18), 0)
+            setOnClickListener {
+                val id = f.wid
+                closeOverlay(false)
+                startActivity(Intent(this@HomeActivity, FolderConfigActivity::class.java).putExtra("home_folder", id))
+            }
+        }
+        manage.background = GlassPanelDrawable(manage, dp(18).toFloat(), 1f, 50, 0.4f)
+        panel.addView(manage, LinearLayout.LayoutParams(WRAP, dp(36)).apply { topMargin = dp(16); gravity = Gravity.CENTER_HORIZONTAL })
         ov.addView(panel, FrameLayout.LayoutParams((rootW * 0.9f).toInt(), WRAP, Gravity.CENTER))
         root.addView(ov, FrameLayout.LayoutParams(MATCH, MATCH))
         overlay = ov
@@ -875,6 +865,7 @@ class HomeActivity : Activity() {
         val items = arrayOf(
             "Gaya ikon: " + (if (mono) "Kaca putih" else "iOS (warna)") + " (ketuk untuk ganti)",
             "Nama ikon: " + (if (showLabels) "Tampil" else "Sembunyi") + " (ketuk untuk ganti)",
+            "Atur folder…",
             "Blur dan gaya kaca…",
             "Jadikan peluncur bawaan…",
             "Buka pengaturan Flow Launcher"
@@ -892,10 +883,25 @@ class HomeActivity : Activity() {
                     getSharedPreferences(SP, MODE_PRIVATE).edit().putBoolean("labels", showLabels).apply()
                     rebuild()
                 }
-                2 -> startActivity(Intent(this, WidgetStyleActivity::class.java))
-                3 -> requestHome()
+                2 -> manageFolders()
+                3 -> startActivity(Intent(this, WidgetStyleActivity::class.java))
+                4 -> requestHome()
                 else -> startActivity(Intent(this, MainActivity::class.java))
             }
+        }.show()
+    }
+
+    private fun manageFolders() {
+        val fs = HomeStore.all().filter { it.type == HItem.FOLDER }
+        if (fs.isEmpty()) {
+            Toast.makeText(this, "Belum ada folder. Tumpuk satu ikon di atas ikon lain untuk membuat folder.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val names = Array(fs.size) { i -> fs[i].name.ifEmpty { "Folder" } + " (" + fs[i].apps.size + ")" }
+        AlertDialog.Builder(this).setTitle("Pilih folder").setItems(names) { _, i ->
+            val f = fs[i]
+            if (f.wid < 0) { f.wid = HomeStore.nextId(); HomeStore.save(this) }
+            startActivity(Intent(this, FolderConfigActivity::class.java).putExtra("home_folder", f.wid))
         }.show()
     }
 

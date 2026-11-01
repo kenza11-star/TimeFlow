@@ -28,6 +28,11 @@ class Lyrics(val times: LongArray, val lines: Array<String>) {
 object CcLyrics {
     private val mem = HashMap<String, Lyrics?>()
     private val main = Handler(Looper.getMainLooper())
+    private val state = java.util.concurrent.ConcurrentHashMap<String, String>()
+    @Volatile private var netErr = false
+
+    /** Status pencarian lirik untuk ditampilkan di tempat lirik (kosong bila sudah ada lirik). */
+    fun status(title: String, artist: String): String = state[key(clean(title), clean(artist))] ?: ""
 
     private fun clean(s: String): String = s
         .replace(Regex("\\(.*?\\)|\\[.*?]"), " ")
@@ -54,7 +59,28 @@ object CcLyrics {
         c.connectTimeout = 6000; c.readTimeout = 6000
         c.setRequestProperty("User-Agent", "TimeFlow/1.0 (Android)")
         if (c.responseCode != 200) null else c.inputStream.bufferedReader().use { it.readText() }
-    } catch (_: Exception) { null }
+    } catch (_: Exception) { netErr = true; null }
+
+    /** Sumber cadangan: NetEase (lirik bersinkron). Dicocokkan dengan artis dan durasi supaya tidak salah lagu. */
+    private fun netease(t: String, a: String, durMs: Long): String? {
+        val q = URLEncoder.encode(("$t $a").trim(), "UTF-8")
+        val body = http("https://music.163.com/api/search/get/web?csrf_token=&hlpretag=&hlposttag=&s=$q&type=1&offset=0&total=true&limit=5") ?: return null
+        val songs = JSONObject(body).optJSONObject("result")?.optJSONArray("songs") ?: return null
+        val wa = a.lowercase().split(Regex("[^a-z0-9]+")).filter { it.length >= 3 }
+        for (i in 0 until songs.length()) {
+            val o = songs.getJSONObject(i)
+            val id = o.optLong("id")
+            if (id <= 0) continue
+            val an = (o.optJSONArray("artists")?.optJSONObject(0)?.optString("name", "") ?: "").lowercase()
+            if (wa.isNotEmpty() && an.isNotEmpty() && wa.none { an.contains(it) }) continue
+            val dd = o.optLong("duration")
+            if (durMs > 0 && dd > 0 && Math.abs(dd - durMs) > 8000) continue
+            val lb = http("https://music.163.com/api/song/lyric?id=$id&lv=1&kv=1&tv=-1") ?: continue
+            val lrc = JSONObject(lb).optJSONObject("lrc")?.optString("lyric", "") ?: ""
+            if (Regex("\\[\\d+:\\d+").containsMatchIn(lrc)) return lrc
+        }
+        return null
+    }
 
     private val missAt = HashMap<String, Long>()   // kapan terakhir gagal / kosong (dicoba lagi setelah 40 detik)
 
@@ -67,7 +93,9 @@ object CcLyrics {
         val miss = missAt[k]
         if (miss != null && System.currentTimeMillis() - miss < 40_000) { cb(null); return }
         val dir = File(ctx.applicationContext.filesDir, "lrc")
+        state[k] = "Mencari lirik…"
         Thread {
+            netErr = false
             var out: Lyrics? = null
             var why = ""
             runCatching {
@@ -97,6 +125,7 @@ object CcLyrics {
                     scan(http("https://lrclib.net/api/search?q=" + URLEncoder.encode("$t $a".trim(), "UTF-8")))
                     scan(http("https://lrclib.net/api/search?track_name=" + URLEncoder.encode(t, "UTF-8")))
                     scan(http("https://lrclib.net/api/search?q=" + URLEncoder.encode(t, "UTF-8")))
+                    if (synced == null) netease(t, a, durMs)?.let { synced = it }
                     val s = synced
                     val pl = plain
                     if (s != null) { dir.mkdirs(); File(dir, "$k.lrc").writeText(s); out = parse(s) }
@@ -116,7 +145,9 @@ object CcLyrics {
                 }
             }.onFailure { why = it.javaClass.simpleName }
             val res = out
+            val netBad = netErr
             main.post {
+                state[k] = if (res != null) "" else if (netBad) "Tidak terhubung ke server lirik" else "Lirik tidak ditemukan"
                 if (res != null) { mem[k] = res; missAt.remove(k) } else missAt[k] = System.currentTimeMillis()
                 CcLog.add("lirik '$t': " + (if (res != null) "ok (${res.lines.size} baris)" else "kosong ($why)"))
                 cb(res)

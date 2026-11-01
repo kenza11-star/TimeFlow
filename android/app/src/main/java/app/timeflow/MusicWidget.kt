@@ -74,7 +74,7 @@ class MusicWidget : AppWidgetProvider() {
                 val app = ctx.applicationContext
                 CcLyrics.request(app, m.title, m.artist, m.dur) { l -> if (lrcKey == k) { lrc = l; push(app, NotchListener.hubMedia()) } }
             }
-            val l = lrc ?: return ""
+            val l = lrc ?: return CcLyrics.status(m.title, m.artist)
             val i = l.indexAt(now + 300)
             return if (i >= 0) l.lines[i].ifEmpty { "♪" } else ""
         }

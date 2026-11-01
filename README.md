@@ -263,3 +263,11 @@ File baru: `HomeActivity.kt`, `HomeData.kt`, `HomeWall.kt`, `FolderWidget.kt`, `
 - Belum dikompilasi dan belum diuji di perangkat; `.github/workflows` tidak diubah.
 
 File diubah: `AndroidManifest.xml`, `HomeActivity.kt`, `HomeWall.kt`, `FolderWidget.kt`, `GlassPrefs.kt`, `CcLyrics.kt`, `build.gradle.kts`, `README.md`.
+
+## Stage 11 (2.12.0): jadi launcher lebih mudah, pengaturan folder, lirik lebih andal
+- **Jadikan launcher utama**: dialog "Jadikan Flow Launcher launcher utama?" kini muncul dari ikon "Flow Launcher" maupun ikon "TimeFlow" (aplikasi lama). Urutan cara: dialog sistem (RoleManager) > layar Aplikasi layar utama > layar Aplikasi bawaan > pemilih Home. Juga ada di Pengaturan peluncur ("Jadikan peluncur bawaan"). Manual: Pengaturan > Aplikasi > Aplikasi bawaan > Aplikasi layar utama > Flow Launcher.
+- **Halaman Atur folder** (`FolderConfigActivity.kt`, mode baru): pilih aplikasi (maks 24), ubah nama, hapus folder. Dibuka dari tombol "Atur folder" di panel folder atau Pengaturan peluncur > "Atur folder…". Halaman ini tidak muncul di laci aplikasi maupun di daftar aplikasi terbaru; hanya bisa dibuka dari pengaturan folder.
+- **Lirik**: bila LRCLIB tidak punya lagunya, dicoba sumber cadangan (NetEase, dicocokkan dengan artis dan durasi). Tempat lirik kini menampilkan status ("Mencari lirik…", "Lirik tidak ditemukan", "Tidak terhubung ke server lirik") supaya jelas penyebabnya bila kosong.
+- Belum dikompilasi dan belum diuji di perangkat; `.github/workflows` tidak diubah.
+
+File diubah: `HomeData.kt`, `HomeActivity.kt`, `FolderConfigActivity.kt`, `MainActivity.kt`, `CcLyrics.kt`, `MusicWidget.kt`, `ControlCenterViews.kt`, `AndroidManifest.xml`, `build.gradle.kts`, `README.md`.

@@ -33,6 +33,8 @@ class FolderConfigActivity : Activity() {
     }
 
     private var wid = AppWidgetManager.INVALID_APPWIDGET_ID
+    private var homeId = -1                 // >= 0: mengatur folder di Flow Launcher (bukan widget)
+    private var maxApps = FolderStore.MAX
     private val picked = LinkedHashSet<String>()
     private var mono = true
     private lateinit var counter: TextView
@@ -48,9 +50,14 @@ class FolderConfigActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         wid = intent?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID) ?: AppWidgetManager.INVALID_APPWIDGET_ID
+        homeId = intent?.getIntExtra("home_folder", -1) ?: -1
         setResult(RESULT_CANCELED, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, wid))
-        if (wid == AppWidgetManager.INVALID_APPWIDGET_ID) { finish(); return }
-        val data = FolderStore.get(this, wid)
+        if (homeId < 0 && wid == AppWidgetManager.INVALID_APPWIDGET_ID) { finish(); return }
+        HomeStore.load(this)
+        val hf = if (homeId >= 0) HomeStore.findFolder(homeId) else null
+        if (homeId >= 0 && hf == null) { finish(); return }
+        val data = if (hf != null) FolderStore.Data(hf.name.ifEmpty { "Folder" }, hf.apps.toList(), true) else FolderStore.get(this, wid)
+        maxApps = if (hf != null) 24 else FolderStore.MAX
         picked.addAll(data.pkgs)
         mono = data.mono
 
@@ -60,7 +67,7 @@ class FolderConfigActivity : Activity() {
         root.addView(content, LinearLayout.LayoutParams(MATCH, MATCH))
 
         content.addView(TextView(this).apply {
-            text = "Folder App"; textSize = 22f; setTextColor(INK); includeFontPadding = false
+            text = if (homeId >= 0) "Atur folder" else "Folder App"; textSize = 22f; setTextColor(INK); includeFontPadding = false
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         }, LinearLayout.LayoutParams(MATCH, WRAP))
         content.addView(TextView(this).apply {
@@ -82,6 +89,7 @@ class FolderConfigActivity : Activity() {
         styleRow.addView(btnColor, LinearLayout.LayoutParams(0, dp(40), 1f).apply { leftMargin = dp(8) })
         content.addView(styleRow, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(10) })
         refreshStyle()
+        if (homeId >= 0) styleRow.visibility = View.GONE
 
         content.addView(TextView(this).apply {
             text = "Pengaturan blur & gaya kaca  ›"; textSize = 13f; setTextColor(INK); gravity = Gravity.CENTER_VERTICAL
@@ -126,14 +134,14 @@ class FolderConfigActivity : Activity() {
         st(btnMono, mono); st(btnColor, !mono)
     }
 
-    private fun updateCounter() { counter.text = "Dipilih: ${picked.size} / ${FolderStore.MAX}" }
+    private fun updateCounter() { counter.text = "Dipilih: ${picked.size} / $maxApps" }
 
     private fun mark(pkg: String) { checks[pkg]?.text = if (pkg in picked) "✓" else "○" }
 
     private fun toggle(pkg: String) {
         if (pkg in picked) picked.remove(pkg)
         else {
-            if (picked.size >= FolderStore.MAX) { Toast.makeText(this, "Maksimal ${FolderStore.MAX} aplikasi", Toast.LENGTH_SHORT).show(); return }
+            if (picked.size >= maxApps) { Toast.makeText(this, "Maksimal $maxApps aplikasi", Toast.LENGTH_SHORT).show(); return }
             picked.add(pkg)
         }
         mark(pkg); updateCounter()
@@ -159,6 +167,19 @@ class FolderConfigActivity : Activity() {
 
     private fun save() {
         val name = nameEt.text.toString().trim().ifEmpty { "Folder" }
+        if (homeId >= 0) {
+            val f = HomeStore.findFolder(homeId)
+            if (f != null) {
+                f.name = name
+                f.apps = ArrayList<String>(picked)
+                HomeStore.normalize(f)
+                HomeStore.save(this)
+                HomeStore.dirty = true
+            }
+            setResult(RESULT_OK)
+            finish()
+            return
+        }
         FolderStore.set(this, wid, FolderStore.Data(name, picked.toList(), mono))
         FolderUtil.updateOne(this, wid)
         CcAccessibilityService.glassNudge()

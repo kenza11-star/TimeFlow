@@ -177,6 +177,7 @@
         <activity
             android:name=".FolderConfigActivity"
             android:exported="true"
+            android:excludeFromRecents="true"
             android:label="Folder App"
             android:theme="@style/Theme.TimeFlow.Ring">
             <intent-filter>

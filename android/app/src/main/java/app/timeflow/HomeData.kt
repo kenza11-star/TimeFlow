@@ -1,9 +1,14 @@
 package app.timeflow
 
+import android.app.Activity
+import android.app.AlertDialog
+import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.provider.MediaStore
 import org.json.JSONArray
 import org.json.JSONObject
@@ -55,6 +60,13 @@ object HomeStore {
     val pages = ArrayList<ArrayList<HItem>>()
     val dock = ArrayList<HItem>()
     private var loaded = false
+    private var idSeq = 0
+    /** true bila halaman pengaturan folder mengubah tata letak (peluncur membangun ulang saat kembali). */
+    @Volatile var dirty = false
+
+    fun nextId(): Int { idSeq++; return (System.currentTimeMillis() % 1_000_000_000L).toInt() + idSeq }
+
+    fun findFolder(id: Int): HItem? = all().firstOrNull { it.type == HItem.FOLDER && it.wid == id }
 
     private fun sp(c: Context) = c.getSharedPreferences(SP, Context.MODE_PRIVATE)
 
@@ -78,6 +90,7 @@ object HomeStore {
             }
         } else firstRun(c)
         if (pages.isEmpty()) pages.add(ArrayList())
+        for (x in all()) if (x.type == HItem.FOLDER && x.wid < 0) x.wid = nextId()
     }
 
     /** Pertama kali: dock diisi aplikasi telepon, pesan, browser, kamera bawaan HP (bila ada). */
@@ -260,4 +273,39 @@ object HomeUtil {
     }
 
     fun uriOfPkg(pkg: String): Uri = Uri.parse("package:$pkg")
+
+    private var asked = false
+
+    /** Minta Android menjadikan Flow Launcher launcher utama: dialog sistem (RoleManager), lalu cadangan lewat layar pengaturan. */
+    fun requestHome(act: Activity, reqCode: Int) {
+        if (Build.VERSION.SDK_INT >= 29) {
+            val rm = act.getSystemService(RoleManager::class.java)
+            if (rm != null && rm.isRoleAvailable(RoleManager.ROLE_HOME) && !rm.isRoleHeld(RoleManager.ROLE_HOME)) {
+                try { act.startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_HOME), reqCode); return } catch (e: Exception) { }
+            }
+        }
+        val tries = listOf(
+            Intent(Settings.ACTION_HOME_SETTINGS),
+            Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS),
+            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        )
+        for (i in tries) { try { act.startActivity(i); return } catch (e: Exception) { } }
+    }
+
+    /** Dialog "Jadikan launcher utama?" (sekali per proses; bisa dimatikan permanen). true bila ditampilkan. */
+    fun promptDefault(act: Activity, reqCode: Int, onSkip: () -> Unit = {}): Boolean {
+        val sp = act.getSharedPreferences("timeflow_home", Context.MODE_PRIVATE)
+        if (asked || act.isFinishing || sp.getBoolean("no_default_ask", false) || isDefaultHome(act)) return false
+        asked = true
+        var chose = false
+        AlertDialog.Builder(act)
+            .setTitle("Jadikan Flow Launcher launcher utama?")
+            .setMessage("Supaya tombol Home membuka Flow Launcher dengan dock, folder, dan widget kaca. Kamu bisa kembali ke launcher lama kapan saja lewat Pengaturan.")
+            .setPositiveButton("Jadikan bawaan") { _, _ -> chose = true; requestHome(act, reqCode) }
+            .setNegativeButton("Nanti", null)
+            .setNeutralButton("Jangan tanya lagi") { _, _ -> sp.edit().putBoolean("no_default_ask", true).apply() }
+            .setOnDismissListener { if (!chose) onSkip() }
+            .show()
+        return true
+    }
 }

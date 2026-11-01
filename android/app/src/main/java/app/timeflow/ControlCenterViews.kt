@@ -598,6 +598,10 @@ class CcMedia(ctx: Context, art: CcArt, private val host: CcHost, u: Float, priv
     fun tick() {
         val m = info ?: return
         val now = if (m.playing) m.pos + ((SystemClock.elapsedRealtime() - m.stamp) * m.speed).toLong() else m.pos
+        if (lrc == null) {
+            val st = CcLyrics.status(m.title, m.artist)
+            if (lyric.text.toString() != st) lyric.text = st
+        }
         lrc?.let { l ->
             val i = l.indexAt(now + 250)
             if (i != lrcLine) { lrcLine = i; showLine(if (i >= 0) l.lines[i].ifEmpty { "♪" } else "") }

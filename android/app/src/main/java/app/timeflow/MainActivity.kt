@@ -238,6 +238,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         runCatching { AlarmScheduler.rescheduleAll(this) }   // mis. izin alarm tepat waktu baru diberikan
+        if (intent?.hasCategory(Intent.CATEGORY_LAUNCHER) == true) runCatching { HomeUtil.promptDefault(this, 74) }   // dibuka dari ikon: tawarkan jadi launcher utama
         runCatching { ScreenTimeWidget.refreshAsync(this, false) }   // widget Waktu Layar: segarkan bila data sudah basi / izin baru dinyalakan
         if (waitingSettings) { waitingSettings = false; permFlow(flowStep + 1) }
         if (::bridge.isInitialized) bridge.event("resume")
