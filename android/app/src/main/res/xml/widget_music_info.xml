@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+<appwidget-provider
+    android:previewImage="@drawable/preview_music" xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="250dp" android:minHeight="160dp"
     android:targetCellWidth="4" android:targetCellHeight="2"
     android:minResizeWidth="180dp" android:minResizeHeight="120dp"
@@ -8,4 +9,5 @@
     android:initialLayout="@layout/widget_music"
     android:widgetCategory="home_screen"
     android:configure="app.timeflow.WidgetStyleActivity"
-    android:widgetFeatures="reconfigurable|configuration_optional" />
+    android:widgetFeatures="reconfigurable|configuration_optional" 
+    android:description="@string/widget_music_desc" />

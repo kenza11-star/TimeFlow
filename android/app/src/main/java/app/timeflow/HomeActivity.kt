@@ -1,6 +1,7 @@
 package app.timeflow
 
 import android.app.Activity
+import android.app.ActivityOptions
 import android.app.AlertDialog
 import android.app.role.RoleManager
 import android.appwidget.AppWidgetHost
@@ -15,10 +16,13 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
@@ -39,7 +43,11 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import android.widget.BaseAdapter
+import android.widget.BaseExpandableListAdapter
+import android.widget.ExpandableListView
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.GridView
@@ -82,6 +90,13 @@ class HomeActivity : Activity() {
     private lateinit var dragBar: LinearLayout
     private lateinit var pill: TextView
     private var askedDefault = false
+    private var editing = false
+    private var itemMenuDismiss: (() -> Unit)? = null
+    private var dragX0 = Float.NaN
+    private var dragY0 = Float.NaN
+    private var menuHidden = true
+    private var editBar: LinearLayout? = null
+    private var sheet: FrameLayout? = null
     private lateinit var host: AppWidgetHost
     private lateinit var awm: AppWidgetManager
     private lateinit var gd: GestureDetector
@@ -182,14 +197,19 @@ class HomeActivity : Activity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        if (sheet != null) closeSheet()
         if (overlay != null) closeOverlay(false)
+        if (editing) exitEdit()
         curPage = 0
         if (pageW > 0) pager.goTo(0, true)
     }
 
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
-        if (overlay != null) closeOverlay(true)
+        if (FlowUi.dismissTop()) return
+        if (sheet != null) closeSheet()
+        else if (overlay != null) closeOverlay(true)
+        else if (editing) exitEdit()
         else if (curPage != 0 && pageW > 0) pager.goTo(0, true)
     }
 
@@ -243,6 +263,7 @@ class HomeActivity : Activity() {
     private fun buildSkeleton() {
         root = FrameLayout(this)
         root.setBackgroundColor(0xFF0A0A0E.toInt())
+        root.setOnClickListener { if (editing) exitEdit() }
         wallImg = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_XY }
         root.addView(wallImg, FrameLayout.LayoutParams(MATCH, MATCH))
         root.addView(View(this).apply { setBackgroundColor(Color.argb(36, 0, 0, 0)) }, FrameLayout.LayoutParams(MATCH, MATCH))
@@ -250,7 +271,17 @@ class HomeActivity : Activity() {
         pagesBox = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         pager = HPager(this)
         pager.onPage = { p -> curPage = p; updateDots() }
-        pager.onScroll = { for (v in glassViews) v.invalidate() }
+        pager.onScroll = {
+            for (v in glassViews) v.invalidate()
+            val w = pageW.toFloat()
+            if (w > 0f) for (i in 0 until pagesBox.childCount) {
+                val pv = pagesBox.getChildAt(i)
+                val k = (Math.abs(pager.scrollX - i * w) / w).coerceIn(0f, 1f)
+                pv.alpha = 1f - 0.4f * k
+                val sc = 1f - 0.08f * k
+                pv.scaleX = sc; pv.scaleY = sc
+            }
+        }
         pager.addView(pagesBox, FrameLayout.LayoutParams(WRAP, MATCH))
         root.addView(pager, FrameLayout.LayoutParams(MATCH, MATCH))
 
@@ -336,12 +367,8 @@ class HomeActivity : Activity() {
         val sp = getSharedPreferences(SP, MODE_PRIVATE)
         if (!HomeWall.fallback || sp.getBoolean("asked_wall", false) || isFinishing) return
         sp.edit().putBoolean("asked_wall", true).apply()
-        AlertDialog.Builder(this)
-            .setTitle("Pilih wallpaper")
-            .setMessage("Flow Launcher memakai wallpaper sendiri supaya kaca dan blur akurat. Pilih gambar dari galeri sekarang?")
-            .setPositiveButton("Pilih") { _, _ -> pickWallpaper() }
-            .setNegativeButton("Nanti", null)
-            .show()
+        FlowUi.dialog(this, "Pilih wallpaper", "Flow Launcher memakai wallpaper sendiri supaya kaca dan blur akurat. Pilih gambar dari galeri sekarang?",
+            listOf("Pilih" to { pickWallpaper() }, "Nanti" to {}))
     }
 
     private fun invalidateGlass() {
@@ -365,10 +392,17 @@ class HomeActivity : Activity() {
     private fun buildPage(p: Int): FrameLayout {
         val page = FrameLayout(this)
         page.isLongClickable = true
-        page.setOnLongClickListener { showHomeMenu(); true }
+        page.setOnLongClickListener { if (!editing) enterEdit(); true }
+        page.setOnClickListener { if (editing) exitEdit() }
         page.setOnDragListener { v, e -> onPageDrag(v, e, p) }
+        // sorotan sel tujuan saat menyeret (selalu anak pertama)
+        val hl = View(this)
+        hl.background = GradientDrawable().apply { setColor(Color.argb(46, 255, 255, 255)); cornerRadius = dp(18).toFloat(); setStroke(dp(1), Color.argb(90, 255, 255, 255)) }
+        hl.alpha = 0f
+        page.addView(hl, FrameLayout.LayoutParams(cellW, cellH))
         for (item in ArrayList<HItem>(HomeStore.pages[p])) {
             val v = makeItemView(item, FROM_PAGE) ?: continue
+            v.tag = item
             val lp = FrameLayout.LayoutParams(item.sx * cellW, item.sy * cellH)
             lp.leftMargin = item.cx * cellW
             lp.topMargin = item.cy * cellH
@@ -420,15 +454,22 @@ class HomeActivity : Activity() {
         box.addView(iv, LinearLayout.LayoutParams(isz, isz))
         if (from != FROM_DOCK && showLabels) {
             box.addView(TextView(this).apply {
-                text = if (item.type == HItem.APP) appLabel(item.pkg) else item.name.ifEmpty { "Folder" }
+                text = if (item.type == HItem.APP) item.name.ifEmpty { appLabel(item.pkg) } else item.name.ifEmpty { "Folder" }
                 textSize = 11.5f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
                 maxLines = 1; ellipsize = TextUtils.TruncateAt.END; includeFontPadding = false
                 setShadowLayer(3f, 0f, 1f, 0x80000000.toInt())
             }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(5); leftMargin = dp(2); rightMargin = dp(2) })
         }
-        box.setOnClickListener { if (item.type == HItem.APP) launch(item.pkg) else openFolder(item) }
-        box.setOnLongClickListener { beginDrag(box, Payload(item, null)); true }
+        box.setOnClickListener { if (item.type == HItem.APP) launch(item.pkg, box) else openFolder(item, box) }
+        box.setOnLongClickListener { onItemLong(box, item); true }
+        box.setOnTouchListener { v, e ->
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> v.animate().scaleX(0.9f).scaleY(0.9f).setDuration(90).start()
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> v.animate().scaleX(1f).scaleY(1f).setDuration(160).setInterpolator(OvershootInterpolator(2f)).start()
+            }
+            false
+        }
         return box
     }
 
@@ -442,7 +483,7 @@ class HomeActivity : Activity() {
             frame.background = GlassPanelDrawable(frame, GlassPrefs.get(this).radiusDp * resources.displayMetrics.density)
             glassViews.add(frame)
         }
-        frame.onLong = { beginDrag(frame, Payload(item, null)) }
+        frame.onLong = { onItemLong(frame, item) }
         frame.post {
             val d = resources.displayMetrics.density
             val w = (frame.width / d).toInt()
@@ -460,7 +501,7 @@ class HomeActivity : Activity() {
             val cell = FrameLayout(this)
             val item = HomeStore.dock.firstOrNull { it.cx == s }
             val v = if (item != null) makeItemView(item, FROM_DOCK) else null
-            if (v != null) cell.addView(v, FrameLayout.LayoutParams(MATCH, MATCH))
+            if (v != null) { v.tag = item; cell.addView(v, FrameLayout.LayoutParams(MATCH, MATCH)) }
             dockRow.addView(cell, LinearLayout.LayoutParams(0, MATCH, 1f))
         }
     }
@@ -491,10 +532,11 @@ class HomeActivity : Activity() {
         }
     }
 
-    private fun launch(pkg: String) {
+    private fun launch(pkg: String, from: View? = null) {
         val li = packageManager.getLaunchIntentForPackage(pkg) ?: return
         li.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        runCatching { startActivity(li) }
+        val opts = if (from != null && from.width > 0) ActivityOptions.makeScaleUpAnimation(from, 0, 0, from.width, from.height).toBundle() else null
+        runCatching { if (opts != null) startActivity(li, opts) else startActivity(li) }
         if (overlay != null) closeOverlay(false)
     }
 
@@ -516,7 +558,7 @@ class HomeActivity : Activity() {
         root.addView(dragBar, FrameLayout.LayoutParams(MATCH, dp(56), Gravity.TOP))
     }
 
-    private fun beginDrag(v: View, p: Payload) {
+    private fun beginDrag(v: View, p: Payload, withMenu: Boolean = false) {
         if (drag != null) return
         drag = p
         dragView = v
@@ -533,7 +575,9 @@ class HomeActivity : Activity() {
             val kind = dragBar.getChildAt(i).tag as Int
             dragBar.getChildAt(i).visibility = when (kind) { 0 -> if (placed) View.VISIBLE else View.GONE; else -> if (isApp) View.VISIBLE else View.GONE }
         }
-        dragBar.visibility = View.VISIBLE
+        dragX0 = Float.NaN
+        menuHidden = !withMenu
+        if (!withMenu) showDragBar()
         if (overlay != null) ui.post { closeOverlay(false) }
     }
 
@@ -550,6 +594,7 @@ class HomeActivity : Activity() {
         dragView?.alpha = 1f
         dragView = null
         dragBar.visibility = View.GONE
+        dragX0 = Float.NaN
         ui.removeCallbacks(edgeRun)
         edgeDir = 0
         ui.post {
@@ -576,17 +621,32 @@ class HomeActivity : Activity() {
     private fun onPageDrag(v: View, e: DragEvent, p: Int): Boolean {
         when (e.action) {
             DragEvent.ACTION_DRAG_STARTED -> return drag != null
-            DragEvent.ACTION_DRAG_LOCATION -> setEdge(if (e.x < dp(36)) -1 else if (e.x > v.width - dp(36)) 1 else 0)
-            DragEvent.ACTION_DRAG_EXITED -> setEdge(0)
+            DragEvent.ACTION_DRAG_LOCATION -> {
+                noteDragMove(v, e)
+                setEdge(if (e.x < dp(36)) -1 else if (e.x > v.width - dp(36)) 1 else 0)
+                val it = drag?.item
+                val sx = it?.sx ?: 1
+                val sy = it?.sy ?: 1
+                val cx = (e.x / cellW).toInt().coerceIn(0, HomeStore.COLS - sx)
+                val cy = (e.y / cellH).toInt().coerceIn(0, HomeStore.ROWS - sy)
+                val hl = (v as ViewGroup).getChildAt(0)
+                val lp = hl.layoutParams
+                if (lp.width != sx * cellW || lp.height != sy * cellH) { lp.width = sx * cellW; lp.height = sy * cellH; hl.layoutParams = lp }
+                hl.animate().x((cx * cellW).toFloat()).y((cy * cellH).toFloat()).alpha(1f).setDuration(110).start()
+            }
+            DragEvent.ACTION_DRAG_EXITED -> { setEdge(0); (v as ViewGroup).getChildAt(0).animate().alpha(0f).setDuration(120).start() }
             DragEvent.ACTION_DROP -> {
                 val pl = drag ?: return false
-                val cx = (e.x / cellW).toInt().coerceIn(0, HomeStore.COLS - 1)
-                val cy = (e.y / cellH).toInt().coerceIn(0, HomeStore.ROWS - 1)
+                val cx = (e.x / cellW).toInt().coerceIn(0, HomeStore.COLS - pl.item.sx)
+                val cy = (e.y / cellH).toInt().coerceIn(0, HomeStore.ROWS - pl.item.sy)
+                val fx = e.x
+                val fy = e.y
                 setEdge(0)
-                ui.post { dropOnGrid(pl, p, cx, cy) }
+                (v as ViewGroup).getChildAt(0).animate().alpha(0f).setDuration(120).start()
+                ui.post { dropOnGrid(pl, p, cx, cy, fx, fy) }
                 return true
             }
-            DragEvent.ACTION_DRAG_ENDED -> endDrag()
+            DragEvent.ACTION_DRAG_ENDED -> { (v as ViewGroup).getChildAt(0).animate().alpha(0f).setDuration(120).start(); endDrag() }
         }
         return true
     }
@@ -594,6 +654,7 @@ class HomeActivity : Activity() {
     private fun onDockDrag(v: View, e: DragEvent): Boolean {
         when (e.action) {
             DragEvent.ACTION_DRAG_STARTED -> { val d = drag; return d != null && d.item.type != HItem.WIDGET }
+            DragEvent.ACTION_DRAG_LOCATION -> noteDragMove(v, e)
             DragEvent.ACTION_DROP -> {
                 val pl = drag ?: return false
                 val slot = (e.x / (v.width / HomeStore.DOCK.toFloat())).toInt().coerceIn(0, HomeStore.DOCK - 1)
@@ -635,44 +696,118 @@ class HomeActivity : Activity() {
         target.wid = HomeStore.nextId()
     }
 
-    private fun dropOnGrid(pl: Payload, p: Int, cx: Int, cy: Int) {
+    /** Posisi semua item sebelum diubah: [wadah (0 halaman / 1 dock), halaman, kolom, baris]. Dipakai untuk animasi pindah. */
+    private fun snapshot(): HashMap<HItem, IntArray> {
+        val m = HashMap<HItem, IntArray>()
+        for (p in HomeStore.pages.indices) for (x in HomeStore.pages[p]) m[x] = intArrayOf(0, p, x.cx, x.cy)
+        for (x in HomeStore.dock) m[x] = intArrayOf(1, 0, x.cx, 0)
+        return m
+    }
+
+    private fun popIn(v: View, from: Float = 0.5f) {
+        v.scaleX = from; v.scaleY = from; v.alpha = 0f
+        v.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(300).setInterpolator(OvershootInterpolator(1.8f)).start()
+    }
+
+    /**
+     * Animasi setelah tata letak diubah: item yang pindah meluncur dari posisi lama (item yang dilepas dari titik jari) dengan
+     * pelambatan halus, item baru muncul membesar, folder yang baru menerima ikon memantul.
+     */
+    private fun animateFrom(snap: Map<HItem, IntArray>, dragged: HItem?, fx: Float, fy: Float, fPage: Int, bounce: HItem?) {
+        for (p in 0 until pagesBox.childCount) {
+            val page = pagesBox.getChildAt(p) as? ViewGroup ?: continue
+            for (i in 0 until page.childCount) {
+                val v = page.getChildAt(i)
+                val item = v.tag as? HItem ?: continue
+                val old = snap[item]
+                if (item === dragged && fx >= 0f && p == fPage) {
+                    // mendarat dari titik jari
+                    val dx = fx - (item.cx * cellW + item.sx * cellW / 2f)
+                    val dy = fy - (item.cy * cellH + item.sy * cellH / 2f)
+                    v.translationX = dx; v.translationY = dy; v.scaleX = 1.1f; v.scaleY = 1.1f
+                    v.animate().translationX(0f).translationY(0f).scaleX(1f).scaleY(1f).setDuration(280).setInterpolator(DecelerateInterpolator(1.8f)).start()
+                } else if (old == null) popIn(v)
+                else if (old[0] == 0 && old[1] == p) {
+                    val dx = (old[2] - item.cx) * cellW.toFloat()
+                    val dy = (old[3] - item.cy) * cellH.toFloat()
+                    if (dx != 0f || dy != 0f) {
+                        v.translationX = dx; v.translationY = dy
+                        v.animate().translationX(0f).translationY(0f).setDuration(300).setInterpolator(DecelerateInterpolator(1.8f)).start()
+                    }
+                } else popIn(v, 0.7f)
+                if (item === bounce) {
+                    v.scaleX = 1.25f; v.scaleY = 1.25f
+                    v.animate().scaleX(1f).scaleY(1f).setDuration(380).setInterpolator(OvershootInterpolator(3f)).start()
+                }
+            }
+        }
+        val slotW = dockRow.width / HomeStore.DOCK.toFloat()
+        for (i in 0 until dockRow.childCount) {
+            val cell = dockRow.getChildAt(i) as? ViewGroup ?: continue
+            if (cell.childCount == 0) continue
+            val v = cell.getChildAt(0)
+            val item = v.tag as? HItem ?: continue
+            val old = snap[item]
+            if (old == null) popIn(v)
+            else if (old[0] == 1) {
+                val dx = (old[2] - item.cx) * slotW
+                if (dx != 0f) { v.translationX = dx; v.animate().translationX(0f).setDuration(300).setInterpolator(DecelerateInterpolator(1.8f)).start() }
+            } else popIn(v, 0.7f)
+            if (item === bounce) {
+                v.scaleX = 1.25f; v.scaleY = 1.25f
+                v.animate().scaleX(1f).scaleY(1f).setDuration(380).setInterpolator(OvershootInterpolator(3f)).start()
+            }
+        }
+    }
+
+    private fun dropOnGrid(pl: Payload, p: Int, cx: Int, cy: Int, fx: Float, fy: Float) {
         val item = pl.item
         if (p >= HomeStore.pages.size) return
+        val snap = snapshot()
         val list = HomeStore.pages[p]
         val target = list.firstOrNull { it !== item && cx >= it.cx && cx < it.cx + it.sx && cy >= it.cy && cy < it.cy + it.sy }
         if (pl.folder != null && target === pl.folder) return
+        var bounce: HItem? = null
+        var landed = true
         if (target != null && item.type == HItem.APP && target.type == HItem.APP && target.pkg != item.pkg) {
-            detach(pl); makeFolder(target, item)
+            detach(pl); makeFolder(target, item); bounce = target; landed = false
         } else if (target != null && item.type == HItem.APP && target.type == HItem.FOLDER) {
             detach(pl)
             if (item.pkg !in target.apps) target.apps.add(item.pkg)
+            bounce = target; landed = false
         } else {
             detach(pl)
             if (HomeStore.cellFree(list, cx, cy, item.sx, item.sy, null)) { item.cx = cx; item.cy = cy; list.add(item) }
-            else if (HomeStore.placeNear(item, p, cx, cy) < 0) Toast.makeText(this, "Layar penuh", Toast.LENGTH_SHORT).show()
+            else if (HomeStore.placeNear(item, p, cx, cy) < 0) FlowUi.toast(this, "Layar penuh")
         }
         HomeStore.save(this)
         rebuild()
+        val d = if (landed) item else null
+        pager.post { animateFrom(snap, d, fx, fy, p, bounce) }
     }
 
     private fun dropOnDock(pl: Payload, slot: Int) {
         val item = pl.item
+        val snap = snapshot()
         val target = HomeStore.dock.firstOrNull { it.cx == slot && it !== item }
         if (pl.folder != null && target === pl.folder) return
+        var bounce: HItem? = null
         if (target != null && item.type == HItem.APP && target.type == HItem.APP && target.pkg != item.pkg) {
-            detach(pl); makeFolder(target, item)
+            detach(pl); makeFolder(target, item); bounce = target
         } else if (target != null && item.type == HItem.APP && target.type == HItem.FOLDER) {
             detach(pl)
             if (item.pkg !in target.apps) target.apps.add(item.pkg)
+            bounce = target
         } else {
             detach(pl)
             if (!HomeStore.placeDock(item, slot)) {
                 HomeStore.placeNear(item, 0, 0, 0)
-                Toast.makeText(this, "Dock penuh", Toast.LENGTH_SHORT).show()
+                FlowUi.toast(this, "Dock penuh")
             }
         }
         HomeStore.save(this)
         rebuild()
+        pager.post { animateFrom(snap, null, -1f, -1f, -1, bounce) }
     }
 
     private fun barAction(pl: Payload, kind: Int) {
@@ -690,7 +825,7 @@ class HomeActivity : Activity() {
     }
 
     // ---------- folder ----------
-    private fun openFolder(f: HItem) {
+    private fun openFolder(f: HItem, src: View? = null) {
         closeOverlay(false)
         if (f.wid < 0) { f.wid = HomeStore.nextId(); HomeStore.save(this) }
         val ov = FrameLayout(this)
@@ -710,9 +845,10 @@ class HomeActivity : Activity() {
         }
         panel.addView(title, LinearLayout.LayoutParams(MATCH, dp(44)))
         folderTitle = title; folderItem = f
+        val cells = ArrayList<View>()
         for (row in f.apps.toList().chunked(4)) {
             val line = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            for (pkg in row) line.addView(folderCell(f, pkg), LinearLayout.LayoutParams(0, WRAP, 1f))
+            for (pkg in row) { val cv = folderCell(f, pkg); cells.add(cv); line.addView(cv, LinearLayout.LayoutParams(0, WRAP, 1f)) }
             for (i in row.size until 4) line.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
             panel.addView(line, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
         }
@@ -730,9 +866,24 @@ class HomeActivity : Activity() {
         root.addView(ov, FrameLayout.LayoutParams(MATCH, MATCH))
         overlay = ov
         ov.alpha = 0f
-        ov.animate().alpha(1f).setDuration(140).start()
-        panel.scaleX = 0.92f; panel.scaleY = 0.92f
-        panel.animate().scaleX(1f).scaleY(1f).setDuration(160).start()
+        ov.animate().alpha(1f).setDuration(180).start()
+        // panel membesar dari ikon folder, isinya muncul berurutan
+        val sl = IntArray(2)
+        if (src != null) src.getLocationInWindow(sl)
+        val sx = sl[0] + (src?.width ?: 0) / 2
+        val sy = sl[1] + (src?.height ?: 0) / 2
+        panel.post {
+            val pl = IntArray(2)
+            panel.getLocationInWindow(pl)
+            panel.pivotX = if (src != null) (sx - pl[0]).toFloat() else panel.width / 2f
+            panel.pivotY = if (src != null) (sy - pl[1]).toFloat() else panel.height / 2f
+            panel.scaleX = 0.3f; panel.scaleY = 0.3f; panel.alpha = 0f
+            panel.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(340).setInterpolator(OvershootInterpolator(1.1f)).start()
+        }
+        for ((i, c) in cells.withIndex()) {
+            c.alpha = 0f; c.scaleX = 0.7f; c.scaleY = 0.7f; c.translationY = dp(14).toFloat()
+            c.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f).setStartDelay(90L + i * 30L).setDuration(300).setInterpolator(OvershootInterpolator(1.4f)).start()
+        }
     }
 
     private fun folderCell(f: HItem, pkg: String): View {
@@ -743,7 +894,7 @@ class HomeActivity : Activity() {
             maxLines = 1; ellipsize = TextUtils.TruncateAt.END; includeFontPadding = false
             setShadowLayer(3f, 0f, 1f, 0x80000000.toInt())
         }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(6) })
-        box.setOnClickListener { launch(pkg) }
+        box.setOnClickListener { launch(pkg, box) }
         box.setOnLongClickListener { beginDrag(box, Payload(HItem(HItem.APP, pkg = pkg), f)); true }
         return box
     }
@@ -767,7 +918,11 @@ class HomeActivity : Activity() {
             root.removeView(ov)
             if (labelsDirty) { labelsDirty = false; rebuild() }
         }
-        if (animate) ov.animate().alpha(0f).setDuration(120).withEndAction(remove).start() else remove.run()
+        if (animate) {
+            if (f != null && ov is ViewGroup && ov.childCount > 0) ov.getChildAt(0).animate().scaleX(0.4f).scaleY(0.4f).alpha(0f).setDuration(180).start()
+            else ov.animate().translationY(dp(40).toFloat()).setDuration(180).start()
+            ov.animate().alpha(0f).setDuration(190).withEndAction(remove).start()
+        } else remove.run()
     }
 
     // ---------- laci aplikasi ----------
@@ -815,7 +970,7 @@ class HomeActivity : Activity() {
             overScrollMode = View.OVER_SCROLL_NEVER; isVerticalScrollBarEnabled = false
             adapter = ad
         }
-        grid.setOnItemClickListener { _, _, pos, _ -> if (pos < shown.size) launch(shown[pos].pkg) }
+        grid.setOnItemClickListener { _, v, pos, _ -> if (pos < shown.size) launch(shown[pos].pkg, v) }
         grid.setOnItemLongClickListener { _, v, pos, _ ->
             if (pos < shown.size) beginDrag(v, Payload(HItem(HItem.APP, pkg = shown[pos].pkg), null))
             true
@@ -845,64 +1000,388 @@ class HomeActivity : Activity() {
     }
 
     // ---------- menu layar, wallpaper, widget ----------
-    private fun showHomeMenu() {
-        val items = arrayOf("Tambah widget", "Ganti wallpaper", "Susun semua aplikasi ke layar", "Pengaturan peluncur")
-        AlertDialog.Builder(this).setItems(items) { _, which ->
-            when (which) {
-                0 -> pickWidget()
-                1 -> pickWallpaper()
-                2 -> {
-                    val n = HomeStore.fillAll(this, HomeStore.MAX_PAGES)
-                    HomeStore.save(this); rebuild()
-                    Toast.makeText(this, if (n > 0) "$n aplikasi ditambahkan" else "Semua aplikasi sudah ada di layar", Toast.LENGTH_SHORT).show()
-                }
-                else -> showSettings()
+    // ---------- mode edit (tekan lama layar): halaman mengecil, tombol Wallpaper / Widget / Pengaturan ----------
+    private fun iconBmp(kind: Int): Bitmap {
+        val s = dp(26)
+        val f = s.toFloat()
+        val b = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888)
+        val c = Canvas(b)
+        val st = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE; style = Paint.Style.STROKE; strokeWidth = f * 0.085f; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
+        }
+        val fl = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+        when (kind) {
+            0 -> {
+                c.drawRoundRect(RectF(f * 0.1f, f * 0.14f, f * 0.9f, f * 0.86f), f * 0.14f, f * 0.14f, st)
+                val p = Path()
+                p.moveTo(f * 0.14f, f * 0.76f); p.lineTo(f * 0.4f, f * 0.46f); p.lineTo(f * 0.58f, f * 0.64f); p.lineTo(f * 0.7f, f * 0.52f); p.lineTo(f * 0.86f, f * 0.74f)
+                c.drawPath(p, st)
+                c.drawCircle(f * 0.68f, f * 0.32f, f * 0.07f, fl)
             }
-        }.show()
+            1 -> {
+                c.drawRoundRect(RectF(f * 0.12f, f * 0.12f, f * 0.45f, f * 0.45f), f * 0.07f, f * 0.07f, st)
+                c.drawRoundRect(RectF(f * 0.12f, f * 0.55f, f * 0.45f, f * 0.88f), f * 0.07f, f * 0.07f, st)
+                c.drawRoundRect(RectF(f * 0.55f, f * 0.55f, f * 0.88f, f * 0.88f), f * 0.07f, f * 0.07f, st)
+                c.save()
+                c.rotate(45f, f * 0.715f, f * 0.285f)
+                c.drawRoundRect(RectF(f * 0.55f, f * 0.12f, f * 0.88f, f * 0.45f), f * 0.07f, f * 0.07f, st)
+                c.restore()
+            }
+            else -> {
+                for (i in 0..2) {
+                    val y = f * (0.24f + i * 0.26f)
+                    c.drawLine(f * 0.12f, y, f * 0.88f, y, st)
+                    c.drawCircle(f * (0.34f + ((i * 2) % 3) * 0.16f), y, f * 0.085f, fl)
+                }
+            }
+        }
+        return b
     }
 
-    private fun showSettings() {
-        val items = arrayOf(
-            "Gaya ikon: " + (if (mono) "Kaca putih" else "iOS (warna)") + " (ketuk untuk ganti)",
-            "Nama ikon: " + (if (showLabels) "Tampil" else "Sembunyi") + " (ketuk untuk ganti)",
-            "Atur folder…",
-            "Blur dan gaya kaca…",
-            "Jadikan peluncur bawaan…",
-            "Buka pengaturan Flow Launcher"
-        )
-        AlertDialog.Builder(this).setItems(items) { _, which ->
-            when (which) {
-                0 -> {
-                    mono = !mono
-                    getSharedPreferences(SP, MODE_PRIVATE).edit().putBoolean("mono", mono).apply()
-                    lastSig = GlassPrefs.sig(this) + "|" + mono
-                    rebuild(); warmIcons()
+    private fun editButton(label: String, kind: Int, action: () -> Unit): View {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
+        val ic = ImageView(this).apply { setImageBitmap(iconBmp(kind)); scaleType = ImageView.ScaleType.CENTER }
+        ic.background = GlassPanelDrawable(ic, dp(30).toFloat(), 1f, 56, 0.4f)
+        box.addView(ic, LinearLayout.LayoutParams(dp(60), dp(60)))
+        box.addView(TextView(this).apply {
+            text = label; textSize = 12.5f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            setShadowLayer(3f, 0f, 1f, 0x80000000.toInt())
+        }, LinearLayout.LayoutParams(WRAP, WRAP).apply { topMargin = dp(6) })
+        box.setOnClickListener { action() }
+        return box
+    }
+
+    private fun enterEdit() {
+        if (editing || overlay != null || sheet != null || drag != null) return
+        editing = true
+        pager.pivotX = pageW / 2f
+        pager.pivotY = pageH * 0.4f
+        pager.animate().scaleX(0.84f).scaleY(0.84f).setDuration(240).setInterpolator(DecelerateInterpolator(1.6f)).start()
+        for (v in listOf<View>(dockPanel, pill, dots)) v.animate().alpha(0f).setDuration(180).start()
+        val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(dp(24), 0, dp(24), 0) }
+        bar.addView(editButton("Wallpaper", 0) { exitEdit(); pickWallpaper() }, LinearLayout.LayoutParams(0, WRAP, 1f))
+        bar.addView(editButton("Widget", 1) { openWidgetSheet() }, LinearLayout.LayoutParams(0, WRAP, 1f))
+        bar.addView(editButton("Pengaturan", 2) { exitEdit(); showSettings() }, LinearLayout.LayoutParams(0, WRAP, 1f))
+        root.addView(bar, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM).apply { bottomMargin = botInset + dp(30) })
+        editBar = bar
+        bar.alpha = 0f
+        bar.translationY = dp(30).toFloat()
+        bar.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
+        pager.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+    }
+
+    private fun exitEdit() {
+        if (!editing) return
+        editing = false
+        pager.animate().scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(DecelerateInterpolator(1.6f)).start()
+        for (v in listOf<View>(dockPanel, pill, dots)) v.animate().alpha(1f).setDuration(220).start()
+        val bar = editBar
+        editBar = null
+        if (bar != null) bar.animate().alpha(0f).translationY(dp(30).toFloat()).setDuration(160).withEndAction { root.removeView(bar) }.start()
+    }
+
+    // ---------- pemilih widget (bottom sheet): cari, kelompok per aplikasi, pratinjau, ukuran ----------
+    private class WGroup(val pkg: String, val label: String, val icon: Drawable?, val items: List<AppWidgetProviderInfo>)
+
+    private val previewCache = HashMap<String, Drawable?>()
+
+    private fun loadGroups(q: String): List<WGroup> {
+        val pm = packageManager
+        val byPkg = LinkedHashMap<String, MutableList<AppWidgetProviderInfo>>()
+        for (i in awm.installedProviders) byPkg.getOrPut(i.provider.packageName) { ArrayList() }.add(i)
+        val ql = q.trim().lowercase()
+        val out = ArrayList<WGroup>()
+        for ((pkg, list) in byPkg) {
+            val label = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
+            val items = if (ql.isEmpty() || label.lowercase().contains(ql)) list else list.filter { it.loadLabel(pm).lowercase().contains(ql) }
+            if (items.isEmpty()) continue
+            out.add(WGroup(pkg, label, runCatching { pm.getApplicationIcon(pkg) }.getOrNull(), items.sortedBy { it.loadLabel(pm).lowercase() }))
+        }
+        out.sortWith(compareBy<WGroup>({ it.pkg != packageName }, { it.label.lowercase() }))
+        return out
+    }
+
+    private fun cellsOf(i: AppWidgetProviderInfo): String {
+        var w = Math.ceil((i.minWidth + 30) / 70.0).toInt()
+        var h = Math.ceil((i.minHeight + 30) / 70.0).toInt()
+        if (Build.VERSION.SDK_INT >= 31 && i.targetCellWidth > 0 && i.targetCellHeight > 0) { w = i.targetCellWidth; h = i.targetCellHeight }
+        return "$w × $h"
+    }
+
+    private fun previewOf(i: AppWidgetProviderInfo): Drawable? {
+        val k = i.provider.flattenToString()
+        if (previewCache.containsKey(k)) return previewCache[k]
+        val d = runCatching { i.loadPreviewImage(this, 0) }.getOrNull() ?: runCatching { i.loadIcon(this, 0) }.getOrNull()
+        previewCache[k] = d
+        return d
+    }
+
+    private fun openWidgetSheet() {
+        if (sheet != null) return
+        closeOverlay(false)
+        val gray = 0xFF9AA7AF.toInt()
+        val ov = FrameLayout(this)
+        ov.setBackgroundColor(Color.argb(110, 0, 0, 0))
+        ov.setOnClickListener { closeSheet() }
+        val h = (rootH * 0.86f).toInt()
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; isClickable = true }
+        val r = dp(28).toFloat()
+        box.background = GradientDrawable().apply { setColor(0xFF12161A.toInt()); cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f) }
+
+        val hbox = FrameLayout(this)
+        hbox.addView(View(this).apply { background = GradientDrawable().apply { setColor(0x66FFFFFF.toInt()); cornerRadius = dp(2).toFloat() } }, FrameLayout.LayoutParams(dp(40), dp(4), Gravity.CENTER))
+        var downY = 0f
+        hbox.setOnTouchListener { _, e ->
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> downY = e.rawY
+                MotionEvent.ACTION_MOVE -> { val dy = e.rawY - downY; if (dy > 0f) box.translationY = dy }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (e.rawY - downY > dp(110)) closeSheet() else box.animate().translationY(0f).setDuration(180).start()
                 }
-                1 -> {
-                    showLabels = !showLabels
-                    getSharedPreferences(SP, MODE_PRIVATE).edit().putBoolean("labels", showLabels).apply()
-                    rebuild()
-                }
-                2 -> manageFolders()
-                3 -> startActivity(Intent(this, WidgetStyleActivity::class.java))
-                4 -> requestHome()
-                else -> startActivity(Intent(this, MainActivity::class.java))
             }
-        }.show()
+            true
+        }
+        box.addView(hbox, LinearLayout.LayoutParams(MATCH, dp(30)))
+        box.addView(TextView(this).apply {
+            text = "Widget"; textSize = 20f; setTextColor(Color.WHITE); typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        }, LinearLayout.LayoutParams(MATCH, WRAP).apply { leftMargin = dp(24); rightMargin = dp(24); bottomMargin = dp(8) })
+        val search = EditText(this).apply {
+            hint = "Telusuri widget"; setHintTextColor(0x99FFFFFF.toInt()); setTextColor(Color.WHITE); textSize = 16f
+            setSingleLine(true); setPadding(dp(20), 0, dp(20), 0)
+            background = GradientDrawable().apply { setColor(0xFF2B3A42.toInt()); cornerRadius = dp(26).toFloat() }
+        }
+        box.addView(search, LinearLayout.LayoutParams(MATCH, dp(52)).apply { setMargins(dp(16), dp(4), dp(16), dp(8)) })
+
+        var groups = loadGroups("")
+        val lv = ExpandableListView(this)
+        val ad = object : BaseExpandableListAdapter() {
+            override fun getGroupCount() = groups.size
+            override fun getChildrenCount(groupPosition: Int) = groups[groupPosition].items.size
+            override fun getGroup(groupPosition: Int): Any = groups[groupPosition]
+            override fun getChild(groupPosition: Int, childPosition: Int): Any = groups[groupPosition].items[childPosition]
+            override fun getGroupId(groupPosition: Int) = groupPosition.toLong()
+            override fun getChildId(groupPosition: Int, childPosition: Int) = (groupPosition * 1000 + childPosition).toLong()
+            override fun hasStableIds() = false
+            override fun isChildSelectable(groupPosition: Int, childPosition: Int) = true
+
+            override fun getGroupView(groupPosition: Int, isExpanded: Boolean, convertView: View?, parent: ViewGroup?): View {
+                val g = groups[groupPosition]
+                val row = LinearLayout(this@HomeActivity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(16), dp(14), dp(16), dp(14)) }
+                row.background = GradientDrawable().apply { setColor(0xFF1F2A31.toInt()); cornerRadius = dp(24).toFloat() }
+                row.addView(ImageView(this@HomeActivity).apply { setImageDrawable(g.icon); scaleType = ImageView.ScaleType.FIT_CENTER }, LinearLayout.LayoutParams(dp(48), dp(48)))
+                val col = LinearLayout(this@HomeActivity).apply { orientation = LinearLayout.VERTICAL }
+                col.addView(TextView(this@HomeActivity).apply { text = g.label; textSize = 18f; setTextColor(Color.WHITE); maxLines = 1; ellipsize = TextUtils.TruncateAt.END })
+                col.addView(TextView(this@HomeActivity).apply { text = g.items.size.toString() + " widget"; textSize = 14f; setTextColor(gray) })
+                row.addView(col, LinearLayout.LayoutParams(0, WRAP, 1f).apply { leftMargin = dp(16) })
+                row.addView(TextView(this@HomeActivity).apply { text = if (isExpanded) "⌃" else "⌄"; textSize = 22f; setTextColor(gray) })
+                val wrap = FrameLayout(this@HomeActivity)
+                wrap.setPadding(0, dp(4), 0, dp(4))
+                wrap.addView(row, FrameLayout.LayoutParams(MATCH, WRAP))
+                return wrap
+            }
+
+            override fun getChildView(groupPosition: Int, childPosition: Int, isLastChild: Boolean, convertView: View?, parent: ViewGroup?): View {
+                val info = groups[groupPosition].items[childPosition]
+                val box2 = LinearLayout(this@HomeActivity).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL; setPadding(dp(16), dp(12), dp(16), dp(18)) }
+                val pv = ImageView(this@HomeActivity).apply {
+                    adjustViewBounds = true; scaleType = ImageView.ScaleType.FIT_CENTER; maxHeight = dp(230); setImageDrawable(previewOf(info))
+                }
+                pv.background = GradientDrawable().apply { setColor(0xFF2B3A42.toInt()); cornerRadius = dp(22).toFloat() }
+                box2.addView(pv, LinearLayout.LayoutParams(WRAP, WRAP))
+                box2.addView(TextView(this@HomeActivity).apply { text = info.loadLabel(packageManager); textSize = 16f; setTextColor(Color.WHITE); gravity = Gravity.CENTER }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(10) })
+                box2.addView(TextView(this@HomeActivity).apply { text = cellsOf(info); textSize = 14f; setTextColor(gray); gravity = Gravity.CENTER })
+                val desc = if (Build.VERSION.SDK_INT >= 31) runCatching { info.loadDescription(this@HomeActivity)?.toString() }.getOrNull() else null
+                if (!desc.isNullOrEmpty()) box2.addView(TextView(this@HomeActivity).apply { text = desc; textSize = 13f; setTextColor(gray); gravity = Gravity.CENTER }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(2) })
+                box2.setOnClickListener { closeSheet(); exitEdit(); bindWidget(info) }
+                return box2
+            }
+        }
+        lv.setAdapter(ad)
+        lv.setGroupIndicator(null)
+        lv.divider = null
+        lv.dividerHeight = 0
+        lv.setChildDivider(ColorDrawable(Color.TRANSPARENT))
+        lv.selector = ColorDrawable(Color.TRANSPARENT)
+        lv.overScrollMode = View.OVER_SCROLL_NEVER
+        lv.isVerticalScrollBarEnabled = false
+        lv.clipToPadding = false
+        lv.setPadding(dp(12), 0, dp(12), botInset + dp(16))
+        box.addView(lv, LinearLayout.LayoutParams(MATCH, 0, 1f))
+        search.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {}
+            override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                val q = s?.toString() ?: ""
+                groups = loadGroups(q)
+                ad.notifyDataSetChanged()
+                if (q.isNotBlank()) for (i in 0 until ad.groupCount) lv.expandGroup(i)
+            }
+        })
+        ov.addView(box, FrameLayout.LayoutParams(MATCH, h, Gravity.BOTTOM))
+        root.addView(ov, FrameLayout.LayoutParams(MATCH, MATCH))
+        sheet = ov
+        ov.alpha = 0f
+        ov.animate().alpha(1f).setDuration(200).start()
+        box.translationY = h.toFloat()
+        box.animate().translationY(0f).setDuration(300).setInterpolator(DecelerateInterpolator(1.6f)).start()
+    }
+
+    private fun closeSheet() {
+        val ov = sheet ?: return
+        sheet = null
+        hideKeyboard(ov)
+        val box = ov.getChildAt(0)
+        box.animate().translationY(box.height.toFloat()).setDuration(240).start()
+        ov.animate().alpha(0f).setDuration(220).withEndAction { root.removeView(ov) }.start()
+    }
+
+    private fun centerRect(): Rect = Rect(rootW / 2, rootH / 2, rootW / 2, rootH / 2)
+
+    private fun showSettings() {
+        val items = ArrayList<FlowUi.Item>()
+        items.add(FlowUi.Item("Ikon: " + (if (mono) "Kaca putih" else "iOS (warna)"), 6) {
+            mono = !mono
+            getSharedPreferences(SP, MODE_PRIVATE).edit().putBoolean("mono", mono).apply()
+            lastSig = GlassPrefs.sig(this) + "|" + mono
+            rebuild(); warmIcons()
+        })
+        items.add(FlowUi.Item("Nama ikon: " + (if (showLabels) "Tampil" else "Sembunyi"), 0) {
+            showLabels = !showLabels
+            getSharedPreferences(SP, MODE_PRIVATE).edit().putBoolean("labels", showLabels).apply()
+            rebuild()
+        })
+        items.add(FlowUi.Item("Atur folder", 7) { manageFolders() })
+        items.add(FlowUi.Item("Susun semua aplikasi", 1) {
+            val n = HomeStore.fillAll(this, HomeStore.MAX_PAGES)
+            HomeStore.save(this); rebuild()
+            FlowUi.toast(this, if (n > 0) "$n aplikasi ditambahkan" else "Semua aplikasi sudah ada di layar")
+        })
+        items.add(FlowUi.Item("Blur dan gaya kaca", 6) { startActivity(Intent(this, WidgetStyleActivity::class.java)) })
+        items.add(FlowUi.Item("Jadikan launcher utama", 4) { requestHome() })
+        items.add(FlowUi.Item("Pengaturan Flow Launcher", 6) { startActivity(Intent(this, MainActivity::class.java)) })
+        FlowUi.menu(this, centerRect(), items, true)
     }
 
     private fun manageFolders() {
         val fs = HomeStore.all().filter { it.type == HItem.FOLDER }
         if (fs.isEmpty()) {
-            Toast.makeText(this, "Belum ada folder. Tumpuk satu ikon di atas ikon lain untuk membuat folder.", Toast.LENGTH_LONG).show()
+            FlowUi.toast(this, "Belum ada folder. Tumpuk satu ikon di atas ikon lain untuk membuat folder.")
             return
         }
-        val names = Array(fs.size) { i -> fs[i].name.ifEmpty { "Folder" } + " (" + fs[i].apps.size + ")" }
-        AlertDialog.Builder(this).setTitle("Pilih folder").setItems(names) { _, i ->
-            val f = fs[i]
-            if (f.wid < 0) { f.wid = HomeStore.nextId(); HomeStore.save(this) }
-            startActivity(Intent(this, FolderConfigActivity::class.java).putExtra("home_folder", f.wid))
-        }.show()
+        val items = ArrayList<FlowUi.Item>()
+        for (f in fs) items.add(FlowUi.Item(f.name.ifEmpty { "Folder" } + " (" + f.apps.size + ")", 7) { editFolderApps(f) })
+        FlowUi.menu(this, centerRect(), items, true)
+    }
+
+    // ---------- menu tekan lama pada ikon / folder / widget ----------
+    private fun onItemLong(v: View, item: HItem) {
+        if (drag != null) return
+        beginDrag(v, Payload(item, null), true)
+        if (drag != null) showItemMenu(v, item)
+    }
+
+    private fun showDragBar() {
+        if (dragBar.visibility == View.VISIBLE) return
+        dragBar.alpha = 0f
+        dragBar.visibility = View.VISIBLE
+        dragBar.animate().alpha(1f).setDuration(150).start()
+    }
+
+    private fun hideItemMenu() {
+        val d = itemMenuDismiss ?: return
+        itemMenuDismiss = null
+        d()
+    }
+
+    /** Dipanggil saat jari mulai bergeser: menu popup disembunyikan dan bilah Hapus/Info/Copot muncul. */
+    private fun noteDragMove(v: View, e: DragEvent) {
+        if (menuHidden) return
+        val loc = IntArray(2)
+        v.getLocationInWindow(loc)
+        val x = loc[0] + e.x
+        val y = loc[1] + e.y
+        if (dragX0.isNaN()) { dragX0 = x; dragY0 = y; return }
+        if (Math.hypot((x - dragX0).toDouble(), (y - dragY0).toDouble()) > dp(14)) {
+            menuHidden = true
+            hideItemMenu()
+            showDragBar()
+        }
+    }
+
+    private fun showItemMenu(v: View, item: HItem) {
+        val loc = IntArray(2)
+        v.getLocationInWindow(loc)
+        val r = Rect(loc[0], loc[1], loc[0] + v.width, loc[1] + v.height)
+        val items = ArrayList<FlowUi.Item>()
+        when (item.type) {
+            HItem.FOLDER -> {
+                items.add(FlowUi.Item("Sunting", 0) { renameItem(item) })
+                items.add(FlowUi.Item("Urutan", 1) { sortFolder(item) })
+                items.add(FlowUi.Item("Pilih Apl", 2) { editFolderApps(item) })
+                items.add(FlowUi.Item("Hapus", 3) { removeItem(item) })
+            }
+            HItem.APP -> {
+                items.add(FlowUi.Item("Sunting", 0) { renameItem(item) })
+                items.add(FlowUi.Item("Info aplikasi", 4) { runCatching { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, HomeUtil.uriOfPkg(item.pkg))) } })
+                items.add(FlowUi.Item("Copot", 5) { runCatching { startActivity(Intent(Intent.ACTION_DELETE, HomeUtil.uriOfPkg(item.pkg))) } })
+                items.add(FlowUi.Item("Hapus", 3) { removeItem(item) })
+            }
+            else -> items.add(FlowUi.Item("Hapus", 3) { removeItem(item) })
+        }
+        itemMenuDismiss = FlowUi.menu(this, r, items, false) { itemMenuDismiss = null }
+    }
+
+    private fun renameItem(item: HItem) {
+        val isFolder = item.type == HItem.FOLDER
+        val cur = if (isFolder) item.name.ifEmpty { "Folder" } else item.name.ifEmpty { appLabel(item.pkg) }
+        FlowUi.input(this, if (isFolder) "Nama folder" else "Nama ikon", cur, if (isFolder) "Folder" else appLabel(item.pkg), "Simpan") { t ->
+            val n = t.trim()
+            item.name = if (isFolder) n.ifEmpty { "Folder" } else (if (n == appLabel(item.pkg)) "" else n)
+            HomeStore.save(this)
+            val snap = snapshot()
+            rebuild()
+            pager.post { animateFrom(snap, null, -1f, -1f, -1, item) }
+        }
+    }
+
+    private fun sortFolder(f: HItem) {
+        val snap = snapshot()
+        f.apps.sortBy { appLabel(it).lowercase() }
+        HomeStore.save(this)
+        rebuild()
+        pager.post { animateFrom(snap, null, -1f, -1f, -1, f) }
+        FlowUi.toast(this, "Folder diurutkan A–Z")
+    }
+
+    private fun editFolderApps(f: HItem) {
+        if (f.wid < 0) { f.wid = HomeStore.nextId(); HomeStore.save(this) }
+        startActivity(Intent(this, FolderConfigActivity::class.java).putExtra("home_folder", f.wid))
+    }
+
+    private fun findViewFor(item: HItem): View? {
+        for (p in 0 until pagesBox.childCount) {
+            val page = pagesBox.getChildAt(p) as? ViewGroup ?: continue
+            for (i in 0 until page.childCount) if (page.getChildAt(i).tag === item) return page.getChildAt(i)
+        }
+        for (i in 0 until dockRow.childCount) {
+            val cell = dockRow.getChildAt(i) as? ViewGroup ?: continue
+            if (cell.childCount > 0 && cell.getChildAt(0).tag === item) return cell.getChildAt(0)
+        }
+        return null
+    }
+
+    /** Hapus dari layar dengan animasi mengecil. */
+    private fun removeItem(item: HItem) {
+        if (item.type == HItem.WIDGET && item.wid >= 0) runCatching { host.deleteAppWidgetId(item.wid) }
+        val done = Runnable {
+            HomeStore.remove(item)
+            HomeStore.trim()
+            HomeStore.save(this)
+            rebuild()
+        }
+        val v = findViewFor(item)
+        if (v == null) done.run()
+        else v.animate().scaleX(0.2f).scaleY(0.2f).alpha(0f).setDuration(200).withEndAction(done).start()
     }
 
     private fun pickWallpaper() {
@@ -918,16 +1397,9 @@ class HomeActivity : Activity() {
             if (ok) HomeWall.build(this, w, h)
             runOnUiThread {
                 if (ok) { wallImg.setImageBitmap(HomeWall.full); invalidateGlass() }
-                else Toast.makeText(this, "Gambar tidak bisa dibuka", Toast.LENGTH_SHORT).show()
+                else FlowUi.toast(this, "Gambar tidak bisa dibuka")
             }
         }.start()
-    }
-
-    private fun pickWidget() {
-        val pm = packageManager
-        val list = awm.installedProviders.sortedWith(compareBy<AppWidgetProviderInfo>({ it.provider.packageName != packageName }, { it.loadLabel(pm).lowercase() }))
-        val names = Array(list.size) { i -> list[i].loadLabel(pm) + "  ·  " + appLabel(list[i].provider.packageName) }
-        AlertDialog.Builder(this).setTitle("Pilih widget").setItems(names) { _, i -> bindWidget(list[i]) }.show()
     }
 
     private fun bindWidget(info: AppWidgetProviderInfo) {
@@ -963,7 +1435,7 @@ class HomeActivity : Activity() {
         pendWid = -1; pendInfo = null
         if (p < 0) {
             host.deleteAppWidgetId(id)
-            Toast.makeText(this, "Layar penuh", Toast.LENGTH_SHORT).show()
+            FlowUi.toast(this, "Layar penuh")
             return
         }
         HomeStore.save(this)

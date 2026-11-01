@@ -271,3 +271,21 @@ File diubah: `AndroidManifest.xml`, `HomeActivity.kt`, `HomeWall.kt`, `FolderWid
 - Belum dikompilasi dan belum diuji di perangkat; `.github/workflows` tidak diubah.
 
 File diubah: `HomeData.kt`, `HomeActivity.kt`, `FolderConfigActivity.kt`, `MainActivity.kt`, `CcLyrics.kt`, `MusicWidget.kt`, `ControlCenterViews.kt`, `AndroidManifest.xml`, `build.gradle.kts`, `README.md`.
+
+## Stage 12 (2.13.0): mode edit gaya Nova, pemilih widget, animasi pindah ikon
+- **Mode edit** (tekan lama area kosong, `HomeActivity.kt`): halaman mengecil halus, dock dan tombol Cari memudar, muncul tiga tombol kaca Wallpaper / Widget / Pengaturan. Ketuk area kosong atau tombol kembali untuk keluar. Menu "Susun semua aplikasi ke layar" pindah ke Pengaturan peluncur.
+- **Pemilih widget** (bottom sheet): kolom "Telusuri widget", daftar per aplikasi yang bisa dibuka-tutup (ikon, nama, jumlah widget), pratinjau gambar tiap widget, ukuran (mis. 4 × 2) dan deskripsi. Ketuk widget untuk menaruhnya di halaman aktif. Tarik pegangan ke bawah untuk menutup.
+- **Pratinjau widget Flow**: tujuh gambar pratinjau (`drawable-nodpi/preview_*.png`) dipasang lewat `android:previewImage`, sehingga di pemilih widget launcher mana pun tidak lagi berupa kotak putih berisi ikon. Widget Musik juga mendapat deskripsi.
+- **Animasi**: ikon mengecil saat disentuh dan memantul saat dilepas; saat menyeret, sel tujuan disorot dan mengikuti jari; ikon yang dilepas mendarat meluncur dari titik jari ke selnya; ikon baru muncul membesar; folder yang menerima ikon memantul; pindah halaman dan dock ikut meluncur halus.
+- Belum dikompilasi dan belum diuji di perangkat; `.github/workflows` tidak diubah.
+
+File baru: `drawable-nodpi/preview_*.png` (7). File diubah: `HomeActivity.kt`, `widget_*_info.xml` (7), `strings.xml`, `build.gradle.kts`, `README.md`.
+
+## Stage 13 (2.14.0): UI sendiri (tanpa menu bawaan), menu tekan-lama, transisi halus
+- **UI sendiri** (`FlowUi.kt`): dialog, kolom isian, menu popup, dan toast bergaya kaca dengan animasi, menggantikan semua `AlertDialog`/`Toast` bawaan sistem di peluncur, prompt "Jadikan launcher utama", dan pengaturan. Tombol kembali menutup lapisan teratas dulu. (Dialog sistem yang tak bisa dihindari: konfirmasi RoleManager launcher utama, izin bind widget, dan pemilih gambar galeri.)
+- **Menu tekan lama ikon/folder/widget** (`HomeActivity.kt`): muncul di dekat ikon sambil tetap bisa diseret (menu hilang saat jari bergeser, bilah Hapus/Info/Copot muncul). Folder: **Sunting** (ganti nama), **Urutan** (urut A-Z), **Pilih Apl** (halaman khusus atur folder), **Hapus**. Aplikasi: **Sunting** (nama ikon kustom), Info aplikasi, Copot, Hapus. Widget: Hapus. Hapus memakai animasi mengecil.
+- **Halaman folder dari widget** (`AndroidManifest.xml`): `FolderActivity` dan `FolderConfigActivity` kini punya task sendiri (`taskAffinity=""`), jadi tidak lagi masuk ke task Flow Launcher dan setelah selesai kembali ke layar utama launcher kamu, bukan ke halaman Flow.
+- **Animasi**: folder terbuka membesar dari ikonnya dan isinya muncul berurutan (di peluncur maupun dari widget, lengkap dengan animasi tutup); aplikasi dibuka dengan zoom dari ikon; halaman memudar dan mengecil halus saat digeser; menu, dialog, dan toast punya animasi masuk-keluar.
+- Belum dikompilasi dan belum diuji di perangkat; `.github/workflows` tidak diubah.
+
+File baru: `FlowUi.kt`. File diubah: `HomeActivity.kt`, `HomeData.kt`, `FolderActivity.kt`, `AndroidManifest.xml`, `build.gradle.kts`, `README.md`.

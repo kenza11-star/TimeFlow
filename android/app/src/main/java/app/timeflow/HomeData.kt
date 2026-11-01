@@ -298,14 +298,14 @@ object HomeUtil {
         if (asked || act.isFinishing || sp.getBoolean("no_default_ask", false) || isDefaultHome(act)) return false
         asked = true
         var chose = false
-        AlertDialog.Builder(act)
-            .setTitle("Jadikan Flow Launcher launcher utama?")
-            .setMessage("Supaya tombol Home membuka Flow Launcher dengan dock, folder, dan widget kaca. Kamu bisa kembali ke launcher lama kapan saja lewat Pengaturan.")
-            .setPositiveButton("Jadikan bawaan") { _, _ -> chose = true; requestHome(act, reqCode) }
-            .setNegativeButton("Nanti", null)
-            .setNeutralButton("Jangan tanya lagi") { _, _ -> sp.edit().putBoolean("no_default_ask", true).apply() }
-            .setOnDismissListener { if (!chose) onSkip() }
-            .show()
+        FlowUi.dialog(
+            act, "Jadikan Flow Launcher launcher utama?",
+            "Supaya tombol Home membuka Flow Launcher dengan dock, folder, dan widget kaca. Kamu bisa kembali ke launcher lama kapan saja lewat Pengaturan.",
+            listOf(
+                "Jadikan bawaan" to { chose = true; requestHome(act, reqCode) },
+                "Nanti" to {},
+                "Jangan tanya lagi" to { sp.edit().putBoolean("no_default_ask", true).apply() }
+            ), 0, { if (!chose) onSkip() })
         return true
     }
 }
