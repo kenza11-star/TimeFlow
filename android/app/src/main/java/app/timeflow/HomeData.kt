@@ -224,7 +224,7 @@ object HomeStore {
     fun normalize(f: HItem) {
         if (f.type != HItem.FOLDER || f.apps.size > 1) return
         if (f.apps.isEmpty()) { remove(f); return }
-        f.type = HItem.APP; f.pkg = f.apps[0]; f.apps.clear(); f.name = ""
+        f.type = HItem.APP; f.pkg = f.apps[0]; f.apps.clear(); f.name = ""; f.sx = 1; f.sy = 1
     }
 
     /** Buang semua jejak aplikasi [pkg] (mis. setelah dicopot). true bila ada yang berubah. */

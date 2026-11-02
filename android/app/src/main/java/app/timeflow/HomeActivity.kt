@@ -1,6 +1,8 @@
 package app.timeflow
 
 import android.app.Activity
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.app.ActivityOptions
 import android.app.AlertDialog
 import android.app.role.RoleManager
@@ -29,6 +31,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.MediaStore
 import android.provider.Settings
 import android.text.Editable
 import android.text.TextUtils
@@ -67,6 +70,7 @@ class HomeActivity : Activity() {
         const val REQ_CONFIG = 72
         const val REQ_WALL = 73
         const val REQ_ROLE = 74
+        const val REQ_RECONF = 75
         const val HOST_ID = 1024
         const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
@@ -78,6 +82,21 @@ class HomeActivity : Activity() {
     }
 
     private class Payload(val item: HItem, val folder: HItem?)
+
+    /** Bayangan seret: ikon terangkat (membesar sedikit) dan berpusat di jari. */
+    private class LiftShadow(v: View) : View.DragShadowBuilder(v) {
+        private val k = 1.18f
+        override fun onProvideShadowMetrics(size: android.graphics.Point, touch: android.graphics.Point) {
+            val w = (view.width * k).toInt()
+            val h = (view.height * k).toInt()
+            size.set(w, h)
+            touch.set(w / 2, h / 2)
+        }
+        override fun onDrawShadow(canvas: Canvas) {
+            canvas.scale(k, k)
+            view.draw(canvas)
+        }
+    }
 
     private val ui = Handler(Looper.getMainLooper())
     private lateinit var root: FrameLayout
@@ -148,7 +167,9 @@ class HomeActivity : Activity() {
                 if (e1 == null) return false
                 val dy = e2.y - e1.y
                 val dx = e2.x - e1.x
-                if (overlay != null || drag != null) return false
+                // gestur geser vertikal layar utama hanya berlaku di layar utama polos (bukan di atas laci, pemilih widget, mode edit, menu, atau widget yang bisa digulir)
+                if (overlay != null || drag != null || sheet != null || editing || resizing != null || FlowUi.isShowing()) return false
+                if (onWidget(e1.rawX, e1.rawY)) return false
                 if (dy < -dp(80) && Math.abs(dy) > Math.abs(dx) * 1.5f && vy < -600f) { openDrawer(); return true }
                 if (dy > dp(80) && Math.abs(dy) > Math.abs(dx) * 1.5f && vy > 600f && e1.y < rootH * 0.6f) {
                     // geser turun: sisi kanan = Control Center (bila layanan aktif), selain itu panel notifikasi
@@ -207,6 +228,7 @@ class HomeActivity : Activity() {
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
         if (FlowUi.dismissTop()) return
+        if (resizing != null) { endResize(); return }
         if (sheet != null) closeSheet()
         else if (overlay != null) closeOverlay(true)
         else if (editing) exitEdit()
@@ -219,6 +241,21 @@ class HomeActivity : Activity() {
     }
 
     private fun built() = pageW > 0
+
+    /** Apakah titik layar (x, y) berada di atas widget pada halaman aktif (widget bisa punya daftar yang digulir sendiri). */
+    private fun onWidget(x: Float, y: Float): Boolean {
+        if (curPage < 0 || curPage >= pagesBox.childCount) return false
+        val page = pagesBox.getChildAt(curPage) as? ViewGroup ?: return false
+        val loc = IntArray(2)
+        for (i in 1 until page.childCount) {
+            val c = page.getChildAt(i)
+            val item = c.tag as? HItem ?: continue
+            if (item.type != HItem.WIDGET) continue
+            c.getLocationOnScreen(loc)
+            if (x >= loc[0] && x <= loc[0] + c.width && y >= loc[1] && y <= loc[1] + c.height) return true
+        }
+        return false
+    }
 
     /** Tarik panel notifikasi sistem (izin EXPAND_STATUS_BAR). */
     private fun expandShade() {
@@ -381,23 +418,26 @@ class HomeActivity : Activity() {
     private fun rebuild() {
         if (!built()) return
         glassViews.clear()
+        stopJiggle(false)
+        resizing = null; resizeUi = null
+        hoverView = null; hoverKey = -1
         pagesBox.removeAllViews()
         for (p in HomeStore.pages.indices) pagesBox.addView(buildPage(p), LinearLayout.LayoutParams(pageW, pageH))
         buildDock()
         if (curPage >= HomeStore.pages.size) curPage = HomeStore.pages.size - 1
         updateDots()
         pager.post { pager.goTo(curPage, false) }
+        if (editing) startJiggle()
     }
 
     private fun buildPage(p: Int): FrameLayout {
         val page = FrameLayout(this)
         page.isLongClickable = true
         page.setOnLongClickListener { if (!editing) enterEdit(); true }
-        page.setOnClickListener { if (editing) exitEdit() }
+        page.setOnClickListener { if (editing) exitEdit() else if (resizing != null) endResize() }
         page.setOnDragListener { v, e -> onPageDrag(v, e, p) }
         // sorotan sel tujuan saat menyeret (selalu anak pertama)
-        val hl = View(this)
-        hl.background = GradientDrawable().apply { setColor(Color.argb(46, 255, 255, 255)); cornerRadius = dp(18).toFloat(); setStroke(dp(1), Color.argb(90, 255, 255, 255)) }
+        val hl = View(this)       // penanda sel (tak terlihat; tata letak halaman mengandalkan anak pertama)
         hl.alpha = 0f
         page.addView(hl, FrameLayout.LayoutParams(cellW, cellH))
         for (item in ArrayList<HItem>(HomeStore.pages[p])) {
@@ -406,7 +446,7 @@ class HomeActivity : Activity() {
             val lp = FrameLayout.LayoutParams(item.sx * cellW, item.sy * cellH)
             lp.leftMargin = item.cx * cellW
             lp.topMargin = item.cy * cellH
-            if (item.type == HItem.WIDGET) {
+            if (item.type == HItem.WIDGET || (item.type == HItem.FOLDER && (item.sx > 1 || item.sy > 1))) {
                 lp.width = item.sx * cellW - dp(8); lp.height = item.sy * cellH - dp(8)
                 lp.leftMargin += dp(4); lp.topMargin += dp(4)
             }
@@ -437,6 +477,7 @@ class HomeActivity : Activity() {
 
     private fun makeItemView(item: HItem, from: Int): View? {
         if (item.type == HItem.WIDGET) return makeWidget(item)
+        if (item.type == HItem.FOLDER && (item.sx > 1 || item.sy > 1) && from == FROM_PAGE) return makeBigFolder(item)
         val pm = packageManager
         if (item.type == HItem.APP && pm.getLaunchIntentForPackage(item.pkg) == null) return null
         if (item.type == HItem.FOLDER) {
@@ -471,6 +512,45 @@ class HomeActivity : Activity() {
             false
         }
         return box
+    }
+
+    /** Folder berukuran besar: kartu kaca berisi ikon aplikasi langsung (ketuk = buka aplikasi), sel terakhir = sisa aplikasi. */
+    private fun makeBigFolder(item: HItem): View? {
+        val pm = packageManager
+        item.apps.retainAll { pm.getLaunchIntentForPackage(it) != null }
+        if (item.apps.isEmpty()) return null
+        val frame = LongPressFrame(this)
+        frame.background = GlassPanelDrawable(frame, dp(28).toFloat(), 1f, 54, 0.5f)
+        glassViews.add(frame)
+        val cells = item.sx * item.sy
+        val shown = if (item.apps.size <= cells) item.apps.size else cells - 1
+        val isz = minOf(dp(60), (minOf(cellW, cellH) * 0.62f).toInt())
+        val inset = dp(4)
+        for (i in 0 until cells) {
+            val col = i % item.sx
+            val row = i / item.sx
+            val cell = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
+            if (i < shown) {
+                val pkg = item.apps[i]
+                cell.addView(ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER; setImageBitmap(FolderIcons.tile(this@HomeActivity, pkg, mono, false)) }, LinearLayout.LayoutParams(isz, isz))
+                if (showLabels) cell.addView(TextView(this).apply {
+                    text = appLabel(pkg); textSize = 11f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+                    maxLines = 1; ellipsize = TextUtils.TruncateAt.END; includeFontPadding = false
+                    setShadowLayer(3f, 0f, 1f, 0x80000000.toInt())
+                }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(4); leftMargin = dp(2); rightMargin = dp(2) })
+                cell.setOnClickListener { launch(pkg, cell) }
+            } else if (i == shown && item.apps.size > cells) {
+                val rest = item.apps.subList(shown, item.apps.size)
+                val iv = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER; setImageBitmap(FolderIcons.mini(this@HomeActivity, rest.take(9), false, false, 144, false)) }
+                iv.background = GradientDrawable().apply { setColor(Color.argb(60, 255, 255, 255)); cornerRadius = isz * 0.225f }
+                cell.addView(iv, LinearLayout.LayoutParams(isz, isz))
+                cell.setOnClickListener { openFolder(item, cell) }
+            } else continue
+            frame.addView(cell, FrameLayout.LayoutParams(cellW, cellH).apply { leftMargin = col * cellW - inset; topMargin = row * cellH - inset })
+        }
+        frame.setOnClickListener { openFolder(item, frame) }
+        frame.onLong = { onItemLong(frame, item) }
+        return frame
     }
 
     private fun makeWidget(item: HItem): View? {
@@ -565,9 +645,9 @@ class HomeActivity : Activity() {
         // halaman cadangan di ujung kanan supaya ikon bisa dilepas ke halaman baru
         if (HomeStore.pages.size < HomeStore.MAX_PAGES && HomeStore.pages[HomeStore.pages.size - 1].isNotEmpty()) addSparePage()
         val clip = ClipData.newPlainText("item", p.item.pkg)
-        val started = v.startDragAndDrop(clip, View.DragShadowBuilder(v), null, 0)
+        val started = v.startDragAndDrop(clip, LiftShadow(v), null, 0)
         if (!started) { drag = null; dragView = null; return }
-        v.alpha = 0.3f
+        v.animate().alpha(0.22f).scaleX(0.88f).scaleY(0.88f).setDuration(170).setInterpolator(DecelerateInterpolator(1.5f)).start()
         v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
         val placed = p.folder != null || HomeStore.all().contains(p.item)
         val isApp = p.item.type == HItem.APP
@@ -591,7 +671,7 @@ class HomeActivity : Activity() {
     private fun endDrag() {
         if (drag == null) return
         drag = null
-        dragView?.alpha = 1f
+        dragView?.animate()?.alpha(1f)?.scaleX(1f)?.scaleY(1f)?.setDuration(240)?.setInterpolator(OvershootInterpolator(1.6f))?.start()
         dragView = null
         dragBar.visibility = View.GONE
         dragX0 = Float.NaN
@@ -633,8 +713,9 @@ class HomeActivity : Activity() {
                 val lp = hl.layoutParams
                 if (lp.width != sx * cellW || lp.height != sy * cellH) { lp.width = sx * cellW; lp.height = sy * cellH; hl.layoutParams = lp }
                 hl.animate().x((cx * cellW).toFloat()).y((cy * cellH).toFloat()).alpha(1f).setDuration(110).start()
+                if (it != null) updateHover(v, p, cx, cy, it)
             }
-            DragEvent.ACTION_DRAG_EXITED -> { setEdge(0); (v as ViewGroup).getChildAt(0).animate().alpha(0f).setDuration(120).start() }
+            DragEvent.ACTION_DRAG_EXITED -> { setEdge(0); clearHover(); (v as ViewGroup).getChildAt(0).animate().alpha(0f).setDuration(120).start() }
             DragEvent.ACTION_DROP -> {
                 val pl = drag ?: return false
                 val cx = (e.x / cellW).toInt().coerceIn(0, HomeStore.COLS - pl.item.sx)
@@ -642,13 +723,63 @@ class HomeActivity : Activity() {
                 val fx = e.x
                 val fy = e.y
                 setEdge(0)
+                clearHover()
                 (v as ViewGroup).getChildAt(0).animate().alpha(0f).setDuration(120).start()
                 ui.post { dropOnGrid(pl, p, cx, cy, fx, fy) }
                 return true
             }
-            DragEvent.ACTION_DRAG_ENDED -> { (v as ViewGroup).getChildAt(0).animate().alpha(0f).setDuration(120).start(); endDrag() }
+            DragEvent.ACTION_DRAG_ENDED -> { clearHover(); (v as ViewGroup).getChildAt(0).animate().alpha(0f).setDuration(120).start(); endDrag() }
         }
         return true
+    }
+
+    private var hoverView: View? = null
+    private var hoverKey = -1
+
+    private fun clearHover() {
+        hoverKey = -1
+        hoverView?.animate()?.scaleX(1f)?.scaleY(1f)?.setDuration(160)?.start()
+        hoverView = null
+        for (pi in 0 until pagesBox.childCount) {
+            val page = pagesBox.getChildAt(pi) as? ViewGroup ?: continue
+            for (i in 1 until page.childCount) {
+                val c = page.getChildAt(i)
+                if (c.translationX != 0f || c.translationY != 0f) c.animate().translationX(0f).translationY(0f).setDuration(200).setInterpolator(OvershootInterpolator(2f)).start()
+            }
+        }
+    }
+
+    /** Saat menyeret di atas sel: ikon yang akan ditumpuk membesar, ikon di sekitarnya bergeser menjauh seperti memberi ruang. */
+    private fun updateHover(page: View, p: Int, cx: Int, cy: Int, dragged: HItem) {
+        val key = p * 1000 + cy * 10 + cx
+        if (key == hoverKey) return
+        hoverKey = key
+        val pg = page as? ViewGroup ?: return
+        val list = HomeStore.pages[p]
+        val target = list.firstOrNull { it !== dragged && cx >= it.cx && cx < it.cx + it.sx && cy >= it.cy && cy < it.cy + it.sy }
+        val tv = if (target != null && dragged.type == HItem.APP && (target.type == HItem.APP || target.type == HItem.FOLDER)) findViewFor(target) else null
+        if (hoverView !== tv) {
+            hoverView?.animate()?.scaleX(1f)?.scaleY(1f)?.setDuration(160)?.start()
+            hoverView = tv
+            tv?.animate()?.scaleX(1.18f)?.scaleY(1.18f)?.setDuration(240)?.setInterpolator(OvershootInterpolator(2.2f))?.start()
+        }
+        val tcx = cx + dragged.sx / 2f
+        val tcy = cy + dragged.sy / 2f
+        for (i in 1 until pg.childCount) {
+            val c = pg.getChildAt(i)
+            val it2 = c.tag as? HItem ?: continue
+            if (it2 === dragged || c === tv) continue
+            val dx = it2.cx + it2.sx / 2f - tcx
+            val dy = it2.cy + it2.sy / 2f - tcy
+            val d = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
+            var tx = 0f
+            var ty = 0f
+            if (d in 0.01f..1.7f) {
+                val push = (1f - d / 1.7f) * dp(10)
+                tx = dx / d * push; ty = dy / d * push
+            }
+            c.animate().translationX(tx).translationY(ty).setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
+        }
     }
 
     private fun onDockDrag(v: View, e: DragEvent): Boolean {
@@ -706,7 +837,7 @@ class HomeActivity : Activity() {
 
     private fun popIn(v: View, from: Float = 0.5f) {
         v.scaleX = from; v.scaleY = from; v.alpha = 0f
-        v.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(300).setInterpolator(OvershootInterpolator(1.8f)).start()
+        v.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(400).setInterpolator(OvershootInterpolator(1.6f)).start()
     }
 
     /**
@@ -724,15 +855,15 @@ class HomeActivity : Activity() {
                     // mendarat dari titik jari
                     val dx = fx - (item.cx * cellW + item.sx * cellW / 2f)
                     val dy = fy - (item.cy * cellH + item.sy * cellH / 2f)
-                    v.translationX = dx; v.translationY = dy; v.scaleX = 1.1f; v.scaleY = 1.1f
-                    v.animate().translationX(0f).translationY(0f).scaleX(1f).scaleY(1f).setDuration(280).setInterpolator(DecelerateInterpolator(1.8f)).start()
+                    v.translationX = dx; v.translationY = dy; v.scaleX = 1.14f; v.scaleY = 1.14f
+                    v.animate().translationX(0f).translationY(0f).scaleX(1f).scaleY(1f).setDuration(420).setInterpolator(OvershootInterpolator(0.8f)).start()
                 } else if (old == null) popIn(v)
                 else if (old[0] == 0 && old[1] == p) {
                     val dx = (old[2] - item.cx) * cellW.toFloat()
                     val dy = (old[3] - item.cy) * cellH.toFloat()
                     if (dx != 0f || dy != 0f) {
                         v.translationX = dx; v.translationY = dy
-                        v.animate().translationX(0f).translationY(0f).setDuration(300).setInterpolator(DecelerateInterpolator(1.8f)).start()
+                        v.animate().translationX(0f).translationY(0f).setDuration(380).setInterpolator(DecelerateInterpolator(2f)).start()
                     }
                 } else popIn(v, 0.7f)
                 if (item === bounce) {
@@ -751,7 +882,7 @@ class HomeActivity : Activity() {
             if (old == null) popIn(v)
             else if (old[0] == 1) {
                 val dx = (old[2] - item.cx) * slotW
-                if (dx != 0f) { v.translationX = dx; v.animate().translationX(0f).setDuration(300).setInterpolator(DecelerateInterpolator(1.8f)).start() }
+                if (dx != 0f) { v.translationX = dx; v.animate().translationX(0f).setDuration(380).setInterpolator(DecelerateInterpolator(2f)).start() }
             } else popIn(v, 0.7f)
             if (item === bounce) {
                 v.scaleX = 1.25f; v.scaleY = 1.25f
@@ -920,7 +1051,7 @@ class HomeActivity : Activity() {
         }
         if (animate) {
             if (f != null && ov is ViewGroup && ov.childCount > 0) ov.getChildAt(0).animate().scaleX(0.4f).scaleY(0.4f).alpha(0f).setDuration(180).start()
-            else ov.animate().translationY(dp(40).toFloat()).setDuration(180).start()
+            else ov.animate().translationY(ov.height.toFloat()).setDuration(230).start()
             ov.animate().alpha(0f).setDuration(190).withEndAction(remove).start()
         } else remove.run()
     }
@@ -939,7 +1070,7 @@ class HomeActivity : Activity() {
 
     private fun openDrawer(focus: Boolean = false) {
         closeOverlay(false)
-        val ov = FrameLayout(this)
+        val ov = PullDownLayer(this)
         ov.addView(ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_XY; setImageBitmap(HomeWall.blur) }, FrameLayout.LayoutParams(MATCH, MATCH))
         ov.addView(View(this).apply { setBackgroundColor(Color.argb(130, 0, 0, 0)) }, FrameLayout.LayoutParams(MATCH, MATCH))
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), topInset + dp(10), dp(12), 0) }
@@ -976,6 +1107,8 @@ class HomeActivity : Activity() {
             true
         }
         col.addView(grid, LinearLayout.LayoutParams(MATCH, 0, 1f))
+        ov.atTop = { grid.firstVisiblePosition == 0 && (grid.childCount == 0 || grid.getChildAt(0).top >= grid.paddingTop) }
+        ov.onDismiss = { closeOverlay(true) }
         search.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {}
             override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) {}
@@ -1064,6 +1197,7 @@ class HomeActivity : Activity() {
         bar.addView(editButton("Pengaturan", 2) { exitEdit(); showSettings() }, LinearLayout.LayoutParams(0, WRAP, 1f))
         root.addView(bar, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM).apply { bottomMargin = botInset + dp(30) })
         editBar = bar
+        startJiggle()
         bar.alpha = 0f
         bar.translationY = dp(30).toFloat()
         bar.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
@@ -1073,6 +1207,7 @@ class HomeActivity : Activity() {
     private fun exitEdit() {
         if (!editing) return
         editing = false
+        stopJiggle(true)
         pager.animate().scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(DecelerateInterpolator(1.6f)).start()
         for (v in listOf<View>(dockPanel, pill, dots)) v.animate().alpha(1f).setDuration(220).start()
         val bar = editBar
@@ -1275,17 +1410,13 @@ class HomeActivity : Activity() {
 
     // ---------- menu tekan lama pada ikon / folder / widget ----------
     private fun onItemLong(v: View, item: HItem) {
-        if (drag != null) return
+        if (drag != null || resizing != null) return
         beginDrag(v, Payload(item, null), true)
         if (drag != null) showItemMenu(v, item)
     }
 
-    private fun showDragBar() {
-        if (dragBar.visibility == View.VISIBLE) return
-        dragBar.alpha = 0f
-        dragBar.visibility = View.VISIBLE
-        dragBar.animate().alpha(1f).setDuration(150).start()
-    }
+    /** Bilah Hapus/Info/Copot di atas layar sudah dihapus; Hapus, Info, dan Copot kini ada di menu tekan lama. */
+    private fun showDragBar() {}
 
     private fun hideItemMenu() {
         val d = itemMenuDismiss ?: return
@@ -1308,6 +1439,11 @@ class HomeActivity : Activity() {
         }
     }
 
+    private fun onPage(v: View): Boolean {
+        val par = v.parent as? View ?: return false
+        return pagesBox.indexOfChild(par) >= 0
+    }
+
     private fun showItemMenu(v: View, item: HItem) {
         val loc = IntArray(2)
         v.getLocationInWindow(loc)
@@ -1318,6 +1454,7 @@ class HomeActivity : Activity() {
                 items.add(FlowUi.Item("Sunting", 0) { renameItem(item) })
                 items.add(FlowUi.Item("Urutan", 1) { sortFolder(item) })
                 items.add(FlowUi.Item("Pilih Apl", 2) { editFolderApps(item) })
+                if (onPage(v)) items.add(FlowUi.Item("Ubah ukuran", 8) { startResize(item) })
                 items.add(FlowUi.Item("Hapus", 3) { removeItem(item) })
             }
             HItem.APP -> {
@@ -1326,9 +1463,19 @@ class HomeActivity : Activity() {
                 items.add(FlowUi.Item("Copot", 5) { runCatching { startActivity(Intent(Intent.ACTION_DELETE, HomeUtil.uriOfPkg(item.pkg))) } })
                 items.add(FlowUi.Item("Hapus", 3) { removeItem(item) })
             }
-            else -> items.add(FlowUi.Item("Hapus", 3) { removeItem(item) })
+            else -> {
+                val wi = awm.getAppWidgetInfo(item.wid)
+                items.add(FlowUi.Item("Ubah ukuran", 8) { startResize(item) })
+                if (wi != null && wi.configure != null) items.add(FlowUi.Item("Pengaturan widget", 6) { reconfigure(item) })
+                items.add(FlowUi.Item("Hapus", 3) { removeItem(item) })
+            }
         }
         itemMenuDismiss = FlowUi.menu(this, r, items, false) { itemMenuDismiss = null }
+    }
+
+    private fun reconfigure(item: HItem) {
+        val ok = try { host.startAppWidgetConfigureActivityForResult(this, item.wid, 0, REQ_RECONF, null); true } catch (e: Exception) { false }
+        if (!ok) FlowUi.toast(this, "Widget ini tidak punya pengaturan")
     }
 
     private fun renameItem(item: HItem) {
@@ -1370,6 +1517,183 @@ class HomeActivity : Activity() {
         return null
     }
 
+    // ---------- ubah ukuran folder/widget: bingkai dengan titik tarik di tepi, berhenti per sel ----------
+    private var resizing: HItem? = null
+    private var resizeUi: FrameLayout? = null
+    private val jiggles = ArrayList<ObjectAnimator>()
+
+    private fun animateLp(view: View, l: Int, t: Int, w: Int, h: Int) {
+        val lp = view.layoutParams as FrameLayout.LayoutParams
+        val l0 = lp.leftMargin
+        val t0 = lp.topMargin
+        val w0 = lp.width
+        val h0 = lp.height
+        val a = ValueAnimator.ofFloat(0f, 1f)
+        a.duration = 180
+        a.interpolator = DecelerateInterpolator(1.5f)
+        a.addUpdateListener { an ->
+            val f = an.animatedFraction
+            lp.leftMargin = (l0 + (l - l0) * f).toInt()
+            lp.topMargin = (t0 + (t - t0) * f).toInt()
+            lp.width = (w0 + (w - w0) * f).toInt()
+            lp.height = (h0 + (h - h0) * f).toInt()
+            view.layoutParams = lp
+        }
+        a.start()
+    }
+
+    private fun startResize(item: HItem) {
+        if (resizing != null) return
+        if (editing) exitEdit()
+        val v = findViewFor(item) ?: return
+        val page = v.parent as? FrameLayout ?: return
+        val pIdx = pagesBox.indexOfChild(page)
+        if (pIdx < 0) return
+        var minX = 1
+        var minY = 1
+        var canW = true
+        var canH = true
+        val liveView = item.type == HItem.WIDGET || item.sx > 1 || item.sy > 1
+        if (item.type == HItem.WIDGET) {
+            val info = awm.getAppWidgetInfo(item.wid)
+            if (info != null) {
+                val d = resources.displayMetrics.density
+                val mw = if (info.minResizeWidth > 0) info.minResizeWidth else info.minWidth
+                val mh = if (info.minResizeHeight > 0) info.minResizeHeight else info.minHeight
+                minX = Math.ceil((mw / (cellW / d)).toDouble()).toInt().coerceIn(1, HomeStore.COLS)
+                minY = Math.ceil((mh / (cellH / d)).toDouble()).toInt().coerceIn(1, HomeStore.ROWS)
+                canW = info.resizeMode and AppWidgetProviderInfo.RESIZE_HORIZONTAL != 0
+                canH = info.resizeMode and AppWidgetProviderInfo.RESIZE_VERTICAL != 0
+            }
+        }
+        if (!canW && !canH) { FlowUi.toast(this, "Widget ini tidak bisa diubah ukurannya"); return }
+        resizing = item
+        val list = HomeStore.pages[pIdx]
+        var cx = item.cx
+        var cy = item.cy
+        var sx = item.sx
+        var sy = item.sy
+        val inset = dp(4)
+        val frame = FrameLayout(this)
+        frame.background = GradientDrawable().apply { setStroke(dp(2), Color.WHITE); cornerRadius = dp(24).toFloat(); setColor(Color.argb(22, 255, 255, 255)) }
+        resizeUi = frame
+        val lp0 = FrameLayout.LayoutParams(sx * cellW - 2 * inset, sy * cellH - 2 * inset)
+        lp0.leftMargin = cx * cellW + inset
+        lp0.topMargin = cy * cellH + inset
+        page.addView(frame, lp0)
+        if (!liveView) v.animate().alpha(0.25f).setDuration(150).start()
+        frame.scaleX = 0.94f; frame.scaleY = 0.94f; frame.alpha = 0f
+        frame.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(220).setInterpolator(OvershootInterpolator(1.6f)).start()
+
+        fun layoutAll() {
+            val tl = cx * cellW + inset
+            val tt = cy * cellH + inset
+            val tw = sx * cellW - 2 * inset
+            val th = sy * cellH - 2 * inset
+            animateLp(frame, tl, tt, tw, th)
+            if (liveView) animateLp(v, tl, tt, tw, th)
+        }
+
+        fun addHandle(edge: Int) {
+            if ((edge < 2 && !canW) || (edge >= 2 && !canH)) return
+            val hv = View(this)
+            hv.background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.WHITE); setStroke(dp(2), Color.argb(70, 0, 0, 0)) }
+            val sz = dp(24)
+            val g = when (edge) {
+                0 -> Gravity.START or Gravity.CENTER_VERTICAL
+                1 -> Gravity.END or Gravity.CENTER_VERTICAL
+                2 -> Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                else -> Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            }
+            val hl = FrameLayout.LayoutParams(sz, sz, g)
+            when (edge) { 0 -> hl.leftMargin = -sz / 2; 1 -> hl.rightMargin = -sz / 2; 2 -> hl.topMargin = -sz / 2; else -> hl.bottomMargin = -sz / 2 }
+            frame.addView(hv, hl)
+            var sX = 0f
+            var sY = 0f
+            var bcx = 0
+            var bcy = 0
+            var bsx = 0
+            var bsy = 0
+            hv.setOnTouchListener { view, e ->
+                when (e.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        sX = e.rawX; sY = e.rawY; bcx = cx; bcy = cy; bsx = sx; bsy = sy
+                        view.parent.requestDisallowInterceptTouchEvent(true)
+                        view.animate().scaleX(1.35f).scaleY(1.35f).setDuration(110).start()
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dxc = Math.round((e.rawX - sX) / cellW)
+                        val dyc = Math.round((e.rawY - sY) / cellH)
+                        var ncx = bcx
+                        var ncy = bcy
+                        var nsx = bsx
+                        var nsy = bsy
+                        when (edge) {
+                            0 -> { ncx = bcx + dxc; nsx = bsx - dxc }
+                            1 -> nsx = bsx + dxc
+                            2 -> { ncy = bcy + dyc; nsy = bsy - dyc }
+                            else -> nsy = bsy + dyc
+                        }
+                        val changed = ncx != cx || ncy != cy || nsx != sx || nsy != sy
+                        if (changed && nsx >= minX && nsy >= minY && HomeStore.cellFree(list, ncx, ncy, nsx, nsy, item)) {
+                            cx = ncx; cy = ncy; sx = nsx; sy = nsy
+                            layoutAll()
+                            view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        view.animate().scaleX(1f).scaleY(1f).setDuration(140).start()
+                        item.cx = cx; item.cy = cy; item.sx = sx; item.sy = sy
+                        HomeStore.save(this)
+                    }
+                }
+                true
+            }
+        }
+        for (edge in 0..3) addHandle(edge)
+        FlowUi.toast(this, "Seret titik di tepi untuk mengubah ukuran. Ketuk di luar untuk selesai.")
+    }
+
+    private fun endResize() {
+        val item = resizing ?: return
+        resizing = null
+        resizeUi = null
+        HomeStore.save(this)
+        val snap = snapshot()
+        rebuild()
+        pager.post { animateFrom(snap, null, -1f, -1f, -1, item) }
+    }
+
+    // ---------- goyang ikon saat mode edit ----------
+    private fun startJiggle() {
+        stopJiggle(false)
+        val rnd = java.util.Random()
+        for (p in 0 until pagesBox.childCount) {
+            val page = pagesBox.getChildAt(p) as? ViewGroup ?: continue
+            for (i in 1 until page.childCount) {
+                val v = page.getChildAt(i)
+                val item = v.tag as? HItem ?: continue
+                if (item.type == HItem.WIDGET || item.sx * item.sy > 1) continue
+                val a = ObjectAnimator.ofFloat(v, View.ROTATION, -2.2f, 2.2f)
+                a.duration = 110L + rnd.nextInt(50)
+                a.repeatCount = ValueAnimator.INFINITE
+                a.repeatMode = ValueAnimator.REVERSE
+                a.startDelay = rnd.nextInt(90).toLong()
+                a.start()
+                jiggles.add(a)
+            }
+        }
+    }
+
+    private fun stopJiggle(reset: Boolean) {
+        for (a in jiggles) {
+            val t = a.target as? View
+            a.cancel()
+            if (reset) t?.animate()?.rotation(0f)?.setDuration(120)?.start() else t?.rotation = 0f
+        }
+        jiggles.clear()
+    }
+
     /** Hapus dari layar dengan animasi mengecil. */
     private fun removeItem(item: HItem) {
         if (item.type == HItem.WIDGET && item.wid >= 0) runCatching { host.deleteAppWidgetId(item.wid) }
@@ -1385,8 +1709,13 @@ class HomeActivity : Activity() {
     }
 
     private fun pickWallpaper() {
-        val i = Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*")
-        runCatching { startActivityForResult(i, REQ_WALL) }
+        // galeri foto (bukan pemilih berkas): Android 13+ pemilih foto sistem, di bawahnya aplikasi galeri
+        val tries = ArrayList<Intent>()
+        if (Build.VERSION.SDK_INT >= 33) tries.add(Intent(MediaStore.ACTION_PICK_IMAGES))
+        tries.add(Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI).setType("image/*"))
+        tries.add(Intent(Intent.ACTION_GET_CONTENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*"))
+        for (i in tries) { try { startActivityForResult(i, REQ_WALL); return } catch (e: Exception) { } }
+        FlowUi.toast(this, "Tidak ada aplikasi galeri")
     }
 
     private fun setWallpaper(uri: Uri) {
@@ -1454,6 +1783,7 @@ class HomeActivity : Activity() {
             REQ_BIND -> { val pi = pendInfo; if (resultCode == RESULT_OK && pi != null) configureOrAdd(pendWid, pi) else cancelPending() }
             REQ_CONFIG -> { val pi = pendInfo; if (resultCode == RESULT_OK && pi != null) addWidget(pendWid, pi) else cancelPending() }
             REQ_ROLE -> { if (HomeUtil.isDefaultHome(this)) WidgetUtil.updateAll(this) }
+            REQ_RECONF -> { rebuild() }
             REQ_WALL -> { val u = data?.data; if (resultCode == RESULT_OK && u != null) setWallpaper(u) }
             else -> super.onActivityResult(requestCode, resultCode, data)
         }

@@ -463,6 +463,7 @@ class ControlCenter(private val svc: Context, private val host: CcHost, private 
             val dm = resources.displayMetrics
             val sw = dm.widthPixels; val sh = dm.heightPixels
             val land = sw > sh
+            if (land) { buildLand(); return }
             val cfg = CcPrefs.get(svc)
             val allTiles = cfg.tiles.filter { CcCatalog.byId.containsKey(it) }
             val limit = if (land) 5 else 8
@@ -607,6 +608,166 @@ class ControlCenter(private val svc: Context, private val host: CcHost, private 
             hint.setTextColor(Color.WHITE)
             hint.gravity = Gravity.CENTER
             holder.addView(hint, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP).apply { topMargin = below })
+        }
+
+        /**
+         * Tata letak mendatar dua kolom: kiri = Wi-Fi + data, deret kontrol kecil (4 per halaman, bisa digeser, dengan titik halaman),
+         * dua slider mendatar; kanan = kartu musik (tanpa lirik). Semua kontrol memakai kaca yang sama dengan potret.
+         */
+        private fun buildLand() {
+            val dm = resources.displayMetrics
+            val sw = dm.widthPixels
+            val sh = dm.heightPixels
+            val cfg = CcPrefs.get(svc)
+            val allTiles = cfg.tiles.filter { CcCatalog.byId.containsKey(it) }
+            for (v in listOf<View>(grid, header, toggle, hint)) (v.parent as? ViewGroup)?.removeView(v)
+            grid.removeAllViews(); extra.clear()
+
+            val m = dp(28f)
+            val gapC = dp(14f)
+            val gap = dp(10f)
+            val headerH = dp(50f)
+            val top = dp(14f) + headerH
+            val gw = sw - 2 * m
+            val gh = max(dp(230f), sh - top - dp(18f))
+            val lw = (gw - gapC) / 2
+            val rw = gw - gapC - lw
+            val inner = gh - 2 * gap
+            val rowAH = (inner * 0.24f).toInt()
+            val panelH = (inner * 0.40f).toInt()
+            val sliderH = (inner - rowAH - panelH - gap) / 2
+
+            fun put(v: View, l: Int, t: Int, w: Int, h: Int) {
+                grid.addView(v, FrameLayout.LayoutParams(w, h).apply { leftMargin = l; topMargin = t })
+            }
+
+            // baris 1: Wi-Fi dan data seluler (lebar)
+            val hw = (lw - gap) / 2
+            tWifi = CcTile(context, art, "wifi", "Wi-Fi", 2).apply { onBg = CcColor.blue; onFg = Color.WHITE }
+            tCell = CcTile(context, art, "cell", "Data seluler", 2).apply { onBg = CcColor.green; onFg = Color.WHITE }
+            put(tWifi, 0, 0, hw, rowAH); put(tCell, hw + gap, 0, hw, rowAH)
+            wire(tWifi, "wifi"); wire(tCell, "cell")
+
+            // kontrol kecil: tetap dulu, lalu semua kontrol cepat dari katalog
+            tBt = CcTile(context, art, "bt", "Bluetooth", 1).apply { onBg = CcColor.blue; onFg = Color.WHITE }
+            tPlane = CcTile(context, art, "plane", "Pesawat", 1).apply { onBg = CcColor.orange; onFg = Color.WHITE }
+            tRot = CcTile(context, art, "rotate", "Rotasi", 1)
+            tDnd = CcTile(context, art, "moon", "Jangan Ganggu", 1).apply { onBg = CcColor.purple; onFg = Color.WHITE }
+            tCast = CcTile(context, art, "cast", "Cast", 1)
+            wire(tBt, "bt"); wire(tPlane, "plane"); wire(tRot, "rotate"); wire(tDnd, "moon"); wire(tCast, "cast")
+            val smalls = ArrayList<CcTile>()
+            smalls.add(tBt); smalls.add(tPlane); smalls.add(tRot); smalls.add(tDnd); smalls.add(tCast)
+            val apps = launcherApps()
+            val pm = svc.packageManager
+            for (k in allTiles) {
+                val def = CcCatalog.byId[k] ?: continue
+                val t = CcTile(context, art, def.icon, def.label, 1)
+                if (def.pkgs.isNotEmpty() || def.names.isNotEmpty()) {
+                    val app = findApp(def, apps)
+                    if (app != null && (def.appFirst || def.acts.isEmpty())) t.icon = runCatching { app.loadIcon(pm) }.getOrNull()
+                }
+                when (k) {
+                    "location" -> { t.onBg = CcColor.blue; t.onFg = Color.WHITE }
+                    "battery" -> t.onBg = CcColor.yellow
+                    "nightlight" -> { t.onBg = CcColor.orange; t.onFg = Color.WHITE }
+                    "datasaver" -> { t.onBg = CcColor.green; t.onFg = Color.WHITE }
+                }
+                wire(t, k)
+                t.tag = k
+                extra.add(t)
+                smalls.add(t)
+            }
+
+            // panel kaca berisi halaman kontrol (4 per halaman) + titik halaman
+            val pTop = rowAH + gap
+            val pbg = View(context).apply { background = glass(dp(26f).toFloat()) }
+            put(pbg, 0, pTop, lw, panelH)
+            val pad = dp(10f)
+            val dotsH = dp(14f)
+            val pagerW = lw - 2 * pad
+            val pagerH = panelH - 2 * pad - dotsH
+            val pg = HPager(context)
+            pg.pageW = pagerW
+            val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+            val pageCount = (smalls.size + 3) / 4
+            val tw = (pagerW - 3 * gap) / 4
+            for (pi in 0 until pageCount) {
+                val page = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+                for (j in 0 until 4) {
+                    val idx = pi * 4 + j
+                    if (idx < smalls.size) page.addView(smalls[idx], LinearLayout.LayoutParams(tw, LinearLayout.LayoutParams.MATCH_PARENT).apply { if (j > 0) leftMargin = gap })
+                    else page.addView(View(context), LinearLayout.LayoutParams(tw, 1).apply { if (j > 0) leftMargin = gap })
+                }
+                row.addView(page, LinearLayout.LayoutParams(pagerW, LinearLayout.LayoutParams.MATCH_PARENT))
+            }
+            pg.addView(row, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.MATCH_PARENT))
+            put(pg, pad, pTop + pad, pagerW, pagerH)
+            if (pageCount > 1) {
+                val dotsRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+                val dotViews = ArrayList<View>()
+                for (i in 0 until pageCount) {
+                    val dv = View(context)
+                    dv.background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.WHITE) }
+                    dv.alpha = if (i == 0) 0.95f else 0.35f
+                    dotsRow.addView(dv, LinearLayout.LayoutParams(dp(5f), dp(5f)).apply { setMargins(dp(3f), 0, dp(3f), 0) })
+                    dotViews.add(dv)
+                }
+                pg.onPage = { p -> for (i in dotViews.indices) dotViews[i].animate().alpha(if (i == p) 0.95f else 0.35f).setDuration(150).start() }
+                put(dotsRow, 0, pTop + panelH - pad - dotsH + dp(2f), lw, dotsH)
+            }
+
+            // dua slider mendatar
+            val sTop = pTop + panelH + gap
+            sBright = CcSlider(context, art, "sun").apply {
+                horizontal = true
+                canAdjust = { CcSys.writeOk(svc) }
+                onDenied = { grantWrite() }
+                onChange = { CcSys.setBrightness(svc, it) }
+            }
+            sVol = CcSlider(context, art, "speaker").apply { horizontal = true; onChange = { CcSys.setVolume(svc, it) } }
+            put(sBright, 0, sTop, lw, sliderH)
+            put(sVol, 0, sTop + sliderH + gap, lw, sliderH)
+
+            // kolom kanan: kartu musik tanpa lirik
+            val cardH = min(gh, dp(250f))
+            media = CcMedia(context, art, host, (cardH - dp(12f)) / 2f, { buzz(it) }, { host.openMedia(); hide() }, false)
+            put(media, lw + gapC, 0, rw, cardH)
+
+            val holderH = max(sh, top + gh + dp(24f))
+            val holder = FrameLayout(context)
+            holder.isClickable = true
+            holder.setOnClickListener { hide() }
+            grid.isClickable = true
+            grid.pivotX = gw / 2f; grid.pivotY = 0f
+            holder.addView(grid, FrameLayout.LayoutParams(gw, gh, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = top })
+            val sv = ScrollView(context).apply {
+                isVerticalScrollBarEnabled = false
+                overScrollMode = View.OVER_SCROLL_NEVER
+                isFillViewport = true
+            }
+            this.sv = sv
+            sv.addView(holder, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, holderH))
+            addView(sv, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+
+            // jam dan tanggal di kiri atas
+            header.orientation = LinearLayout.HORIZONTAL
+            header.gravity = Gravity.CENTER_VERTICAL or Gravity.START
+            if (header.childCount == 0) {
+                clockTv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 34f)
+                clockTv.setTextColor(Color.WHITE)
+                clockTv.typeface = if (Build.VERSION.SDK_INT >= 28) Typeface.create(Typeface.create("sans-serif", Typeface.NORMAL), 600, false) else Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                if (Build.VERSION.SDK_INT >= 21) clockTv.letterSpacing = -0.03f
+                clockTv.includeFontPadding = false
+                dateTv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
+                dateTv.setTextColor(Color.argb(235, 255, 255, 255)); dateTv.gravity = Gravity.START
+                dateTv.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                dateTv.includeFontPadding = false
+                dateTv.setLineSpacing(0f, 1.12f)
+                header.addView(clockTv, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+                header.addView(dateTv, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { leftMargin = dp(12f) })
+            }
+            holder.addView(header, FrameLayout.LayoutParams(gw, headerH, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = top - headerH })
+            updateClock()
         }
 
         private fun updateClock() {

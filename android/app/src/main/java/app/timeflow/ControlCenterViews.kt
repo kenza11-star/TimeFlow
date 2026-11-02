@@ -415,6 +415,8 @@ class CcSlider(ctx: Context, private val art: CcArt, private val kind: String) :
     var onChange: ((Float) -> Unit)? = null
     var canAdjust: () -> Boolean = { true }
     var onDenied: () -> Unit = {}
+    /** true = slider mendatar (isi dari kiri ke kanan, ikon di kiri), dipakai pada tata letak mendatar. */
+    var horizontal = false
     var frac = 0f
         private set
     var dragging = false
@@ -441,9 +443,9 @@ class CcSlider(ctx: Context, private val art: CcArt, private val kind: String) :
         if (abs(n - frac) > 0.002f || flag != this.flag) { frac = n; this.flag = flag; invalidate() }
     }
 
-    private fun move(y: Float) {
-        if (height <= 0) return
-        frac = (1f - y / height).coerceIn(0f, 1f)
+    private fun move(x: Float, y: Float) {
+        if (height <= 0 || width <= 0) return
+        frac = (if (horizontal) x / width else 1f - y / height).coerceIn(0f, 1f)
         invalidate()
         onChange?.invoke(frac)
     }
@@ -452,9 +454,9 @@ class CcSlider(ctx: Context, private val art: CcArt, private val kind: String) :
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 parent?.requestDisallowInterceptTouchEvent(true)
-                if (!canAdjust()) { denied = true } else { denied = false; dragging = true; move(e.y) }
+                if (!canAdjust()) { denied = true } else { denied = false; dragging = true; move(e.x, e.y) }
             }
-            MotionEvent.ACTION_MOVE -> if (dragging) move(e.y)
+            MotionEvent.ACTION_MOVE -> if (dragging) move(e.x, e.y)
             MotionEvent.ACTION_UP -> { if (denied) onDenied(); dragging = false; denied = false }
             MotionEvent.ACTION_CANCEL -> { dragging = false; denied = false }
         }
@@ -463,31 +465,42 @@ class CcSlider(ctx: Context, private val art: CcArt, private val kind: String) :
 
     override fun onDraw(c: Canvas) {
         val w = width.toFloat(); val h = height.toFloat()
-        val rad = w * 0.3f
+        val rad = if (horizontal) h / 2f else w * 0.3f
         rect.set(0f, 0f, w, h)
         clip.reset(); clip.addRoundRect(rect, rad, rad, Path.Direction.CW)
         c.save(); c.clipPath(clip)
         c.drawRect(rect, bg)
         c.drawRect(rect, sheen)
         val top = h * (1f - frac)
-        c.drawRect(0f, top, w, h, fill)
+        val fx = w * frac
+        if (horizontal) c.drawRect(0f, 0f, fx, h, fill) else c.drawRect(0f, top, w, h, fill)
         c.restore()
         val eh = edge.strokeWidth / 2f
         rim.set(eh, eh, w - eh, h - eh)
         c.drawRoundRect(rim, rad, rad, edge)
-        val iy = h - w * 0.52f
-        val ur = w * 0.21f
-        c.save(); c.clipRect(0f, top, w, h)
-        art.draw(c, kind, w / 2f, iy, ur, CcColor.dark, flag)
-        c.restore()
-        c.save(); c.clipRect(0f, 0f, w, top)
-        art.draw(c, kind, w / 2f, iy, ur, Color.WHITE, flag)
-        c.restore()
+        if (horizontal) {
+            val ix = h * 0.52f
+            val ur = h * 0.2f
+            c.save(); c.clipRect(0f, 0f, fx, h)
+            art.draw(c, kind, ix, h / 2f, ur, CcColor.dark, flag)
+            c.restore()
+            c.save(); c.clipRect(fx, 0f, w, h)
+            art.draw(c, kind, ix, h / 2f, ur, Color.WHITE, flag)
+            c.restore()
+        } else {
+            val iy = h - w * 0.52f
+            val ur = w * 0.21f
+            c.save(); c.clipRect(0f, top, w, h)
+            art.draw(c, kind, w / 2f, iy, ur, CcColor.dark, flag)
+            c.restore()
+            c.save(); c.clipRect(0f, 0f, w, top)
+            art.draw(c, kind, w / 2f, iy, ur, Color.WHITE, flag)
+            c.restore()
+        }
     }
 }
 
-/** Kartu musik besar: sampul + judul + bar progres (bisa digeser) + tombol sebelumnya / putar / berikutnya. Kosong bila tidak ada sesi media. u = ukuran satu kotak (px), untuk menskalakan isi kartu. */
-class CcMedia(ctx: Context, art: CcArt, private val host: CcHost, u: Float, private val buzz: (View) -> Unit, private val onOpen: () -> Unit) : FrameLayout(ctx) {
+class CcMedia(ctx: Context, art: CcArt, private val host: CcHost, u: Float, private val buzz: (View) -> Unit, private val onOpen: () -> Unit, private val showLyric: Boolean = true) : FrameLayout(ctx) {
     private val d = resources.displayMetrics.density
     private fun dp(v: Float) = (v * d).toInt()
     private val coverSize = (u * 2f + 12f * d - dp(26f)).toInt()   // sampul memenuhi tinggi kartu (2 kotak + celah, dikurangi isian)
@@ -559,6 +572,7 @@ class CcMedia(ctx: Context, art: CcArt, private val host: CcHost, u: Float, priv
         val col = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
         col.addView(tx)
         col.addView(lyric, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f).apply { topMargin = dp(4f) })
+        if (!showLyric) lyric.visibility = View.INVISIBLE      // mendatar: tanpa lirik, ruangnya tetap supaya kontrol di bawah
         col.addView(bar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(26f)))
         col.addView(row, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         full.orientation = LinearLayout.HORIZONTAL
@@ -587,7 +601,7 @@ class CcMedia(ctx: Context, art: CcArt, private val host: CcHost, u: Float, priv
         play.kind = if (m.playing) 2 else 1
         play.invalidate()
         val k = m.title + "|" + m.artist
-        if (k != lrcKey) {
+        if (showLyric && k != lrcKey) {
             lrcKey = k; lrc = null; lrcLine = -2; lyric.text = ""
             CcLyrics.request(context, m.title, m.artist, m.dur) { l -> if (lrcKey == k) { lrc = l; lrcLine = -2; tick() } }
         }
@@ -598,7 +612,7 @@ class CcMedia(ctx: Context, art: CcArt, private val host: CcHost, u: Float, priv
     fun tick() {
         val m = info ?: return
         val now = if (m.playing) m.pos + ((SystemClock.elapsedRealtime() - m.stamp) * m.speed).toLong() else m.pos
-        if (lrc == null) {
+        if (showLyric && lrc == null) {
             val st = CcLyrics.status(m.title, m.artist)
             if (lyric.text.toString() != st) lyric.text = st
         }

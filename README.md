@@ -289,3 +289,35 @@ File baru: `drawable-nodpi/preview_*.png` (7). File diubah: `HomeActivity.kt`, `
 - Belum dikompilasi dan belum diuji di perangkat; `.github/workflows` tidak diubah.
 
 File baru: `FlowUi.kt`. File diubah: `HomeActivity.kt`, `HomeData.kt`, `FolderActivity.kt`, `AndroidManifest.xml`, `build.gradle.kts`, `README.md`.
+
+## Stage 14 (2.15.0): wallpaper dari galeri, animasi pindah ikon, ubah ukuran folder dan widget
+- **Wallpaper dari galeri**: "Ganti wallpaper" kini membuka galeri foto (pemilih foto sistem di Android 13+, aplikasi galeri di bawahnya), bukan pemilih berkas.
+- **Animasi pindah ikon** (`HomeActivity.kt`): bayangan seret terangkat dan berpusat di jari; ikon yang akan ditumpuk membesar (isyarat membuat folder); ikon di sekitar sel tujuan bergeser menjauh seperti memberi ruang dan kembali dengan pantulan; sorotan sel mengikuti jari; ikon mendarat meluncur dari jari; mode edit menggoyang ikon (seperti iPhone).
+- **Ubah ukuran**: tekan lama folder atau widget > "Ubah ukuran". Muncul bingkai dengan titik tarik di empat tepi; seret per sel (ikut batas ukuran widget: arah yang boleh diubah dan ukuran minimum dari widget itu sendiri), bingkai dan isi berubah halus. Ketuk di luar atau tombol kembali untuk selesai.
+- **Folder besar**: folder bisa dibuat lebih dari 1x1 (mis. 2x2 atau 4x1) menjadi kartu kaca berisi ikon aplikasi langsung (ketuk ikon = buka aplikasi, sel terakhir = sisa aplikasi, ketuk area kosong = buka folder). Diperkecil ke 1x1 kembali jadi ikon folder.
+- Belum dikompilasi dan belum diuji di perangkat; `.github/workflows` tidak diubah.
+
+File diubah: `HomeActivity.kt`, `HomeData.kt`, `FlowUi.kt`, `build.gradle.kts`, `README.md`.
+
+## 2.15.1: tarik laci ke bawah, gulir widget tidak membuka laci
+- **Laci aplikasi**: bila daftar sudah di paling atas, tarik ke bawah untuk menutup dan kembali ke layar utama (lapisan ikut bergeser; dilepas cukup jauh atau dilempar = tutup, kalau tidak kembali dengan pantulan). Penutupan lewat tombol kembali/Home kini meluncur turun penuh.
+- **Gestur geser layar utama diperbaiki**: geser ke atas (buka laci) dan geser ke bawah (panel notifikasi / Control Center) tidak lagi aktif saat menggulir pemilih widget, di mode edit, saat mengubah ukuran, saat ada menu/dialog, dan saat jari mulai di atas widget (jadi daftar di dalam widget bisa digulir tanpa membuka laci).
+- Belum dikompilasi dan belum diuji di perangkat; `.github/workflows` tidak diubah.
+
+File diubah: `HomeActivity.kt`, `HomeWall.kt`, `FlowUi.kt`, `build.gradle.kts`, `README.md`.
+
+## 2.15.2: animasi pindah lebih halus, bilah hapus dan kotak putih dihapus
+- **Dihapus**: bilah Hapus/Info/Copot di atas layar saat menyeret, dan kotak putih sorotan di belakang ikon yang diseret. Hapus, Info, dan Copot tetap ada di menu tekan lama.
+- **Animasi lebih halus**: ikon asal terangkat dan mengecil halus saat diseret, bayangan seret lebih besar, ikon mendarat dengan pantulan lembut (lebih lama), ikon yang pindah meluncur dengan pelambatan, ikon baru muncul dengan pantulan, ikon di sekitar bergeser lebih lembut, dan pergantian halaman memakai animator sendiri (durasi menyesuaikan jarak, bisa dihentikan dengan sentuhan).
+- **Widget**: dipindah dengan menekan lama (bukan sekadar ketuk); saat ditekan muncul menu Ubah ukuran, Pengaturan widget (bila widget punya pengaturan), dan Hapus.
+- Belum dikompilasi dan belum diuji di perangkat; `.github/workflows` tidak diubah.
+
+File diubah: `HomeActivity.kt`, `HomeWall.kt`, `build.gradle.kts`, `README.md`.
+
+## 2.16.0: Control Center mendatar (landscape) dua kolom
+- **Tata letak baru saat layar mendatar** (`ControlCenter.kt`, `buildLand()`): kolom kiri berisi jam dan tanggal, baris Wi-Fi dan Data seluler (lebar, dengan ikon dan label), panel kaca berisi deretan kontrol kecil (Bluetooth, Pesawat, Rotasi, Jangan Ganggu, Cast, lalu semua kontrol cepat dari katalog) 4 per halaman dengan titik halaman dan bisa digeser, serta dua slider mendatar (kecerahan dan volume). Kolom kanan berisi kartu musik (sampul, judul, artis, bilah progres, tombol kontrol). Ukuran menyesuaikan tinggi layar; bila tidak muat, panel bisa digulir.
+- **Tanpa lirik di Control Center mendatar** (`CcMedia`, parameter `showLyric`): tidak ada permintaan lirik dan ruang lirik dikosongkan supaya tombol tetap di bawah. Lirik di widget musik layar utama tidak berubah.
+- **Slider mendatar** (`CcSlider.horizontal`): isi dari kiri ke kanan, ikon di kiri berganti warna di atas isian; potret tetap vertikal.
+- Belum dikompilasi dan belum diuji di perangkat; `.github/workflows` tidak diubah.
+
+File diubah: `ControlCenter.kt`, `ControlCenterViews.kt`, `build.gradle.kts`, `README.md`.

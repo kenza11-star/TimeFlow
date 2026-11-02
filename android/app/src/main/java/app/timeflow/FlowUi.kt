@@ -41,6 +41,8 @@ object FlowUi {
     private fun dp(c: Context, v: Int) = (v * c.resources.displayMetrics.density).toInt()
     private fun content(a: Activity): ViewGroup = a.findViewById<ViewGroup>(android.R.id.content)
 
+    fun isShowing(): Boolean = stack.isNotEmpty()
+
     /** Tutup overlay teratas (untuk tombol kembali). true bila ada yang ditutup. */
     fun dismissTop(): Boolean {
         val c = stack.lastOrNull() ?: return false
@@ -113,6 +115,13 @@ object FlowUi {
                     cv.drawLine(f * 0.1f, y, f * 0.9f, y, st)
                     cv.drawCircle(f * (0.3f + ((i * 2) % 3) * 0.2f), y, f * 0.09f, fl)
                 }
+            }
+            8 -> {
+                cv.drawLine(f * 0.2f, f * 0.8f, f * 0.8f, f * 0.2f, st)
+                cv.drawLine(f * 0.8f, f * 0.2f, f * 0.8f, f * 0.46f, st)
+                cv.drawLine(f * 0.8f, f * 0.2f, f * 0.54f, f * 0.2f, st)
+                cv.drawLine(f * 0.2f, f * 0.8f, f * 0.2f, f * 0.54f, st)
+                cv.drawLine(f * 0.2f, f * 0.8f, f * 0.46f, f * 0.8f, st)
             }
             else -> {
                 val p = Path()

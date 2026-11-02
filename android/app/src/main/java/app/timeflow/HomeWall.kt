@@ -1,5 +1,6 @@
 package app.timeflow
 
+import android.animation.ValueAnimator
 import android.app.WallpaperManager
 import android.content.Context
 import android.graphics.Bitmap
@@ -22,7 +23,10 @@ import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
+import android.view.VelocityTracker
 import android.view.ViewConfiguration
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import java.io.File
@@ -278,7 +282,7 @@ class HPager(ctx: Context) : HorizontalScrollView(ctx) {
     }
 
     override fun onTouchEvent(ev: MotionEvent): Boolean {
-        if (ev.actionMasked == MotionEvent.ACTION_DOWN) flung = false
+        if (ev.actionMasked == MotionEvent.ACTION_DOWN) { flung = false; anim?.cancel() }
         val r = super.onTouchEvent(ev)
         if ((ev.actionMasked == MotionEvent.ACTION_UP || ev.actionMasked == MotionEvent.ACTION_CANCEL) && !flung && pageW > 0) {
             goTo(Math.round(scrollX.toFloat() / pageW), true)
@@ -286,9 +290,21 @@ class HPager(ctx: Context) : HorizontalScrollView(ctx) {
         return r
     }
 
+    private var anim: ValueAnimator? = null
+
     fun goTo(p: Int, smooth: Boolean) {
         val t = p.coerceIn(0, max(0, count() - 1))
-        if (smooth) smoothScrollTo(t * pageW, 0) else scrollTo(t * pageW, 0)
+        anim?.cancel()
+        if (smooth && pageW > 0) {
+            val from = scrollX
+            val to = t * pageW
+            val a = ValueAnimator.ofInt(from, to)
+            a.duration = 260L + (min(abs(to - from), pageW * 2) * 120L / pageW)
+            a.interpolator = DecelerateInterpolator(1.7f)
+            a.addUpdateListener { scrollTo(it.animatedValue as Int, 0) }
+            anim = a
+            a.start()
+        } else scrollTo(t * pageW, 0)
         if (t != lastPage) { lastPage = t; onPage?.invoke(t) }
     }
 
@@ -327,5 +343,58 @@ class LongPressFrame(ctx: Context) : FrameLayout(ctx) {
     override fun onTouchEvent(e: MotionEvent): Boolean {
         if (e.actionMasked == MotionEvent.ACTION_UP || e.actionMasked == MotionEvent.ACTION_CANCEL) h.removeCallbacks(run)
         return fired || super.onTouchEvent(e)
+    }
+}
+
+/**
+ * Lapisan laci aplikasi yang bisa ditarik ke bawah untuk menutup: bila isi (daftar aplikasi) sudah di paling atas dan jari menarik
+ * ke bawah, lapisan ikut bergeser; dilepas cukup jauh (atau dilempar) = tutup, bila tidak kembali dengan pantulan.
+ */
+class PullDownLayer(ctx: Context) : FrameLayout(ctx) {
+    var atTop: () -> Boolean = { true }
+    var onDismiss: (() -> Unit)? = null
+    private val slop = ViewConfiguration.get(ctx).scaledTouchSlop
+    private var downX = 0f
+    private var downY = 0f
+    private var dragging = false
+    private var vt: VelocityTracker? = null
+
+    override fun onInterceptTouchEvent(e: MotionEvent): Boolean {
+        when (e.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downX = e.rawX; downY = e.rawY; dragging = false
+                vt?.recycle()
+                vt = VelocityTracker.obtain()
+                vt?.addMovement(e)
+            }
+            MotionEvent.ACTION_MOVE -> {
+                vt?.addMovement(e)
+                val dy = e.rawY - downY
+                if (!dragging && dy > slop && dy > abs(e.rawX - downX) * 1.2f && atTop()) { dragging = true; return true }
+            }
+        }
+        return dragging
+    }
+
+    override fun onTouchEvent(e: MotionEvent): Boolean {
+        vt?.addMovement(e)
+        when (e.actionMasked) {
+            MotionEvent.ACTION_MOVE -> if (dragging) {
+                val dy = max(0f, e.rawY - downY - slop)
+                translationY = dy * 0.92f
+                alpha = 1f - min(0.5f, dy / (height * 1.2f))
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                if (dragging) {
+                    vt?.computeCurrentVelocity(1000)
+                    val v = vt?.yVelocity ?: 0f
+                    if (e.actionMasked == MotionEvent.ACTION_UP && (translationY > height * 0.16f || v > 1400f)) onDismiss?.invoke()
+                    else animate().translationY(0f).alpha(1f).setDuration(240).setInterpolator(OvershootInterpolator(1.3f)).start()
+                }
+                dragging = false
+                vt?.recycle(); vt = null
+            }
+        }
+        return true
     }
 }
