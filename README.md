@@ -321,3 +321,16 @@ File diubah: `HomeActivity.kt`, `HomeWall.kt`, `build.gradle.kts`, `README.md`.
 - Belum dikompilasi dan belum diuji di perangkat; `.github/workflows` tidak diubah.
 
 File diubah: `ControlCenter.kt`, `ControlCenterViews.kt`, `build.gradle.kts`, `README.md`.
+
+## 2.17.0: widget bebas diatur, seret widget dari pemilih, perbaikan lag
+- **Grid halus**: layar utama kini memakai grid 8x12 (tiap sel penuh = 2x2 sub-sel). Ikon dan folder kecil tetap menempel ke sel penuh, sedangkan **widget dan folder besar bebas per setengah sel** (posisi dan ukuran). Tata letak lama dikonversi otomatis sekali saat pertama dibuka.
+- **Ubah ukuran bebas**: tekan lama widget/folder > "Ubah ukuran", seret titik di tepi dengan langkah setengah sel; tidak lagi terikat ukuran minimum/arah resize bawaan widget (batas bawah satu sel penuh).
+- **Memilih widget**: di pemilih widget, **tekan lama** sebuah widget lalu **seret ke tempat di layar** yang diinginkan (bayangan = pratinjau widget, halaman bisa berganti lewat tepi layar); lepaskan untuk menaruhnya persis di situ. Ketuk biasa tetap menambahkan otomatis di ruang kosong.
+- **Lag dikurangi** (dari analisis rekaman layar: jeda frame panjang saat ubah ukuran dan setelah memindah):
+  - host view widget dipakai ulang antar pembangunan ulang layar (sebelumnya widget dibuat dan di-inflate ulang tiap kali menjatuhkan ikon);
+  - ukuran widget hanya dikirim ke penyedia widget bila berubah (sebelumnya tiap rebuild memicu pembaruan semua widget);
+  - saat mengubah ukuran, isi widget hanya ditransformasi (skala/geser) dan baru ditata ulang sekali saat selesai, bukan tiap frame;
+  - efek pudar (alpha) pada halaman saat digeser dibuang karena memaksa layer offscreen.
+- Belum dikompilasi dan belum diuji di perangkat; `.github/workflows` tidak diubah.
+
+File diubah: `HomeActivity.kt`, `HomeData.kt`, `build.gradle.kts`, `README.md`.

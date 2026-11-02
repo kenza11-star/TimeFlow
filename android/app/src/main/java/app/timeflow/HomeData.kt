@@ -18,8 +18,8 @@ class HItem(
     var type: Int,
     var cx: Int = 0,
     var cy: Int = 0,
-    var sx: Int = 1,
-    var sy: Int = 1,
+    var sx: Int = 2,
+    var sy: Int = 2,
     var pkg: String = "",
     var name: String = "",
     var apps: MutableList<String> = ArrayList(),
@@ -46,13 +46,14 @@ fun hItemFrom(o: JSONObject): HItem {
     val a = o.optJSONArray("a") ?: JSONArray()
     val l = ArrayList<String>()
     for (i in 0 until a.length()) l.add(a.getString(i))
-    return HItem(o.optInt("t"), o.optInt("x"), o.optInt("y"), o.optInt("w", 1), o.optInt("h", 1), o.optString("p"), o.optString("n"), l, o.optInt("i", -1))
+    return HItem(o.optInt("t"), o.optInt("x"), o.optInt("y"), o.optInt("w", 2), o.optInt("h", 2), o.optString("p"), o.optString("n"), l, o.optInt("i", -1))
 }
 
 /** Tata letak peluncur (halaman + dock), disimpan sebagai JSON di SharedPreferences. Hanya diakses dari thread utama. */
 object HomeStore {
-    const val COLS = 4
-    const val ROWS = 6
+    /** Grid halus: tiap sel layar = 2x2 sub-sel. Ikon/folder menempati 2x2; widget bebas per sub-sel (setengah sel). */
+    const val COLS = 8
+    const val ROWS = 12
     const val DOCK = 4
     const val MAX_PAGES = 16
     private const val SP = "timeflow_home"
@@ -75,6 +76,7 @@ object HomeStore {
         loaded = true
         pages.clear(); dock.clear()
         val raw = sp(c).getString("layout", null)
+        var migrated = false
         if (raw != null) {
             runCatching {
                 val o = JSONObject(raw)
@@ -87,10 +89,17 @@ object HomeStore {
                 }
                 val da = o.getJSONArray("dock")
                 for (j in 0 until da.length()) dock.add(hItemFrom(da.getJSONObject(j)))
+                if (o.optInt("v", 1) < 2) {
+                    // tata letak lama (sel penuh) -> sub-sel
+                    for (pg in pages) for (x in pg) { x.cx *= 2; x.cy *= 2; x.sx *= 2; x.sy *= 2 }
+                    for (x in dock) { x.sx = 2; x.sy = 2 }
+                    migrated = true
+                }
             }
         } else firstRun(c)
         if (pages.isEmpty()) pages.add(ArrayList())
         for (x in all()) if (x.type == HItem.FOLDER && x.wid < 0) x.wid = nextId()
+        if (migrated) save(c)
     }
 
     /** Pertama kali: dock diisi aplikasi telepon, pesan, browser, kamera bawaan HP (bila ada). */
@@ -141,6 +150,7 @@ object HomeStore {
             for (x in p) arr.put(x.toJson())
             pa.put(arr)
         }
+        o.put("v", 2)
         o.put("pages", pa)
         val da = JSONArray()
         for (x in dock) da.put(x.toJson())
@@ -175,29 +185,41 @@ object HomeStore {
         return true
     }
 
-    /** Taruh [item] di sel kosong terdekat dari (cx, cy) mulai halaman [p0]; bila penuh lanjut ke halaman berikutnya. Mengembalikan indeks halaman, atau -1 bila semua penuh. */
-    fun placeNear(item: HItem, p0: Int, cx: Int, cy: Int): Int {
+    private fun stepOf(item: HItem) = if (item.type == HItem.WIDGET || item.sx > 2 || item.sy > 2) 1 else 2
+
+    /** Cari tempat kosong terdekat dari (cx, cy) mulai halaman [p0]: [halaman, kolom, baris], atau null bila semua penuh. Tidak mengubah apa pun. */
+    fun findSpot(item: HItem, p0: Int, cx: Int, cy: Int): IntArray? {
+        val step = stepOf(item)
         var p = p0
         while (p < MAX_PAGES) {
-            while (pages.size <= p) pages.add(ArrayList())
-            val list = pages[p]
+            val list: List<HItem> = if (p < pages.size) pages[p] else emptyList()
             var best = -1
             var bd = Int.MAX_VALUE
-            for (y in 0..(ROWS - item.sy)) {
-                for (x in 0..(COLS - item.sx)) {
-                    if (!cellFree(list, x, y, item.sx, item.sy, item)) continue
-                    val d = (x - cx) * (x - cx) + (y - cy) * (y - cy)
-                    if (d < bd) { bd = d; best = y * COLS + x }
+            var y = 0
+            while (y <= ROWS - item.sy) {
+                var x = 0
+                while (x <= COLS - item.sx) {
+                    if (cellFree(list, x, y, item.sx, item.sy, item)) {
+                        val d = (x - cx) * (x - cx) + (y - cy) * (y - cy)
+                        if (d < bd) { bd = d; best = y * COLS + x }
+                    }
+                    x += step
                 }
+                y += step
             }
-            if (best >= 0) {
-                item.cx = best % COLS; item.cy = best / COLS
-                list.add(item)
-                return p
-            }
+            if (best >= 0) return intArrayOf(p, best % COLS, best / COLS)
             p++
         }
-        return -1
+        return null
+    }
+
+    /** Taruh [item] di sel kosong terdekat dari (cx, cy) mulai halaman [p0]; bila penuh lanjut ke halaman berikutnya. Mengembalikan indeks halaman, atau -1 bila semua penuh. */
+    fun placeNear(item: HItem, p0: Int, cx: Int, cy: Int): Int {
+        val sp = findSpot(item, p0, cx, cy) ?: return -1
+        while (pages.size <= sp[0]) pages.add(ArrayList())
+        item.cx = sp[1]; item.cy = sp[2]
+        pages[sp[0]].add(item)
+        return sp[0]
     }
 
     /** Taruh di dock pada slot [slot] (atau slot kosong terdekat). false bila dock penuh atau item bukan aplikasi/folder. */
@@ -215,7 +237,7 @@ object HomeStore {
             if (best < 0) return false
             s = best
         }
-        item.cx = s; item.cy = 0; item.sx = 1; item.sy = 1
+        item.cx = s; item.cy = 0; item.sx = 2; item.sy = 2
         dock.add(item)
         return true
     }
@@ -224,7 +246,7 @@ object HomeStore {
     fun normalize(f: HItem) {
         if (f.type != HItem.FOLDER || f.apps.size > 1) return
         if (f.apps.isEmpty()) { remove(f); return }
-        f.type = HItem.APP; f.pkg = f.apps[0]; f.apps.clear(); f.name = ""; f.sx = 1; f.sy = 1
+        f.type = HItem.APP; f.pkg = f.apps[0]; f.apps.clear(); f.name = ""; f.sx = 2; f.sy = 2
     }
 
     /** Buang semua jejak aplikasi [pkg] (mis. setelah dicopot). true bila ada yang berubah. */
