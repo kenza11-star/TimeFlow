@@ -23,7 +23,7 @@ android {
         // Dulu 100 + nomor run; build lokal selalu 100 dan repo baru mulai dari 101, lebih kecil dari APK yang sudah terpasang, sehingga Android
         // menolaknya ("bentrok dengan paket yang sudah ada"). Nilai baru ~29 juta, jauh di atas semua versionCode lama.
         versionCode = maxOf(100 + (System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 0), (System.currentTimeMillis() / 60_000L).toInt())
-        versionName = "2.17.0"
+        versionName = "2.18.0"
     }
 
     buildFeatures { buildConfig = true }

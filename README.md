@@ -334,3 +334,16 @@ File diubah: `ControlCenter.kt`, `ControlCenterViews.kt`, `build.gradle.kts`, `R
 - Belum dikompilasi dan belum diuji di perangkat; `.github/workflows` tidak diubah.
 
 File diubah: `HomeActivity.kt`, `HomeData.kt`, `build.gradle.kts`, `README.md`.
+
+## 2.18.0: tile langsung menyala dengan animasi, lirik di landscape, cari aplikasi di folder
+- **Tile Control Center langsung menyala/mati** (`CcAccessibilityService.kt`, `ControlCenter.kt`): mengetuk Wi-Fi, Data seluler, Bluetooth, Hotspot, Mode pesawat dan kontrol sistem lain tidak lagi membuka pengaturan (kecuali tile tidak ditemukan atau ditekan lama). Android tidak mengizinkan aplikasi biasa menyalakan Wi-Fi/Bluetooth/data/hotspot langsung, jadi yang ditekan adalah tile Pengaturan Cepat sistem lewat layanan aksesibilitas:
+  - yang diklik kini **bagian ikon** tile (hidup/mati), bukan label (yang membuka detail), termasuk untuk tile dua bagian ala ColorOS/OxygenOS;
+  - pencarian tile juga memakai id elemen (mis. qs_wifi_icon) selain teks/deskripsi, dan lebih cepat (mulai 450 ms, cek tiap 200 ms);
+  - panel Control Center **tetap terbuka** selama itu (panel sistem terbuka diam-diam di belakangnya lalu ditutup), tanpa berkedip ke layar lain.
+- **Animasi tile**: tile memantul saat diketuk dan memantul lagi saat statusnya berganti; warna berpindah halus antara mati dan menyala.
+- **Lirik di Control Center mendatar** kembali ditampilkan di kartu musik.
+- **Pengaturan folder**: ada kolom "Cari aplikasi" untuk menyaring daftar; nama folder boleh kosong (folder tanpa nama tidak menampilkan label), di folder layar utama, folder widget, dan folder terbuka.
+- Bila tile masih membuka pengaturan di HP-mu, catatan "tekan tile" dan "tile tidak ditemukan" ada di log Control Center (CcLog) untuk disesuaikan dengan nama tile bawaan HP.
+- Belum dikompilasi dan belum diuji di perangkat; `.github/workflows` tidak diubah.
+
+File diubah: `CcAccessibilityService.kt`, `ControlCenter.kt`, `ControlCenterViews.kt`, `ControlCenterData.kt`, `FolderConfigActivity.kt`, `FolderActivity.kt`, `FolderWidget.kt`, `HomeActivity.kt`, `build.gradle.kts`, `README.md`.

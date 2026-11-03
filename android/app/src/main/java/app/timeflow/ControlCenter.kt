@@ -326,7 +326,9 @@ class ControlCenter(private val svc: Context, private val host: CcHost, private 
 
     private fun press(id: String, fallback: () -> Unit) {
         val labels = PRESS[id]
-        if (labels != null && host.pressTile(labels, fallback)) hide(false) else fallback()
+        panel?.pulse(id)          // umpan balik langsung saat diketuk
+        // panel tetap terbuka; setelah sistem selesai menyalakan/mematikan, status tile diperbarui dengan animasi
+        if (labels == null || !host.pressTile(labels, fallback) { panel?.refresh(); panel?.pulse(id) }) fallback()
     }
 
     private fun act(kind: String) {
@@ -730,7 +732,7 @@ class ControlCenter(private val svc: Context, private val host: CcHost, private 
 
             // kolom kanan: kartu musik tanpa lirik
             val cardH = min(gh, dp(250f))
-            media = CcMedia(context, art, host, (cardH - dp(12f)) / 2f, { buzz(it) }, { host.openMedia(); hide() }, false)
+            media = CcMedia(context, art, host, (cardH - dp(12f)) / 2f, { buzz(it) }, { host.openMedia(); hide() }, true)
             put(media, lw + gapC, 0, rw, cardH)
 
             val holderH = max(sh, top + gh + dp(24f))
@@ -777,6 +779,18 @@ class ControlCenter(private val svc: Context, private val host: CcHost, private 
         }
 
         fun setMedia(m: MediaInfo?) { media.setMedia(m) }
+
+        /** Animasi memantul pada tile (dipanggil saat diketuk dan saat statusnya berubah). */
+        fun pulse(kind: String) {
+            val t: CcTile? = when (kind) {
+                "wifi" -> tWifi
+                "cell" -> tCell
+                "bt" -> tBt
+                "plane" -> tPlane
+                else -> extra.firstOrNull { it.tag == kind }
+            }
+            t?.pop()
+        }
 
         fun refresh() {
             tPlane.state(CcSys.airplane(svc))

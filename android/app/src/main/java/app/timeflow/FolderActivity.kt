@@ -61,7 +61,7 @@ class FolderActivity : Activity() {
         }
 
         panel.addView(TextView(this).apply {
-            text = data.name; textSize = 20f; setTextColor(Color.WHITE); includeFontPadding = false
+            text = data.name; visibility = if (data.name.isEmpty()) View.GONE else View.VISIBLE; textSize = 20f; setTextColor(Color.WHITE); includeFontPadding = false
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             setShadowLayer(2f, 0f, 1f, 0x59000000)
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))

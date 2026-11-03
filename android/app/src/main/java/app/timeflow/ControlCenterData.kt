@@ -70,7 +70,7 @@ interface CcHost {
     fun openApp()
     fun mediaNow(): MediaInfo?
     /** Menekan tile bawaan sistem lewat layanan aksesibilitas (satu-satunya cara aplikasi biasa menyalakan Wi-Fi, Bluetooth, dll.). false = tidak tersedia, onFail dipanggil bila tile tidak ditemukan. */
-    fun pressTile(labels: List<String>, onFail: () -> Unit): Boolean = false
+    fun pressTile(labels: List<String>, onFail: () -> Unit, onDone: () -> Unit = {}): Boolean = false
     /** Tangkapan layar sebelum panel muncul (untuk latar blur). null bila tidak tersedia. */
     fun screenshot(cb: (Bitmap?) -> Unit) { cb(null) }
 }

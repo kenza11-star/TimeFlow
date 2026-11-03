@@ -8,7 +8,9 @@ import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.text.Editable
 import android.text.TextUtils
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -43,6 +45,7 @@ class FolderConfigActivity : Activity() {
     private lateinit var btnMono: TextView
     private lateinit var btnColor: TextView
     private val checks = HashMap<String, TextView>()
+    private val rows = ArrayList<Pair<View, String>>()
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
     private fun glass(r: Int): Drawable = CcGlassDrawable(dp(r).toFloat(), resources.displayMetrics.density)
@@ -56,7 +59,7 @@ class FolderConfigActivity : Activity() {
         HomeStore.load(this)
         val hf = if (homeId >= 0) HomeStore.findFolder(homeId) else null
         if (homeId >= 0 && hf == null) { finish(); return }
-        val data = if (hf != null) FolderStore.Data(hf.name.ifEmpty { "Folder" }, hf.apps.toList(), true) else FolderStore.get(this, wid)
+        val data = if (hf != null) FolderStore.Data(hf.name, hf.apps.toList(), true) else FolderStore.get(this, wid)
         maxApps = if (hf != null) 24 else FolderStore.MAX
         picked.addAll(data.pkgs)
         mono = data.mono
@@ -76,7 +79,7 @@ class FolderConfigActivity : Activity() {
         }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(4) })
 
         nameEt = EditText(this).apply {
-            setText(data.name); hint = "Nama folder"; setTextColor(INK); setHintTextColor(MUTED)
+            setText(data.name); hint = "Nama folder (boleh kosong)"; setTextColor(INK); setHintTextColor(MUTED)
             textSize = 15f; setSingleLine(true); background = glass(16)
             setPadding(dp(16), 0, dp(16), 0)
         }
@@ -99,6 +102,20 @@ class FolderConfigActivity : Activity() {
         counter = TextView(this).apply { textSize = 13f; setTextColor(MUTED) }
         content.addView(counter, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(4) })
         updateCounter()
+
+        val searchEt = EditText(this).apply {
+            hint = "Cari aplikasi"; setHintTextColor(MUTED); setTextColor(INK); textSize = 15f
+            setSingleLine(true); background = glass(16); setPadding(dp(16), 0, dp(16), 0)
+        }
+        content.addView(searchEt, LinearLayout.LayoutParams(MATCH, dp(46)).apply { topMargin = dp(8) })
+        searchEt.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {}
+            override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                val q = s?.toString()?.trim()?.lowercase() ?: ""
+                for (r in rows) r.first.visibility = if (q.isEmpty() || r.second.contains(q)) View.VISIBLE else View.GONE
+            }
+        })
 
         listBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         listBox.addView(TextView(this).apply { text = "Memuat aplikasi…"; textSize = 14f; setTextColor(MUTED); setPadding(dp(8), dp(16), dp(8), dp(16)) })
@@ -149,6 +166,7 @@ class FolderConfigActivity : Activity() {
 
     private fun fill(apps: List<Triple<String, String, Drawable?>>) {
         listBox.removeAllViews()
+        rows.clear()
         for (a in apps) {
             val pkg = a.first
             val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(8), dp(8), dp(8), dp(8)) }
@@ -162,11 +180,12 @@ class FolderConfigActivity : Activity() {
             row.addView(ck, LinearLayout.LayoutParams(dp(32), dp(32)))
             row.setOnClickListener { toggle(pkg) }
             listBox.addView(row, LinearLayout.LayoutParams(MATCH, WRAP))
+            rows.add(Pair(row, a.second.lowercase()))
         }
     }
 
     private fun save() {
-        val name = nameEt.text.toString().trim().ifEmpty { "Folder" }
+        val name = nameEt.text.toString().trim()
         if (homeId >= 0) {
             val f = HomeStore.findFolder(homeId)
             if (f != null) {

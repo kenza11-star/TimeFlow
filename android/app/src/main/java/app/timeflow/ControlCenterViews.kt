@@ -354,8 +354,30 @@ class CcTile(ctx: Context, private val art: CcArt, val kind: String, private val
         edge.shader = CcGlass.rimShader(0f, 0f, w.toFloat(), h.toFloat())
     }
 
+    private var t = 0f
+    private var tAnim: android.animation.ValueAnimator? = null
+    private var inited = false
+
+    /** Status hidup/mati: pertama kali langsung, selanjutnya warna berpindah halus. */
     fun state(on: Boolean, flag: Boolean = false) {
-        if (on != this.on || flag != this.flag) { this.on = on; this.flag = flag; invalidate() }
+        if (!inited) { inited = true; this.on = on; this.flag = flag; t = if (on) 1f else 0f; invalidate(); return }
+        if (flag != this.flag) { this.flag = flag; invalidate() }
+        if (on != this.on) {
+            this.on = on
+            tAnim?.cancel()
+            val a = android.animation.ValueAnimator.ofFloat(t, if (on) 1f else 0f)
+            a.duration = 260
+            a.addUpdateListener { t = it.animatedValue as Float; invalidate() }
+            tAnim = a
+            a.start()
+        }
+    }
+
+    /** Memantul (mengecil lalu kembali dengan overshoot) sebagai umpan balik ketukan. */
+    fun pop() {
+        animate().cancel()
+        scaleX = 0.82f; scaleY = 0.82f
+        animate().scaleX(1f).scaleY(1f).setDuration(430).setInterpolator(android.view.animation.OvershootInterpolator(2.6f)).start()
     }
 
     override fun setPressed(pressed: Boolean) { super.setPressed(pressed); invalidate() }
@@ -382,15 +404,15 @@ class CcTile(ctx: Context, private val art: CcArt, val kind: String, private val
         if (isPressed) c.scale(0.95f, 0.95f, w / 2f, h / 2f)
         rect.set(0f, 0f, w, h)
         val rad = if (style == 0) min(w, h) / 2f else min(w, h) * 0.3f
-        bg.color = if (on) onBg else if (style == 0) CcColor.offCircle else CcColor.off
+        bg.color = android.animation.ArgbEvaluator().evaluate(t, if (style == 0) CcColor.offCircle else CcColor.off, onBg) as Int
         c.drawRoundRect(rect, rad, rad, bg)
         // kilau diagonal + rim light (kontrol aktif berwarna tetap diberi kilau halus)
-        sheen.alpha = if (on) 120 else 255
+        sheen.alpha = (255 - 135 * t).toInt()
         c.drawRoundRect(rect, rad, rad, sheen)
         val eh = edge.strokeWidth / 2f
         rim.set(eh, eh, w - eh, h - eh)
         c.drawRoundRect(rim, rad, rad, edge)
-        val fg = if (on) onFg else Color.WHITE
+        val fg = if (t > 0.5f) onFg else Color.WHITE
         txt.color = fg
         when (style) {
             0 -> glyph(c, w / 2f, h / 2f, min(w, h) * 0.26f, fg)

@@ -499,7 +499,7 @@ class HomeActivity : Activity() {
         box.addView(iv, LinearLayout.LayoutParams(isz, isz))
         if (from != FROM_DOCK && showLabels) {
             box.addView(TextView(this).apply {
-                text = if (item.type == HItem.APP) item.name.ifEmpty { appLabel(item.pkg) } else item.name.ifEmpty { "Folder" }
+                text = if (item.type == HItem.APP) item.name.ifEmpty { appLabel(item.pkg) } else item.name
                 textSize = 11.5f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
                 maxLines = 1; ellipsize = TextUtils.TruncateAt.END; includeFontPadding = false
@@ -851,7 +851,7 @@ class HomeActivity : Activity() {
         target.type = HItem.FOLDER
         target.apps = ArrayList<String>().apply { add(a); add(item.pkg) }
         target.pkg = ""
-        target.name = "Folder"
+        target.name = ""
         target.wid = HomeStore.nextId()
     }
 
@@ -996,7 +996,7 @@ class HomeActivity : Activity() {
         }
         panel.background = GlassPanelDrawable(panel, dp(34).toFloat(), 1f, 56, 0.45f)
         val title = EditText(this).apply {
-            setText(f.name.ifEmpty { "Folder" }); textSize = 20f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            setText(f.name); hint = "Nama folder"; setHintTextColor(0x66FFFFFF); textSize = 20f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
             background = null; setSingleLine(true); imeOptions = EditorInfo.IME_ACTION_DONE
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         }
@@ -1069,7 +1069,7 @@ class HomeActivity : Activity() {
         val t = folderTitle
         val f = folderItem
         if (t != null && f != null) {
-            val n = t.text.toString().trim().ifEmpty { "Folder" }
+            val n = t.text.toString().trim()
             if (n != f.name) { f.name = n; HomeStore.save(this); labelsDirty = true }
         }
         folderTitle = null; folderItem = null
@@ -1438,7 +1438,7 @@ class HomeActivity : Activity() {
             return
         }
         val items = ArrayList<FlowUi.Item>()
-        for (f in fs) items.add(FlowUi.Item(f.name.ifEmpty { "Folder" } + " (" + f.apps.size + ")", 7) { editFolderApps(f) })
+        for (f in fs) items.add(FlowUi.Item(f.name.ifEmpty { "Folder tanpa nama" } + " (" + f.apps.size + ")", 7) { editFolderApps(f) })
         FlowUi.menu(this, centerRect(), items, true)
     }
 
@@ -1514,10 +1514,10 @@ class HomeActivity : Activity() {
 
     private fun renameItem(item: HItem) {
         val isFolder = item.type == HItem.FOLDER
-        val cur = if (isFolder) item.name.ifEmpty { "Folder" } else item.name.ifEmpty { appLabel(item.pkg) }
-        FlowUi.input(this, if (isFolder) "Nama folder" else "Nama ikon", cur, if (isFolder) "Folder" else appLabel(item.pkg), "Simpan") { t ->
+        val cur = if (isFolder) item.name else item.name.ifEmpty { appLabel(item.pkg) }
+        FlowUi.input(this, if (isFolder) "Nama folder" else "Nama ikon", cur, if (isFolder) "Tanpa nama" else appLabel(item.pkg), "Simpan") { t ->
             val n = t.trim()
-            item.name = if (isFolder) n.ifEmpty { "Folder" } else (if (n == appLabel(item.pkg)) "" else n)
+            item.name = if (isFolder) n else (if (n == appLabel(item.pkg)) "" else n)
             HomeStore.save(this)
             val snap = snapshot()
             rebuild()

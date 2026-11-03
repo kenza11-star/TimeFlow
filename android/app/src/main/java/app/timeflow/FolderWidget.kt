@@ -39,14 +39,14 @@ object FolderStore {
     private fun sp(c: Context) = c.getSharedPreferences(SP, Context.MODE_PRIVATE)
 
     fun get(c: Context, id: Int): Data {
-        val raw = sp(c).getString("w$id", null) ?: return Data("Folder", emptyList(), true)
+        val raw = sp(c).getString("w$id", null) ?: return Data("", emptyList(), true)
         return runCatching {
             val o = JSONObject(raw)
             val a = o.optJSONArray("p") ?: JSONArray()
             val l = ArrayList<String>()
             for (i in 0 until a.length()) l.add(a.getString(i))
-            Data(o.optString("n", "Folder"), l, o.optBoolean("m", true))
-        }.getOrElse { Data("Folder", emptyList(), true) }
+            Data(o.optString("n", ""), l, o.optBoolean("m", true))
+        }.getOrElse { Data("", emptyList(), true) }
     }
 
     fun set(c: Context, id: Int, d: Data) {
@@ -258,6 +258,7 @@ object FolderUtil {
         rv.setOnClickPendingIntent(R.id.gr_folder, open)
         rv.setOnClickPendingIntent(R.id.f_title, open)
         rv.setTextViewText(R.id.f_title, if (pkgs.isEmpty()) "Ketuk untuk mengisi" else data.name)
+        rv.setViewVisibility(R.id.f_title, if (pkgs.isNotEmpty() && data.name.isEmpty()) android.view.View.GONE else android.view.View.VISIBLE)
         for (i in 0 until 4) {
             var bmp: Bitmap? = null
             var pi: PendingIntent = open

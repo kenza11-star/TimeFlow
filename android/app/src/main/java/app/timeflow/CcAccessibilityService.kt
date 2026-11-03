@@ -185,8 +185,11 @@ class CcAccessibilityService : AccessibilityService(), CcHost {
     private fun norm(s: CharSequence?) = s?.toString()?.lowercase() ?: ""
 
     private fun matches(n: AccessibilityNodeInfo, labels: List<String>): Boolean {
-        val a = norm(n.text); val b = norm(n.contentDescription)
-        return labels.any { (a.isNotEmpty() && a.contains(it)) || (b.isNotEmpty() && b.contains(it)) }
+        val a = norm(n.text); val b = norm(n.contentDescription); val c = norm(n.viewIdResourceName)
+        return labels.any { l ->
+            (a.isNotEmpty() && a.contains(l)) || (b.isNotEmpty() && b.contains(l)) ||
+                (c.isNotEmpty() && !l.contains(' ') && c.contains(l.replace("-", "")))     // id tile mis. qs_wifi_icon
+        }
     }
 
     private fun search(n: AccessibilityNodeInfo?, labels: List<String>, depth: Int = 0): AccessibilityNodeInfo? {
@@ -203,13 +206,40 @@ class CcAccessibilityService : AccessibilityService(), CcHost {
         return null
     }
 
+    private fun collectClickable(n: AccessibilityNodeInfo?, out: MutableList<AccessibilityNodeInfo>, depth: Int) {
+        if (n == null || depth > 8 || out.size > 6) return
+        if (n.isClickable && n.isVisibleToUser) out.add(n)
+        for (i in 0 until n.childCount) collectClickable(n.getChild(i), out, depth + 1)
+    }
+
+    /**
+     * Tile sistem dua bagian (ikon bulat = hidup/mati, label = buka detail): pilih ikonnya supaya langsung menyala/mati
+     * dan tidak membuka halaman pengaturan. Tile satu bagian: pakai elemen yang bisa diklik biasa.
+     */
+    private fun togglePart(label: AccessibilityNodeInfo): AccessibilityNodeInfo {
+        val own = clickable(label) ?: label
+        var p: AccessibilityNodeInfo? = own.parent
+        var k = 0
+        while (p != null && k < 3) {
+            val cs = ArrayList<AccessibilityNodeInfo>()
+            collectClickable(p, cs, 0)
+            if (cs.size == 2) {
+                val icon = cs.firstOrNull { it != own && norm(it.text).isEmpty() } ?: cs.firstOrNull { it != own }
+                if (icon != null) return icon
+            }
+            if (cs.size > 2) break
+            p = p.parent; k++
+        }
+        return own
+    }
+
     private fun findTile(labels: List<String>): AccessibilityNodeInfo? {
         val ws = runCatching { windows }.getOrNull().orEmpty()
         for (w in ws) {
             val root = runCatching { w.root }.getOrNull() ?: continue
             if (root.packageName?.toString() == packageName) continue
             val hit = search(root, labels) ?: continue
-            return clickable(hit) ?: hit
+            return togglePart(hit)
         }
         return null
     }
@@ -219,8 +249,11 @@ class CcAccessibilityService : AccessibilityService(), CcHost {
         else performGlobalAction(GLOBAL_ACTION_BACK)
     }
 
-    private fun doPress(labels: List<String>, onFail: () -> Unit) {
-        cc?.hide(false)
+    /**
+     * Menyalakan/mematikan lewat tile Pengaturan Cepat sistem. Panel Control Center tetap terlihat (lapisan aksesibilitas berada di atas
+     * bayangan sistem), jadi panel sistem terbuka diam-diam di belakangnya lalu ditutup lagi; [onDone] dipanggil setelah itu.
+     */
+    private fun doPress(labels: List<String>, onFail: () -> Unit, onDone: () -> Unit) {
         CcLog.add("tekan tile: $labels")
         performGlobalAction(GLOBAL_ACTION_QUICK_SETTINGS)
         var tries = 0
@@ -231,15 +264,15 @@ class CcAccessibilityService : AccessibilityService(), CcHost {
             if (n != null) {
                 val ok = n.performAction(AccessibilityNodeInfo.ACTION_CLICK)
                 CcLog.add("tile diklik=$ok")
-                ui.postDelayed({ closeShade(); ui.postDelayed({ open(250) }, 350) }, 350)
-            } else if (tries < 8) ui.postDelayed(step, 250)
+                ui.postDelayed({ closeShade(); ui.postDelayed({ onDone() }, 450) }, 280)
+            } else if (tries < 10) ui.postDelayed(step, 200)
             else {
                 CcLog.add("tile tidak ditemukan")
                 closeShade()
                 ui.postDelayed({ onFail() }, 300)
             }
         }
-        ui.postDelayed(step, 600)
+        ui.postDelayed(step, 450)
     }
 
     // ---- CcHost ----
@@ -268,7 +301,7 @@ class CcAccessibilityService : AccessibilityService(), CcHost {
         shoot(true)
     }
 
-    override fun pressTile(labels: List<String>, onFail: () -> Unit): Boolean { ui.post { doPress(labels, onFail) }; return true }
+    override fun pressTile(labels: List<String>, onFail: () -> Unit, onDone: () -> Unit): Boolean { ui.post { doPress(labels, onFail, onDone) }; return true }
     override fun transport(cmd: Int) = NotchListener.hubTransport(cmd)
     override fun openMedia() = NotchListener.hubOpenMedia()
     override fun seek(frac: Float) = NotchListener.hubSeek(frac)
