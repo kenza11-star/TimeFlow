@@ -4,6 +4,8 @@ import android.animation.ValueAnimator
 import android.app.WallpaperManager
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapShader
+import android.graphics.Matrix
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
@@ -202,8 +204,11 @@ object HomeWall {
 class GlassPanelDrawable(private val host: View, private val radius: Float, private val k: Float = 1f, private val white: Int = 38, private val dark: Float = 1f) : Drawable() {
     private val cfg = GlassPrefs.get(host.context)
     private val bmp = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
-    private val tintBlack = Paint()
-    private val tintWhite = Paint().apply { color = Color.argb((white * k).toInt().coerceIn(0, 255), 255, 255, 255) }
+    private val tintBlack = Paint(Paint.ANTI_ALIAS_FLAG)
+    private var shader: BitmapShader? = null
+    private var shaderFor: Bitmap? = null
+    private val mat = Matrix()
+    private val tintWhite = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb((white * k).toInt().coerceIn(0, 255), 255, 255, 255) }
     private val sheen = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rim = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = max(1f, host.resources.displayMetrics.density) }
     private val box = RectF()
@@ -230,27 +235,28 @@ class GlassPanelDrawable(private val host: View, private val radius: Float, priv
         if (b.width() <= 0 || b.height() <= 0) return
         box.set(b)
         val rad = min(radius, min(box.width(), box.height()) / 2f)
-        clip.reset(); clip.addRoundRect(box, rad, rad, Path.Direction.CW)
-        c.save()
-        c.clipPath(clip)
         val bl = HomeWall.blur
         if (bl != null) {
+            // wallpaper kabur sebagai shader yang dipetakan ke posisi view di jendela: satu drawRoundRect (GPU), tanpa clipPath
+            if (shaderFor !== bl) { shader = BitmapShader(bl, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP); shaderFor = bl }
             host.getLocationInWindow(loc)
-            val fx = bl.width / HomeWall.winW.toFloat(); val fy = bl.height / HomeWall.winH.toFloat()
-            val l = ((loc[0] + b.left) * fx).toInt().coerceIn(0, bl.width - 1)
-            val t = ((loc[1] + b.top) * fy).toInt().coerceIn(0, bl.height - 1)
-            val r = ((loc[0] + b.right) * fx).toInt().coerceIn(l + 1, bl.width)
-            val bt = ((loc[1] + b.bottom) * fy).toInt().coerceIn(t + 1, bl.height)
-            src.set(l, t, r, bt)
-            c.drawBitmap(bl, src, box, bmp)
-        } else c.drawColor(Color.argb(70, 24, 24, 32))
-        // tint hitam tipis (lebih kuat di wallpaper terang agar teks putih terbaca) + tint putih tipis
+            mat.reset()
+            mat.postScale(HomeWall.winW / bl.width.toFloat(), HomeWall.winH / bl.height.toFloat())
+            mat.postTranslate(-loc[0].toFloat(), -loc[1].toFloat())
+            shader?.setLocalMatrix(mat)
+            bmp.shader = shader
+            c.drawRoundRect(box, rad, rad, bmp)
+        } else {
+            bmp.shader = null
+            bmp.color = Color.argb(70, 24, 24, 32)
+            c.drawRoundRect(box, rad, rad, bmp)
+        }
+        // tint hitam tipis (lebih kuat di wallpaper terang agar teks putih terbaca) + tint putih tipis + kilau
         val extra = (((HomeWall.lum - 0.35f) / 0.5f).coerceIn(0f, 1f) * 56f)
         tintBlack.color = Color.argb(((cfg.darkAlpha * k + extra) * dark).toInt().coerceIn(0, 255), 0, 0, 0)
-        c.drawRect(box, tintBlack)
-        c.drawRect(box, tintWhite)
-        c.drawRect(box, sheen)
-        c.restore()
+        c.drawRoundRect(box, rad, rad, tintBlack)
+        c.drawRoundRect(box, rad, rad, tintWhite)
+        c.drawRoundRect(box, rad, rad, sheen)
         c.drawRoundRect(inner, max(0f, rad - rim.strokeWidth / 2f), max(0f, rad - rim.strokeWidth / 2f), rim)
     }
 

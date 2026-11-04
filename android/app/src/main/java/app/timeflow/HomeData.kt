@@ -165,6 +165,15 @@ object HomeStore {
         return l
     }
 
+    /** Ganti seluruh tata letak (pemulihan cadangan). */
+    fun replace(np: List<List<HItem>>, nd: List<HItem>) {
+        pages.clear(); dock.clear()
+        for (p in np) pages.add(ArrayList<HItem>(p))
+        dock.addAll(nd)
+        if (pages.isEmpty()) pages.add(ArrayList())
+        for (x in all()) if (x.type == HItem.FOLDER && x.wid < 0) x.wid = nextId()
+    }
+
     /** Lepas item dari halaman/dock (bukan dari dalam folder). */
     fun remove(item: HItem) {
         for (p in pages) p.remove(item)
@@ -295,6 +304,16 @@ object HomeUtil {
     }
 
     fun uriOfPkg(pkg: String): Uri = Uri.parse("package:$pkg")
+
+    @Volatile private var defAt = 0L
+    @Volatile private var defVal = false
+
+    /** Seperti [isDefaultHome] tetapi di-cache 5 detik (dipakai di jalur yang sering dipanggil: pembaruan widget, peristiwa aksesibilitas). */
+    fun isDefaultHomeCached(ctx: Context): Boolean {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - defAt > 5000L) { defVal = isDefaultHome(ctx); defAt = now }
+        return defVal
+    }
 
     private var asked = false
 

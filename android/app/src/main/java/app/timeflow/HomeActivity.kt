@@ -4,6 +4,7 @@ import android.app.Activity
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.ActivityOptions
+import android.app.AppOpsManager
 import android.app.AlertDialog
 import android.app.role.RoleManager
 import android.appwidget.AppWidgetHost
@@ -27,6 +28,9 @@ import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
+import android.util.Base64
+import org.json.JSONArray
+import org.json.JSONObject
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -71,6 +75,8 @@ class HomeActivity : Activity() {
         const val REQ_WALL = 73
         const val REQ_ROLE = 74
         const val REQ_RECONF = 75
+        const val REQ_BACKUP = 76
+        const val REQ_RESTORE = 77
         const val HOST_ID = 1024
         const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
@@ -174,6 +180,8 @@ class HomeActivity : Activity() {
                 val dx = e2.x - e1.x
                 // gestur geser vertikal layar utama hanya berlaku di layar utama polos (bukan di atas laci, pemilih widget, mode edit, menu, atau widget yang bisa digulir)
                 if (overlay != null || drag != null || sheet != null || editing || resizing != null || FlowUi.isShowing()) return false
+                // jendela tanpa fokus / baru kembali fokus = bayangan notifikasi sistem sedang ditutup; jangan anggap geser itu gestur laci
+                if (!hasWindowFocus() || android.os.SystemClock.uptimeMillis() - focusAt < 700L) return false
                 if (onWidget(e1.rawX, e1.rawY)) return false
                 if (dy < -dp(80) && Math.abs(dy) > Math.abs(dx) * 1.5f && vy < -600f) { openDrawer(); return true }
                 if (dy > dp(80) && Math.abs(dy) > Math.abs(dx) * 1.5f && vy > 600f && e1.y < rootH * 0.6f) {
@@ -195,7 +203,7 @@ class HomeActivity : Activity() {
             addDataScheme("package")
         }
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(pkgRx, f, Context.RECEIVER_EXPORTED) else registerReceiver(pkgRx, f)
-        AppRepo.refresh()
+        Thread { AppRepo.refresh(); AppRepo.list(this) }.start()
         pruneMissing()
     }
 
@@ -245,6 +253,13 @@ class HomeActivity : Activity() {
         return super.dispatchTouchEvent(ev)
     }
 
+    private var focusAt = 0L
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) focusAt = android.os.SystemClock.uptimeMillis()
+    }
+
     private fun built() = pageW > 0
 
     /** Apakah titik layar (x, y) berada di atas widget pada halaman aktif (widget bisa punya daftar yang digulir sendiri). */
@@ -283,21 +298,39 @@ class HomeActivity : Activity() {
         }
     }
 
+    private var prunedAt = 0L
+
     private fun pruneMissing() {
-        val pm = packageManager
-        val gone = HashSet<String>()
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - prunedAt < 30000L) return
+        prunedAt = now
+        val pkgs = HashSet<String>()
         for (x in HomeStore.all()) {
-            if (x.type == HItem.APP && pm.getLaunchIntentForPackage(x.pkg) == null) gone.add(x.pkg)
-            if (x.type == HItem.FOLDER) for (a in x.apps) if (pm.getLaunchIntentForPackage(a) == null) gone.add(a)
+            if (x.type == HItem.APP) pkgs.add(x.pkg)
+            else if (x.type == HItem.FOLDER) pkgs.addAll(x.apps)
         }
-        var ch = false
-        for (g in gone) if (HomeStore.purgePkg(g)) ch = true
-        if (ch) { HomeStore.save(this); if (built()) rebuild() }
+        Thread {
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+            val pm = packageManager
+            val gone = pkgs.filter { pm.getLaunchIntentForPackage(it) == null }
+            if (gone.isNotEmpty()) runOnUiThread {
+                var ch = false
+                for (g in gone) if (HomeStore.purgePkg(g)) ch = true
+                if (ch) { HomeStore.save(this); if (built()) rebuild() }
+            }
+        }.start()
     }
+
+    private var warmedMono: Boolean? = null
 
     private fun warmIcons() {
         val m = mono
-        Thread { for (e in AppRepo.list(this)) FolderIcons.tile(this, e.pkg, m, false) }.start()
+        if (warmedMono == m) return
+        warmedMono = m
+        Thread {
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+            for (e in AppRepo.list(this)) FolderIcons.tile(this, e.pkg, m, false)
+        }.start()
     }
 
     // ---------- kerangka tampilan ----------
@@ -1426,6 +1459,7 @@ class HomeActivity : Activity() {
             FlowUi.toast(this, if (n > 0) "$n aplikasi ditambahkan" else "Semua aplikasi sudah ada di layar")
         })
         items.add(FlowUi.Item("Blur dan gaya kaca", 6) { startActivity(Intent(this, WidgetStyleActivity::class.java)) })
+        items.add(FlowUi.Item("Cadangan dan izin", 7) { showBackupMenu() })
         items.add(FlowUi.Item("Jadikan launcher utama", 4) { requestHome() })
         items.add(FlowUi.Item("Pengaturan Flow Launcher", 6) { startActivity(Intent(this, MainActivity::class.java)) })
         FlowUi.menu(this, centerRect(), items, true)
@@ -1738,6 +1772,120 @@ class HomeActivity : Activity() {
         else v.animate().scaleX(0.2f).scaleY(0.2f).alpha(0f).setDuration(200).withEndAction(done).start()
     }
 
+    // ---------- cadangan tata letak, pemulihan (termasuk widget), dan pusat izin ----------
+    private class RW(val page: Int, val cx: Int, val cy: Int, val sx: Int, val sy: Int, val prov: String)
+
+    private val restoreQueue = ArrayList<RW>()
+    private var restoring = false
+
+    private fun showBackupMenu() {
+        val items = ArrayList<FlowUi.Item>()
+        items.add(FlowUi.Item("Cadangkan tata letak", 7) {
+            val i = Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/json").putExtra(Intent.EXTRA_TITLE, "FlowLauncher-cadangan.json")
+            runCatching { startActivityForResult(i, REQ_BACKUP) }
+        })
+        items.add(FlowUi.Item("Pulihkan tata letak", 2) {
+            val i = Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*")
+            runCatching { startActivityForResult(i, REQ_RESTORE) }
+        })
+        items.add(FlowUi.Item("Atur izin", 4) { showPermissions() })
+        FlowUi.menu(this, centerRect(), items, true)
+    }
+
+    private fun backupJson(): String {
+        val o = JSONObject()
+        o.put("app", "FlowLauncher"); o.put("v", 3)
+        val pa = JSONArray()
+        for (p in HomeStore.pages) {
+            val arr = JSONArray()
+            for (x in p) {
+                val j = x.toJson()
+                if (x.type == HItem.WIDGET) j.put("prov", awm.getAppWidgetInfo(x.wid)?.provider?.flattenToString() ?: "")
+                arr.put(j)
+            }
+            pa.put(arr)
+        }
+        o.put("pages", pa)
+        val da = JSONArray()
+        for (x in HomeStore.dock) da.put(x.toJson())
+        o.put("dock", da)
+        o.put("mono", mono); o.put("labels", showLabels)
+        val wf = HomeWall.file(this)
+        if (wf.exists() && wf.length() < 6_000_000L) o.put("wall", Base64.encodeToString(wf.readBytes(), Base64.NO_WRAP))
+        return o.toString()
+    }
+
+    private fun restoreFrom(json: String): Boolean {
+        return try {
+            val o = JSONObject(json)
+            if (o.optString("app") != "FlowLauncher") return false
+            val np = ArrayList<ArrayList<HItem>>()
+            val q = ArrayList<RW>()
+            val pa = o.getJSONArray("pages")
+            for (i in 0 until pa.length()) {
+                val arr = pa.getJSONArray(i)
+                val l = ArrayList<HItem>()
+                for (j in 0 until arr.length()) {
+                    val jo = arr.getJSONObject(j)
+                    val hi = hItemFrom(jo)
+                    if (hi.type == HItem.WIDGET) q.add(RW(i, hi.cx, hi.cy, hi.sx, hi.sy, jo.optString("prov"))) else l.add(hi)
+                }
+                np.add(l)
+            }
+            val nd = ArrayList<HItem>()
+            val da = o.getJSONArray("dock")
+            for (j in 0 until da.length()) nd.add(hItemFrom(da.getJSONObject(j)))
+            HomeStore.replace(np, nd)
+            HomeStore.save(this)
+            mono = o.optBoolean("mono", false)
+            showLabels = o.optBoolean("labels", true)
+            getSharedPreferences(SP, MODE_PRIVATE).edit().putBoolean("mono", mono).putBoolean("labels", showLabels).apply()
+            val w = o.optString("wall")
+            if (w.isNotEmpty()) HomeWall.file(this).writeBytes(Base64.decode(w, Base64.NO_WRAP))
+            restoreQueue.clear()
+            restoreQueue.addAll(q)
+            true
+        } catch (e: Exception) { false }
+    }
+
+    /** Pasang ulang widget hasil pemulihan satu per satu di posisi dan ukuran semula (izin bind sistem mungkin muncul). */
+    private fun processRestore() {
+        if (restoreQueue.isEmpty()) {
+            restoring = false
+            FlowUi.toast(this, "Tata letak dipulihkan")
+            return
+        }
+        val rw = restoreQueue.removeAt(0)
+        val info = awm.installedProviders.firstOrNull { it.provider.flattenToString() == rw.prov }
+        if (info == null) { processRestore(); return }
+        pendPlace = intArrayOf(rw.page, rw.cx, rw.cy)
+        pendSpan = intArrayOf(rw.sx, rw.sy)
+        bindWidget(info)
+    }
+
+    private fun showPermissions() {
+        fun mark(b: Boolean) = if (b) "✓ " else "✗ "
+        val acc = (Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: "").contains(packageName)
+        val notif = (Settings.Secure.getString(contentResolver, "enabled_notification_listeners") ?: "").contains(packageName)
+        val usage = if (Build.VERSION.SDK_INT >= 29) runCatching {
+            val ao = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+            ao.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), packageName) == AppOpsManager.MODE_ALLOWED
+        }.getOrDefault(false) else false
+        val write = Settings.System.canWrite(this)
+        val exact = if (Build.VERSION.SDK_INT >= 31) runCatching { (getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager).canScheduleExactAlarms() }.getOrDefault(true) else true
+        val post = if (Build.VERSION.SDK_INT >= 33) checkSelfPermission("android.permission.POST_NOTIFICATIONS") == android.content.pm.PackageManager.PERMISSION_GRANTED else true
+        val pkgUri = Uri.parse("package:$packageName")
+        val items = ArrayList<FlowUi.Item>()
+        items.add(FlowUi.Item(mark(HomeUtil.isDefaultHome(this)) + "Launcher utama", 4) { requestHome() })
+        items.add(FlowUi.Item(mark(acc) + "Aksesibilitas (Control Center)", 6) { runCatching { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) } })
+        items.add(FlowUi.Item(mark(notif) + "Akses notifikasi (musik)", 6) { runCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) } })
+        items.add(FlowUi.Item(mark(usage) + "Akses penggunaan (waktu layar)", 6) { runCatching { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) } })
+        items.add(FlowUi.Item(mark(write) + "Ubah pengaturan sistem (kecerahan)", 6) { runCatching { startActivity(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, pkgUri)) } })
+        items.add(FlowUi.Item(mark(exact) + "Alarm tepat waktu", 6) { if (Build.VERSION.SDK_INT >= 31) runCatching { startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, pkgUri)) } })
+        items.add(FlowUi.Item(mark(post) + "Notifikasi", 6) { if (Build.VERSION.SDK_INT >= 33) requestPermissions(arrayOf("android.permission.POST_NOTIFICATIONS"), 91) })
+        FlowUi.menu(this, centerRect(), items, true)
+    }
+
     private fun pickWallpaper() {
         // galeri foto (bukan pemilih berkas): Android 13+ pemilih foto sistem, di bawahnya aplikasi galeri
         val tries = ArrayList<Intent>()
@@ -1776,7 +1924,7 @@ class HomeActivity : Activity() {
     }
 
     private fun configureOrAdd(id: Int, info: AppWidgetProviderInfo) {
-        if (info.configure != null) {
+        if (!restoring && info.configure != null) {
             val ok = try { host.startAppWidgetConfigureActivityForResult(this, id, 0, REQ_CONFIG, null); true } catch (e: Exception) { false }
             if (ok) return
         }
@@ -1810,12 +1958,14 @@ class HomeActivity : Activity() {
         if (p < 0) {
             host.deleteAppWidgetId(id)
             FlowUi.toast(this, "Layar penuh")
+            if (restoring) ui.post { processRestore() }
             return
         }
         HomeStore.save(this)
         curPage = p
         rebuild()
         pager.post { animateFrom(snap, null, -1f, -1f, -1, null) }
+        if (restoring) ui.post { processRestore() }
     }
 
     /** Widget baru dari pemilih: ditekan lama, lalu diseret ke tempat yang diinginkan di layar (bayangan = pratinjau widget). */
@@ -1869,6 +2019,7 @@ class HomeActivity : Activity() {
         if (pendWid >= 0) runCatching { host.deleteAppWidgetId(pendWid) }
         pendWid = -1; pendInfo = null
         pendPlace = null; pendSpan = null
+        if (restoring) ui.post { processRestore() }
     }
 
     @Suppress("DEPRECATION")
@@ -1878,6 +2029,33 @@ class HomeActivity : Activity() {
             REQ_CONFIG -> { val pi = pendInfo; if (resultCode == RESULT_OK && pi != null) addWidget(pendWid, pi) else cancelPending() }
             REQ_ROLE -> { if (HomeUtil.isDefaultHome(this)) WidgetUtil.updateAll(this) }
             REQ_RECONF -> { rebuild() }
+            REQ_BACKUP -> {
+                val u = data?.data
+                if (resultCode == RESULT_OK && u != null) {
+                    val json = backupJson()
+                    Thread {
+                        val ok = runCatching { contentResolver.openOutputStream(u)?.use { it.write(json.toByteArray()) } != null }.getOrDefault(false)
+                        runOnUiThread { FlowUi.toast(this, if (ok) "Tata letak dicadangkan" else "Gagal menyimpan cadangan") }
+                    }.start()
+                }
+            }
+            REQ_RESTORE -> {
+                val u = data?.data
+                if (resultCode == RESULT_OK && u != null) {
+                    Thread {
+                        val text = runCatching { contentResolver.openInputStream(u)?.use { String(it.readBytes()) } }.getOrNull()
+                        runOnUiThread {
+                            if (text != null && restoreFrom(text)) {
+                                curPage = 0
+                                applyWall(true)
+                                rebuild()
+                                restoring = restoreQueue.isNotEmpty()
+                                if (restoring) { FlowUi.toast(this, "Memulihkan widget…"); processRestore() } else FlowUi.toast(this, "Tata letak dipulihkan")
+                            } else FlowUi.toast(this, "Berkas cadangan tidak valid")
+                        }
+                    }.start()
+                }
+            }
             REQ_WALL -> { val u = data?.data; if (resultCode == RESULT_OK && u != null) setWallpaper(u) }
             else -> super.onActivityResult(requestCode, resultCode, data)
         }

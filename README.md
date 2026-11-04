@@ -347,3 +347,17 @@ File diubah: `HomeActivity.kt`, `HomeData.kt`, `build.gradle.kts`, `README.md`.
 - Belum dikompilasi dan belum diuji di perangkat; `.github/workflows` tidak diubah.
 
 File diubah: `CcAccessibilityService.kt`, `ControlCenter.kt`, `ControlCenterViews.kt`, `ControlCenterData.kt`, `FolderConfigActivity.kt`, `FolderActivity.kt`, `FolderWidget.kt`, `HomeActivity.kt`, `build.gradle.kts`, `README.md`.
+
+## 2.19.0: lebih ringan dan responsif, cadangan tata letak, tanda tangan tetap
+- **Respons sentuhan lebih cepat dan lebih ringan** (`HomeWall.kt`, `HomeActivity.kt`, `CcAccessibilityService.kt`):
+  - kaca (dock, widget, folder, menu) digambar dengan satu `drawRoundRect` memakai shader wallpaper kabur, bukan potong-clip + salin bitmap tiap frame (jauh lebih murah di GPU);
+  - layanan aksesibilitas tidak lagi menjalankan jalur kaca tangkapan layar saat Flow jadi launcher utama dan berhenti menerima peristiwa gulir (mengurangi lalu lintas binder tiap kali halaman/daftar digulir);
+  - pemanasan ikon hanya sekali (prioritas latar), pemeriksaan aplikasi terhapus berjalan di latar dan paling sering tiap 30 detik, daftar aplikasi disegarkan di latar;
+  - hasil "launcher utama?" di-cache 5 detik untuk jalur yang sering dipanggil.
+- **Gestur laci**: geser yang menutup bayangan notifikasi sistem tidak lagi dianggap gestur membuka laci (dipantau dari video).
+- **Cadangan dan pulihkan** (Pengaturan peluncur > Cadangan dan izin): simpan tata letak (halaman, folder, dock, nama ikon, gaya ikon, wallpaper, dan daftar widget beserta posisi/ukurannya) ke berkas JSON pilihanmu; pulihkan memasang ulang ikon dan folder, lalu widget satu per satu di tempat semula (izin bind sistem mungkin muncul per widget).
+- **Atur izin**: daftar status (✓/✗) launcher utama, aksesibilitas, akses notifikasi, akses penggunaan, ubah pengaturan sistem, alarm tepat waktu, dan notifikasi; ketuk untuk membuka layar izinnya.
+- **Tanda tangan tetap**: `app/build.gradle.kts` kini memakai `keystore/debug.keystore.b64` langsung untuk tanda tangan debug (bila valid) supaya pembaruan selalu menimpa tanpa uninstall; lihat `keystore/BACA-DULU.txt`. Bila layar "bentrok dengan paket yang sudah ada" muncul sekali (APK terpasang memakai tanda tangan lain), cadangkan tata letak lebih dulu, uninstall satu kali, pasang, lalu pulihkan.
+- Belum dikompilasi dan belum diuji di perangkat; `.github/workflows` tidak diubah.
+
+File diubah: `app/build.gradle.kts`, `HomeWall.kt`, `HomeActivity.kt`, `HomeData.kt`, `CcAccessibilityService.kt`, `Widgets.kt`, `keystore/BACA-DULU.txt`, `README.md`.

@@ -1,3 +1,6 @@
 Folder ini berisi tanda tangan tetap (debug.keystore.b64) supaya APK baru bisa dipasang MENIMPA APK lama tanpa uninstall dan data (alarm, username, dll.) tetap ada.
 JANGAN diganti / dihapus setelah dipakai. Cukup salin folder "keystore" ke repo (sejajar dengan folder android dan web).
 Catatan: pemasangan PERTAMA setelah ini tetap perlu uninstall APK lama satu kali (tanda tangan lama acak). Ekspor backup dulu di aplikasi lama, lalu pulihkan di aplikasi baru.
+
+Pembaruan 2.19.0: android/app/build.gradle.kts sekarang membaca keystore/debug.keystore.b64 sendiri (tanpa bergantung pada langkah workflow) dan memakainya untuk tanda tangan debug bila file valid (kata sandi "android", alias "androiddebugkey"). Selama folder keystore ada di repo, setiap APK memakai tanda tangan yang sama.
+Jika layar "Aplikasi tidak diinstal karena paket ini bentrok dengan paket yang sudah ada" muncul, APK yang terpasang memakai tanda tangan lain. Di Flow Launcher 2.19.0 ke atas pakai Pengaturan peluncur > Cadangan dan izin > Cadangkan tata letak, lalu uninstall satu kali dan pasang lagi; setelah itu pembaruan berikutnya menimpa tanpa uninstall.

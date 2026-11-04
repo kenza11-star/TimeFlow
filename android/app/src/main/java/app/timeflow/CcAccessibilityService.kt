@@ -52,12 +52,22 @@ class CcAccessibilityService : AccessibilityService(), CcHost {
         inst = this
         LockScreen.register(this)
         apply()
+        tuneEvents()
         NotchListener.refresh()   // notch berhenti menampilkan Control Center sendiri
     }
 
     /** Aplikasi/launcher lain naik ke depan (mis. tombol Home ditekan): tutup panel supaya tidak menempel di layar. */
+    /** Bila Flow launcher utama, peristiwa gulir tidak diperlukan (hanya untuk kaca widget di launcher lain): kurangi beban binder. */
+    private fun tuneEvents() {
+        val info = runCatching { serviceInfo }.getOrNull() ?: return
+        val want = if (HomeUtil.isDefaultHomeCached(this)) AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+        else AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or AccessibilityEvent.TYPE_VIEW_SCROLLED
+        if (info.eventTypes != want) { info.eventTypes = want; runCatching { serviceInfo = info } }
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) tuneEvents()
         // widget musik: launcher naik ke depan atau halaman digeser -> cek posisi widget, perbarui latar kaca bila perlu
         if (event.packageName?.toString() != packageName && (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED)) scheduleGlass()
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
@@ -93,6 +103,7 @@ class CcAccessibilityService : AccessibilityService(), CcHost {
     private val glassCheck = Runnable { glassTick() }
     private fun scheduleGlass() {
         if (android.os.Build.VERSION.SDK_INT < 30 || !GlassSlots.anyCached(this)) return
+        if (HomeUtil.isDefaultHomeCached(this)) return        // Flow jadi launcher: kaca widget digambar peluncur sendiri, tanpa tangkapan layar
         ui.removeCallbacks(glassCheck); ui.postDelayed(glassCheck, 900)   // tunggu geseran selesai
     }
 

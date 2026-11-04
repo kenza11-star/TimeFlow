@@ -23,7 +23,7 @@ android {
         // Dulu 100 + nomor run; build lokal selalu 100 dan repo baru mulai dari 101, lebih kecil dari APK yang sudah terpasang, sehingga Android
         // menolaknya ("bentrok dengan paket yang sudah ada"). Nilai baru ~29 juta, jauh di atas semua versionCode lama.
         versionCode = maxOf(100 + (System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 0), (System.currentTimeMillis() / 60_000L).toInt())
-        versionName = "2.18.0"
+        versionName = "2.19.0"
     }
 
     buildFeatures { buildConfig = true }
@@ -51,6 +51,25 @@ android {
                 storePassword = ksProps.getProperty("storePassword")
                 keyAlias = ksProps.getProperty("keyAlias")
                 keyPassword = ksProps.getProperty("keyPassword")
+            }
+        }
+        // Tanda tangan debug tetap dari repo (keystore/debug.keystore.b64): APK baru selalu bisa menimpa APK lama tanpa uninstall.
+        // Hanya dipakai bila file ada dan valid (kata sandi standar "android", alias androiddebugkey); selain itu bawaan Gradle.
+        val dbgB64 = rootProject.file("../keystore/debug.keystore.b64")
+        if (dbgB64.exists()) {
+            val dbgOut = File(project.layout.buildDirectory.get().asFile, "flow-debug.keystore")
+            val dbgOk = runCatching {
+                dbgOut.parentFile.mkdirs()
+                dbgOut.writeBytes(java.util.Base64.getMimeDecoder().decode(dbgB64.readText().trim()))
+                java.security.KeyStore.getInstance(dbgOut, "android".toCharArray()).containsAlias("androiddebugkey")
+            }.getOrDefault(false)
+            if (dbgOk) {
+                getByName("debug") {
+                    storeFile = dbgOut
+                    storePassword = "android"
+                    keyAlias = "androiddebugkey"
+                    keyPassword = "android"
+                }
             }
         }
     }

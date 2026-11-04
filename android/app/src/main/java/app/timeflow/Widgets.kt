@@ -145,7 +145,7 @@ object WidgetUtil {
         rv.setOnClickPendingIntent(d.rootId, openApp(ctx))
         GlassBg.get(ctx, d.name)?.let { rv.setImageViewBitmap(d.glassId, it) }
         if (GlassBg.hidden) { rv.setViewVisibility(d.glassId, View.INVISIBLE); rv.setViewVisibility(d.contentId, View.INVISIBLE) }
-        else if (HomeUtil.isDefaultHome(ctx)) rv.setViewVisibility(d.glassId, View.INVISIBLE)      // TimeFlow Home menggambar kaca sendiri di belakang widget
+        else if (HomeUtil.isDefaultHomeCached(ctx)) rv.setViewVisibility(d.glassId, View.INVISIBLE)      // TimeFlow Home menggambar kaca sendiri di belakang widget
         return rv
     }
 
