@@ -1,3 +1,5 @@
+import java.security.KeyStore
+import java.util.Base64
 import java.util.Properties
 
 plugins {
@@ -60,8 +62,8 @@ android {
             val dbgOut = File(project.layout.buildDirectory.get().asFile, "flow-debug.keystore")
             val dbgOk = runCatching {
                 dbgOut.parentFile.mkdirs()
-                dbgOut.writeBytes(java.util.Base64.getMimeDecoder().decode(dbgB64.readText().trim()))
-                java.security.KeyStore.getInstance(dbgOut, "android".toCharArray()).containsAlias("androiddebugkey")
+                dbgOut.writeBytes(Base64.getMimeDecoder().decode(dbgB64.readText().trim()))
+                KeyStore.getInstance(dbgOut, "android".toCharArray()).containsAlias("androiddebugkey")
             }.getOrDefault(false)
             if (dbgOk) {
                 getByName("debug") {
