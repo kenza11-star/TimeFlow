@@ -4,6 +4,7 @@ import android.app.Activity
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.ActivityOptions
+import android.app.KeyguardManager
 import android.app.AppOpsManager
 import android.app.AlertDialog
 import android.app.role.RoleManager
@@ -42,6 +43,7 @@ import android.text.TextUtils
 import android.text.TextWatcher
 import android.view.DragEvent
 import android.view.GestureDetector
+import android.view.ScaleGestureDetector
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
@@ -77,6 +79,7 @@ class HomeActivity : Activity() {
         const val REQ_RECONF = 75
         const val REQ_BACKUP = 76
         const val REQ_RESTORE = 77
+        const val REQ_HIDDEN = 78
         const val HOST_ID = 1024
         const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
@@ -155,6 +158,13 @@ class HomeActivity : Activity() {
     private var lastSig = ""
     private val glassViews = ArrayList<View>()
     private val labels = HashMap<String, String>()
+    private var scaleDet: ScaleGestureDetector? = null
+    private var pinchAcc = 1f
+    private var pinchFired = false
+    private var pinchAt = 0L
+    private var hiddenLayer: PullDownLayer? = null
+    private var pickerLayer: View? = null
+    private var hiddenRefresh: (() -> Unit)? = null
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
@@ -176,6 +186,7 @@ class HomeActivity : Activity() {
         gd = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onFling(e1: MotionEvent?, e2: MotionEvent, vx: Float, vy: Float): Boolean {
                 if (e1 == null) return false
+                if (android.os.SystemClock.uptimeMillis() - pinchAt < 700L || e2.pointerCount > 1) return false
                 val dy = e2.y - e1.y
                 val dx = e2.x - e1.x
                 // gestur geser vertikal layar utama hanya berlaku di layar utama polos (bukan di atas laci, pemilih widget, mode edit, menu, atau widget yang bisa digulir)
@@ -190,6 +201,33 @@ class HomeActivity : Activity() {
                     expandShade(); return true
                 }
                 return false
+            }
+        })
+        scaleDet = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScaleBegin(d: ScaleGestureDetector): Boolean {
+                pinchAcc = 1f
+                pinchFired = false
+                return pinchAllowed()
+            }
+
+            override fun onScale(d: ScaleGestureDetector): Boolean {
+                if (pinchFired) return true
+                pinchAcc *= d.scaleFactor
+                if (hiddenLayer == null && pinchAcc > 1.28f) {
+                    // jari melebar (zoom in) di layar utama = buka Layar Tersembunyi
+                    pinchFired = true
+                    pinchAt = android.os.SystemClock.uptimeMillis()
+                    cancelTouches()
+                    root.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    requestHidden()
+                } else if (hiddenLayer != null && pickerLayer == null && pinchAcc < 0.78f) {
+                    // jari menyempit (zoom out) di Layar Tersembunyi = tutup
+                    pinchFired = true
+                    pinchAt = android.os.SystemClock.uptimeMillis()
+                    cancelTouches()
+                    closeOverlay(true)
+                }
+                return true
             }
         })
         Thread { AppRepo.list(this) }.start()
@@ -224,6 +262,7 @@ class HomeActivity : Activity() {
 
     override fun onStop() {
         super.onStop()
+        if (hiddenLayer != null) closeOverlay(false)      // keluar dari layar ini = terkunci lagi (buka berikutnya minta verifikasi)
         runCatching { host.stopListening() }
         runCatching { unregisterReceiver(pkgRx) }
         HomeStore.save(this)
@@ -242,6 +281,7 @@ class HomeActivity : Activity() {
     override fun onBackPressed() {
         if (FlowUi.dismissTop()) return
         if (resizing != null) { endResize(); return }
+        if (pickerLayer != null) { closePicker(); return }
         if (sheet != null) closeSheet()
         else if (overlay != null) closeOverlay(true)
         else if (editing) exitEdit()
@@ -250,6 +290,7 @@ class HomeActivity : Activity() {
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         gd.onTouchEvent(ev)
+        scaleDet?.onTouchEvent(ev)
         return super.dispatchTouchEvent(ev)
     }
 
@@ -292,6 +333,7 @@ class HomeActivity : Activity() {
             if (pkg != null) {
                 labels.remove(pkg)
                 if (i.action == Intent.ACTION_PACKAGE_REMOVED && !i.getBooleanExtra(Intent.EXTRA_REPLACING, false)) {
+                    HiddenStore.remove(c, pkg)
                     if (HomeStore.purgePkg(pkg)) { HomeStore.save(c); rebuild() }
                 }
             }
@@ -1099,6 +1141,17 @@ class HomeActivity : Activity() {
     private fun closeOverlay(animate: Boolean) {
         val ov = overlay ?: return
         overlay = null
+        if (ov === hiddenLayer) {
+            hiddenLayer = null
+            hiddenRefresh = null
+            pickerLayer?.let { root.removeView(it) }
+            pickerLayer = null
+            hideKeyboard(ov)
+            restoreHome()
+            val gone = Runnable { root.removeView(ov) }
+            if (animate) ov.animate().alpha(0f).scaleX(0.9f).scaleY(0.9f).setDuration(210).withEndAction(gone).start() else gone.run()
+            return
+        }
         val t = folderTitle
         val f = folderItem
         if (t != null && f != null) {
@@ -1143,7 +1196,7 @@ class HomeActivity : Activity() {
         search.background = GlassPanelDrawable(search, dp(26).toFloat(), 1.2f)
         col.addView(search, LinearLayout.LayoutParams(MATCH, dp(52)))
 
-        val all = AppRepo.list(this)
+        val all = AppRepo.visible(this)
         val shown = ArrayList<AppEntry>(all)
         val ad = object : BaseAdapter() {
             override fun getCount() = shown.size
@@ -1192,6 +1245,284 @@ class HomeActivity : Activity() {
             search.requestFocus()
             (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(search, 0)
         }, 260)
+    }
+
+    // ---------- Layar Tersembunyi: cubit melebar (zoom in) di layar utama ----------
+    private fun pinchAllowed(): Boolean {
+        if (hiddenLayer != null) return pickerLayer == null
+        if (overlay != null || drag != null || sheet != null || editing || resizing != null || FlowUi.isShowing()) return false
+        return hasWindowFocus()
+    }
+
+    /** Batalkan sentuhan yang sedang berjalan di semua tampilan anak (supaya cubitan tidak ikut mengetuk ikon). */
+    private fun cancelTouches() {
+        val t = android.os.SystemClock.uptimeMillis()
+        val c = MotionEvent.obtain(t, t, MotionEvent.ACTION_CANCEL, 0f, 0f, 0)
+        super.dispatchTouchEvent(c)
+        c.recycle()
+    }
+
+    /** Buka Layar Tersembunyi; bila HP punya kunci layar dan kunci Layar Tersembunyi nyala, minta PIN/pola/sidik jari dulu. */
+    private fun requestHidden() {
+        if (hiddenLayer != null || editing || !built()) return
+        val km = getSystemService(KEYGUARD_SERVICE) as? KeyguardManager
+        if (HiddenStore.lockOn(this) && km != null && km.isDeviceSecure) {
+            val i = runCatching { km.createConfirmDeviceCredentialIntent("Layar Tersembunyi", "Verifikasi untuk membuka aplikasi tersembunyi") }.getOrNull()
+            val ok = i != null && runCatching { startActivityForResult(i, REQ_HIDDEN); true }.getOrDefault(false)
+            if (!ok) FlowUi.toast(this, "Tidak bisa memverifikasi kunci layar")
+            return
+        }
+        openHidden()
+        if (HiddenStore.lockOn(this) && km?.isDeviceSecure != true) {
+            FlowUi.toast(this, "Pasang PIN, pola, atau sidik jari di Pengaturan HP supaya Layar Tersembunyi terkunci")
+        }
+    }
+
+    private fun restoreHome() {
+        for (v in listOf<View>(pager, dockPanel, pill, dots)) {
+            v.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(260).setInterpolator(DecelerateInterpolator(1.6f)).start()
+        }
+    }
+
+    private fun plusBmp(): Bitmap {
+        val s = 144
+        val b = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888)
+        val c = Canvas(b)
+        FolderIcons.drawGlassTile(c, RectF(10f, 10f, s - 10f, s - 10f), false)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; style = Paint.Style.STROKE; strokeWidth = 7f; strokeCap = Paint.Cap.ROUND }
+        c.drawLine(s / 2f, 46f, s / 2f, s - 46f, p)
+        c.drawLine(46f, s / 2f, s - 46f, s / 2f, p)
+        return b
+    }
+
+    private fun openHidden() {
+        if (!built() || hiddenLayer != null) return
+        closeOverlay(false)
+        val ov = PullDownLayer(this)
+        ov.addView(ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_XY; setImageBitmap(HomeWall.blur) }, FrameLayout.LayoutParams(MATCH, MATCH))
+        ov.addView(View(this).apply { setBackgroundColor(Color.argb(150, 12, 8, 28)) }, FrameLayout.LayoutParams(MATCH, MATCH))
+        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), topInset + dp(20), dp(12), 0) }
+        col.addView(TextView(this).apply {
+            text = "Layar Tersembunyi"; textSize = 26f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        }, LinearLayout.LayoutParams(MATCH, WRAP))
+        col.addView(TextView(this).apply {
+            text = "Aplikasi di sini hilang dari layar utama, folder, dan laci. Ketuk + untuk menambah, tekan lama untuk mengeluarkan, cubit menyempit untuk menutup."
+            textSize = 13f; setTextColor(Color.argb(200, 255, 255, 255)); gravity = Gravity.CENTER; setLineSpacing(0f, 1.1f)
+        }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(6); leftMargin = dp(20); rightMargin = dp(20) })
+
+        val rows = ArrayList<AppEntry?>()
+        fun reload() {
+            rows.clear()
+            val hid = HiddenStore.all(this).toHashSet()
+            for (e in AppRepo.list(this)) if (e.pkg in hid) rows.add(e)
+            rows.add(null)
+        }
+        reload()
+        val plus = plusBmp()
+        val ad = object : BaseAdapter() {
+            override fun getCount() = rows.size
+            override fun getItem(position: Int): Any? = rows[position]
+            override fun getItemId(position: Int) = position.toLong()
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
+                val e = rows[position]
+                val v = (convertView as? LinearLayout) ?: makeDrawerCell()
+                val iv = v.getChildAt(0) as ImageView
+                val tv = v.getChildAt(1) as TextView
+                if (e == null) { iv.setImageBitmap(plus); tv.text = "Tambah" }
+                else { iv.setImageBitmap(FolderIcons.tile(this@HomeActivity, e.pkg, mono, false)); tv.text = e.label }
+                return v
+            }
+        }
+        val grid = GridView(this).apply {
+            numColumns = 4; verticalSpacing = dp(12); selector = ColorDrawable(Color.TRANSPARENT)
+            setPadding(0, dp(22), 0, dp(16)); clipToPadding = false
+            overScrollMode = View.OVER_SCROLL_NEVER; isVerticalScrollBarEnabled = false
+            adapter = ad
+        }
+        grid.setOnItemClickListener { _, v, pos, _ ->
+            if (pos in rows.indices) {
+                val e = rows[pos]
+                if (e == null) openPicker() else launch(e.pkg, v)
+            }
+        }
+        grid.setOnItemLongClickListener { _, v, pos, _ ->
+            val e = if (pos in rows.indices) rows[pos] else null
+            if (e != null) {
+                val loc = IntArray(2)
+                v.getLocationInWindow(loc)
+                val r = Rect(loc[0], loc[1], loc[0] + v.width, loc[1] + v.height)
+                FlowUi.menu(this, r, listOf(
+                    FlowUi.Item("Buka", 8) { launch(e.pkg, v) },
+                    FlowUi.Item("Keluarkan dari sini", 3) { unhideApp(e.pkg) }
+                ), false)
+            }
+            true
+        }
+        col.addView(grid, LinearLayout.LayoutParams(MATCH, 0, 1f))
+
+        val lock = TextView(this).apply { textSize = 13f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; setPadding(dp(18), 0, dp(18), 0) }
+        fun paintLock() {
+            val km = getSystemService(KEYGUARD_SERVICE) as? KeyguardManager
+            lock.text = when {
+                km?.isDeviceSecure != true -> "Kunci: pasang kunci layar HP dulu"
+                HiddenStore.lockOn(this) -> "Kunci: Nyala"
+                else -> "Kunci: Mati"
+            }
+        }
+        paintLock()
+        lock.background = GlassPanelDrawable(lock, dp(18).toFloat(), 1f, 50, 0.4f)
+        lock.setOnClickListener {
+            val km = getSystemService(KEYGUARD_SERVICE) as? KeyguardManager
+            if (km?.isDeviceSecure != true) {
+                FlowUi.toast(this, "Pasang PIN, pola, atau sidik jari di Pengaturan HP supaya Layar Tersembunyi bisa dikunci")
+            } else {
+                HiddenStore.setLock(this, !HiddenStore.lockOn(this))
+                paintLock()
+            }
+        }
+        col.addView(lock, LinearLayout.LayoutParams(WRAP, dp(36)).apply { gravity = Gravity.CENTER_HORIZONTAL; topMargin = dp(8); bottomMargin = botInset + dp(20) })
+
+        ov.atTop = { grid.firstVisiblePosition == 0 && (grid.childCount == 0 || grid.getChildAt(0).top >= grid.paddingTop) }
+        ov.onDismiss = { closeOverlay(true) }
+        ov.addView(col, FrameLayout.LayoutParams(MATCH, MATCH))
+        root.addView(ov, FrameLayout.LayoutParams(MATCH, MATCH))
+        overlay = ov
+        hiddenLayer = ov
+        hiddenRefresh = { reload(); ad.notifyDataSetChanged() }
+
+        // animasi zoom: layar utama membesar dan memudar, Layar Tersembunyi muncul dari kecil
+        ov.alpha = 0f; ov.scaleX = 0.86f; ov.scaleY = 0.86f
+        ov.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(280).setInterpolator(DecelerateInterpolator(1.6f)).start()
+        for (v in listOf<View>(pager, dockPanel, pill, dots)) {
+            v.animate().scaleX(1.14f).scaleY(1.14f).alpha(0f).setDuration(260).setInterpolator(DecelerateInterpolator(1.4f)).start()
+        }
+    }
+
+    /** Pemilih aplikasi (centang beberapa) untuk disembunyikan. */
+    private fun openPicker() {
+        if (pickerLayer != null || hiddenLayer == null) return
+        val ov = FrameLayout(this)
+        ov.isClickable = true
+        ov.addView(ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_XY; setImageBitmap(HomeWall.blur) }, FrameLayout.LayoutParams(MATCH, MATCH))
+        ov.addView(View(this).apply { setBackgroundColor(Color.argb(180, 8, 6, 20)) }, FrameLayout.LayoutParams(MATCH, MATCH))
+        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), topInset + dp(14), dp(12), botInset + dp(12)) }
+        col.addView(TextView(this).apply {
+            text = "Pilih aplikasi yang disembunyikan"; textSize = 20f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        }, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(12) })
+        val search = EditText(this).apply {
+            hint = "Cari aplikasi"; setHintTextColor(0xB3FFFFFF.toInt()); setTextColor(Color.WHITE); textSize = 16f
+            setSingleLine(true); imeOptions = EditorInfo.IME_ACTION_DONE; setPadding(dp(20), 0, dp(20), 0)
+        }
+        search.background = GlassPanelDrawable(search, dp(26).toFloat(), 1.2f)
+        col.addView(search, LinearLayout.LayoutParams(MATCH, dp(52)))
+
+        val all = AppRepo.visible(this)
+        val shown = ArrayList<AppEntry>(all)
+        val picked = LinkedHashSet<String>()
+        val btn = TextView(this).apply {
+            textSize = 16f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            background = GradientDrawable().apply { setColor(0x55FFFFFF); cornerRadius = dp(24).toFloat() }
+        }
+        fun paintBtn() {
+            btn.text = if (picked.isEmpty()) "Pilih aplikasi" else "Sembunyikan " + picked.size + " aplikasi"
+            btn.alpha = if (picked.isEmpty()) 0.5f else 1f
+        }
+        paintBtn()
+        val ad = object : BaseAdapter() {
+            override fun getCount() = shown.size
+            override fun getItem(position: Int): Any = shown[position]
+            override fun getItemId(position: Int) = position.toLong()
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
+                val e = shown[position]
+                val fl = (convertView as? FrameLayout) ?: FrameLayout(this@HomeActivity).also { f ->
+                    f.addView(makeDrawerCell(), FrameLayout.LayoutParams(MATCH, WRAP))
+                    f.addView(TextView(this@HomeActivity).apply {
+                        text = "✓"; textSize = 13f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+                        typeface = Typeface.DEFAULT_BOLD
+                        background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0xFF34C759.toInt()) }
+                    }, FrameLayout.LayoutParams(dp(22), dp(22), Gravity.TOP or Gravity.END).apply { topMargin = dp(2); rightMargin = dp(10) })
+                }
+                val cell = fl.getChildAt(0) as LinearLayout
+                (cell.getChildAt(0) as ImageView).setImageBitmap(FolderIcons.tile(this@HomeActivity, e.pkg, mono, false))
+                (cell.getChildAt(1) as TextView).text = e.label
+                val on = e.pkg in picked
+                fl.getChildAt(1).visibility = if (on) View.VISIBLE else View.GONE
+                cell.alpha = if (on) 0.55f else 1f
+                return fl
+            }
+        }
+        val grid = GridView(this).apply {
+            numColumns = 4; verticalSpacing = dp(12); selector = ColorDrawable(Color.TRANSPARENT)
+            setPadding(0, dp(16), 0, dp(12)); clipToPadding = false
+            overScrollMode = View.OVER_SCROLL_NEVER; isVerticalScrollBarEnabled = false
+            adapter = ad
+        }
+        grid.setOnItemClickListener { _, _, pos, _ ->
+            if (pos < shown.size) {
+                val p = shown[pos].pkg
+                if (!picked.add(p)) picked.remove(p)
+                paintBtn()
+                ad.notifyDataSetChanged()
+            }
+        }
+        col.addView(grid, LinearLayout.LayoutParams(MATCH, 0, 1f))
+        search.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {}
+            override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                val q = s?.toString()?.trim()?.lowercase() ?: ""
+                shown.clear()
+                shown.addAll(if (q.isEmpty()) all else all.filter { it.label.lowercase().contains(q) })
+                ad.notifyDataSetChanged()
+            }
+        })
+        btn.setOnClickListener {
+            if (picked.isNotEmpty()) {
+                val n = picked.size
+                hideApps(picked.toList())
+                closePicker()
+                hiddenRefresh?.invoke()
+                FlowUi.toast(this, "$n aplikasi disembunyikan")
+            }
+        }
+        col.addView(btn, LinearLayout.LayoutParams(MATCH, dp(50)).apply { topMargin = dp(6) })
+        col.addView(TextView(this).apply {
+            text = "Batal"; textSize = 15f; setTextColor(Color.argb(220, 255, 255, 255)); gravity = Gravity.CENTER
+            setOnClickListener { closePicker() }
+        }, LinearLayout.LayoutParams(MATCH, dp(44)).apply { topMargin = dp(4) })
+        ov.addView(col, FrameLayout.LayoutParams(MATCH, MATCH))
+        root.addView(ov, FrameLayout.LayoutParams(MATCH, MATCH))
+        pickerLayer = ov
+        ov.alpha = 0f
+        ov.translationY = dp(40).toFloat()
+        ov.animate().alpha(1f).translationY(0f).setDuration(220).start()
+    }
+
+    private fun closePicker() {
+        val p = pickerLayer ?: return
+        pickerLayer = null
+        hideKeyboard(p)
+        p.animate().alpha(0f).translationY(dp(40).toFloat()).setDuration(200).withEndAction { root.removeView(p) }.start()
+    }
+
+    /** Sembunyikan aplikasi: masuk daftar tersembunyi dan langsung hilang dari layar utama, dock, dan folder (laci otomatis menyaring). */
+    private fun hideApps(pkgs: List<String>) {
+        if (pkgs.isEmpty()) return
+        HiddenStore.add(this, pkgs)
+        for (p in pkgs) HomeStore.purgePkg(p)
+        HomeStore.trim()
+        HomeStore.save(this)
+        rebuild()
+    }
+
+    private fun unhideApp(pkg: String) {
+        if (HiddenStore.remove(this, pkg)) {
+            hiddenRefresh?.invoke()
+            FlowUi.toast(this, appLabel(pkg) + " kembali ke laci aplikasi")
+        }
     }
 
     // ---------- menu layar, wallpaper, widget ----------
@@ -1453,6 +1784,7 @@ class HomeActivity : Activity() {
             rebuild()
         })
         items.add(FlowUi.Item("Atur folder", 7) { manageFolders() })
+        items.add(FlowUi.Item("Layar tersembunyi", 9) { requestHidden() })
         items.add(FlowUi.Item("Susun semua aplikasi", 1) {
             val n = HomeStore.fillAll(this, HomeStore.MAX_PAGES)
             HomeStore.save(this); rebuild()
@@ -2056,6 +2388,7 @@ class HomeActivity : Activity() {
                     }.start()
                 }
             }
+            REQ_HIDDEN -> { if (resultCode == RESULT_OK) openHidden() }
             REQ_WALL -> { val u = data?.data; if (resultCode == RESULT_OK && u != null) setWallpaper(u) }
             else -> super.onActivityResult(requestCode, resultCode, data)
         }

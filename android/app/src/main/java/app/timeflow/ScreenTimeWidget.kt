@@ -223,7 +223,7 @@ class ScreenTimeWidget : AppWidgetProvider() {
             }
 
             // aplikasi teratas, tanpa aplikasi yang disembunyikan pengguna (diatur di halaman Waktu Layar)
-            val hidden = ScreenTimeRepo.hidden(ctx)
+            val hidden = ScreenTimeRepo.hidden(ctx) + HiddenStore.all(ctx)
             val apps = today.apps.filter { it.pkg !in hidden }.take(n)
             val top = (apps.firstOrNull()?.ms ?: 1L).coerceAtLeast(1L)
             vis(rv, R.id.st_apps, apps.isNotEmpty())

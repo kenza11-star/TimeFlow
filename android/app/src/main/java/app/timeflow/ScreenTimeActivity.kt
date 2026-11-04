@@ -239,7 +239,7 @@ class ScreenTimeActivity : Activity() {
         }
         val pm = packageManager
         val hidden = ScreenTimeRepo.hidden(this).toMutableSet()
-        for (a in rows) {
+        for (a in rows.filter { !HiddenStore.has(this, it.pkg) }) {
             val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(20), dp(10), dp(20), dp(10)) }
             val ic = ImageView(this).apply {
                 setImageDrawable(runCatching { pm.getApplicationIcon(a.pkg) }.getOrNull() ?: pm.defaultActivityIcon)

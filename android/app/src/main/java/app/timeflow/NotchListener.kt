@@ -433,9 +433,12 @@ class NotchListener : NotificationListenerService(), NotchHost, CcHost {
         val app = labels.getOrPut(pkg) {
             runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
         }
+        // Aplikasi di Layar Tersembunyi: isi pesan disamarkan (di notch dan riwayat); pembeda pesan baru tetap memakai isi aslinya
+        val dedupe = "$title|$text"
+        if (HiddenStore.has(this, pkg)) { title = app; text = "Pesan baru" }
         // Simpan ke riwayat (terpisah dari pengaturan notch). Notifikasi menetap (unduhan, layanan) dicatat sekali saja.
         if (NotifHistory.enabled(this)) {
-            val hsig = "$title|$text"
+            val hsig = dedupe
             val hPersist = (n.flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE)) != 0
             if (hseen[key] != hsig && !(hPersist && hOngoing.contains(key))) {
                 if (hseen.size > 120) hseen.clear()
@@ -447,7 +450,7 @@ class NotchListener : NotificationListenerService(), NotchHost, CcHost {
         }
         val c = NotchPrefs.get(this)
         if (!c.enabled || !c.showNotif) return
-        val sig = "$title|$text"
+        val sig = dedupe
         if (seen[key] == sig) return
         if (seen.size > 80) seen.clear()
         seen[key] = sig

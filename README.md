@@ -361,3 +361,13 @@ File diubah: `CcAccessibilityService.kt`, `ControlCenter.kt`, `ControlCenterView
 - Belum dikompilasi dan belum diuji di perangkat; `.github/workflows` tidak diubah.
 
 File diubah: `app/build.gradle.kts`, `HomeWall.kt`, `HomeActivity.kt`, `HomeData.kt`, `CcAccessibilityService.kt`, `Widgets.kt`, `keystore/BACA-DULU.txt`, `README.md`.
+
+## 2.20.0: Layar Tersembunyi (cubit melebar di layar utama)
+- **Buka:** di layar utama, cubit melebar (zoom in) dengan dua jari. Layar utama membesar dan memudar, Layar Tersembunyi muncul. Bisa juga lewat Pengaturan peluncur > "Layar tersembunyi".
+- **Kunci:** bila HP punya PIN / pola / sidik jari, Layar Tersembunyi meminta verifikasi itu setiap dibuka. Tombol "Kunci: Nyala/Mati" ada di bagian bawah layar tersebut. Keluar dari layar (tombol Home, buka aplikasi, layar mati) = terkunci lagi.
+- **Tambah:** ketuk **+**, centang aplikasi (bisa banyak, ada pencarian), ketuk "Sembunyikan". Aplikasi langsung hilang dari layar utama, dock, folder, dan laci.
+- **Keluarkan:** tekan lama aplikasi di Layar Tersembunyi > "Keluarkan dari sini". Aplikasi kembali ke laci (taruh lagi di layar utama lewat Pengaturan > "Susun semua aplikasi" atau seret dari laci).
+- **Tutup:** cubit menyempit, tarik ke bawah, tombol Kembali, atau tombol Home.
+- Notifikasi aplikasi tersembunyi tampil sebagai "Pesan baru" di notch dan riwayat; aplikasinya tidak muncul di widget Waktu Layar dan pemilih aplikasi folder.
+- Batasan: aplikasi tetap terlihat di Pengaturan Android, menu Recents, dan launcher lain. Ini penyembunyian di dalam Flow Launcher, bukan enkripsi.
+- Kode baru: `HiddenApps.kt` (penyimpanan), bagian "Layar Tersembunyi" di `HomeActivity.kt`.

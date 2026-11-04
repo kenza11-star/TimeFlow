@@ -130,7 +130,7 @@ object HomeStore {
             else if (x.type == HItem.FOLDER) placed.addAll(x.apps)
         }
         var added = 0
-        for (e in AppRepo.list(c)) {
+        for (e in AppRepo.visible(c)) {
             if (e.pkg in placed) continue
             val item = HItem(HItem.APP, pkg = e.pkg)
             val p = placeNear(item, 0, 0, 0)
@@ -293,6 +293,14 @@ object AppRepo {
     }
 
     fun refresh() { cache = null }
+
+    /** Daftar aplikasi tanpa yang disembunyikan di Layar Tersembunyi (dipakai laci dan penyusunan layar utama). */
+    fun visible(ctx: Context): List<AppEntry> {
+        val hid = HiddenStore.all(ctx)
+        if (hid.isEmpty()) return list(ctx)
+        val hs = hid.toHashSet()
+        return list(ctx).filter { it.pkg !in hs }
+    }
 }
 
 object HomeUtil {

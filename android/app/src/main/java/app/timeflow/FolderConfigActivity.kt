@@ -137,6 +137,7 @@ class FolderConfigActivity : Activity() {
             val q = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
             val apps = runCatching { pm.queryIntentActivities(q, 0) }.getOrDefault(emptyList())
                 .distinctBy { it.activityInfo.packageName }
+                .filter { !HiddenStore.has(this@FolderConfigActivity, it.activityInfo.packageName) }
                 .map { Triple(it.activityInfo.packageName, it.loadLabel(pm).toString(), runCatching { it.loadIcon(pm) }.getOrNull()) }
                 .sortedBy { it.second.lowercase() }
             runOnUiThread { if (!isFinishing) fill(apps) }
