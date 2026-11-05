@@ -216,7 +216,17 @@ object FlowUi {
      * Menu popup kaca di dekat [anchor] (koordinat jendela) atau di tengah layar bila [centered]. Mengembalikan fungsi penutup.
      * Setiap baris: ikon + label; mengetuk baris menutup menu lalu menjalankan aksinya.
      */
-    fun menu(a: Activity, anchor: Rect, items: List<Item>, centered: Boolean = false, onClosed: (() -> Unit)? = null): () -> Unit {
+    /** Pengaturan peluncur: sisipkan "Asisten AI" tepat setelah "Layar tersembunyi". */
+    private fun withAi(a: Activity, items: List<Item>): List<Item> {
+        val i = items.indexOfFirst { it.label == "Layar tersembunyi" }
+        if (i < 0 || items.any { it.label == "Asisten AI" }) return items
+        val out = ArrayList(items)
+        out.add(i + 1, Item("Asisten AI", 9) { a.startActivity(android.content.Intent(a, AiSettingsActivity::class.java)) })
+        return out
+    }
+
+    fun menu(a: Activity, anchor: Rect, items0: List<Item>, centered: Boolean = false, onClosed: (() -> Unit)? = null): () -> Unit {
+        val items = withAi(a, items0)
         val host = content(a)
         val ov = FrameLayout(a)
         ov.isClickable = true
