@@ -71,5 +71,17 @@ object AiPrefs {
     fun names(c: Context): List<String> = namesRaw(c).lowercase().split(',', ' ', ';').map { it.trim() }.filter { it.isNotEmpty() }.distinct()
     fun lang(c: Context): String = s(c, "lang", "id-ID").ifBlank { "id-ID" }
     fun setLang(c: Context, v: String) = put(c, "lang", v.trim())
+    /** Beberapa ucapan terakhir pengguna (disimpan lokal) untuk meniru gaya bicaranya. */
+    fun styleSamples(c: Context): List<String> = s(c, "style", "").split('\n').filter { it.isNotBlank() }
+    fun addStyleSample(c: Context, t: String) {
+        val x = t.replace('\n', ' ').trim().take(140)
+        if (x.length < 4) return
+        val l = ArrayList(styleSamples(c))
+        if (l.lastOrNull() == x) return
+        l.add(x)
+        while (l.size > 12) l.removeAt(0)
+        put(c, "style", l.joinToString("\n"))
+    }
+    fun clearStyle(c: Context) = put(c, "style", "")
     fun maxSteps(c: Context): Int = sp(c).getInt("max_steps", 12).coerceIn(3, 30)
 }

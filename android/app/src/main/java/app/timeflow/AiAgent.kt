@@ -23,11 +23,20 @@ object AiAgent {
         val names = AiPrefs.names(ctx).joinToString("/")
         val extra = AiPrefs.extraPrompt(ctx).trim()
         return """
-Kamu adalah $names, asisten suara di HP Android milik pengguna. Kamu bisa mengendalikan HP lewat aksi di bawah. Sekarang: $now.
+Kamu adalah $names: teman ngobrol sekaligus asisten suara di HP Android milik pengguna. Kamu bisa mengendalikan HP lewat aksi di bawah. Sekarang: $now.
+
+CARA BICARA (paling penting):
+- Ngomonglah persis seperti manusia biasa yang lagi ngobrol sama temannya. BUKAN chatbot, BUKAN customer service, BUKAN formal.
+- Tiru gaya bahasa pengguna: kata ganti, tingkat santai, singkatan, logat, campuran bahasa, dan panjang-pendek kalimatnya. Kalau dia pakai bahasa lain, balas pakai bahasa itu.
+- Jangan pernah pakai kalimat khas bot seperti "Tentu!", "Baik, saya akan...", "Dengan senang hati", "Ada yang bisa saya bantu?", "Sebagai asisten AI...", "Maaf atas ketidaknyamanannya", "Berikut adalah...". Jangan memuji, jangan mengulang perintah, jangan menawarkan bantuan tambahan di akhir, jangan menjelaskan panjang lebar.
+- Jawab pendek seperti orang ngomong: biasanya 1 kalimat, maksimal 2. Boleh pakai kata alami seperti "oke", "bentar ya", "nah", "hmm", "wah", "yaudah" secukupnya, jangan berlebihan.
+- Tanggapi seperti teman: kalau dia bercanda, curhat, atau cuma ngobrol, balas ngobrol biasa tanpa aksi dan tanpa ceramah. Jangan bilang kamu AI atau model kecuali ditanya.
+- Tulis persis seperti diucapkan: tanpa emoji, markdown, daftar, atau simbol aneh.
+${AiStyle.block(ctx)}
+
 Balas SELALU dengan SATU objek JSON saja, tanpa teks lain, tanpa markdown:
-{"say":"kalimat singkat yang akan diucapkan","action":{"name":"...", ...},"done":false}
-- Selesai atau hanya menjawab pertanyaan: {"say":"jawaban","done":true} (tanpa action).
-- "say" diucapkan lewat suara: bahasa Indonesia santai (atau bahasa pengguna), maksimal 2 kalimat pendek, tanpa emoji, tanpa markdown, tanpa daftar.
+{"say":"yang diucapkan","action":{"name":"...", ...},"done":false}
+- Selesai, atau hanya menjawab/ngobrol: {"say":"jawaban","done":true} (tanpa action).
 
 Aksi (satu per giliran):
 open_app {"name":"nama aplikasi"} | open_url {"url":"https://..."} (cara tercepat, mis. pencarian YouTube: https://www.youtube.com/results?search_query=kata+kunci)
@@ -43,7 +52,7 @@ Aturan:
 - Jangan mengetik kata sandi, PIN, atau kode OTP. Jangan membaca keras kata sandi.
 - Untuk pembayaran, transfer, pembelian, menghapus data, memposting ke publik, atau mengirim pesan yang isinya belum jelas: tanyakan konfirmasi singkat dengan done:true dan tunggu jawaban pengguna.
 - Saat diminta membacakan notifikasi, panggil read_notifications lalu ringkas yang penting saja.
-- Jika layanan aksesibilitas belum aktif, katakan pengguna perlu mengaktifkannya di Pengaturan Flow.
+- Jika layanan aksesibilitas belum aktif, bilang ke pengguna dengan santai bahwa dia perlu menyalakannya di Pengaturan Flow.
 ${if (extra.isNotEmpty()) "\nInstruksi tambahan dari pengguna:\n$extra" else ""}
 """.trim()
     }
@@ -51,28 +60,28 @@ ${if (extra.isNotEmpty()) "\nInstruksi tambahan dari pengguna:\n$extra" else ""}
     /** Jalankan satu perintah pengguna. Mengembalikan kalimat yang akan diucapkan. Memakai history percakapan (diubah di tempat). */
     fun run(ctx: Context, history: MutableList<AiLlm.Msg>, command: String, io: Io): String {
         trim(history)
-        history.add(AiLlm.Msg("user", "Perintah pengguna: $command"))
+        history.add(AiLlm.Msg("user", "Pengguna bilang: $command"))
         val sys = systemPrompt(ctx)
         val maxSteps = AiPrefs.maxSteps(ctx)
         var steps = 0
         while (true) {
-            if (io.cancelled()) return "Dibatalkan."
+            if (io.cancelled()) return AiStyle.cancelled(ctx)
             io.status("Berpikir")
             val reply = AiLlm.chat(ctx, sys, history)
             history.add(AiLlm.Msg("assistant", reply))
             val j = parse(reply)
             val say = if (j != null) j.optString("say", "") else cleanPlain(reply)
             val action = j?.optJSONObject("action")
-            if (j == null || action == null || j.optBoolean("done", false)) return say.ifBlank { "Selesai." }
+            if (j == null || action == null || j.optBoolean("done", false)) return say.ifBlank { AiStyle.done(ctx) }
             steps++
-            if (steps > maxSteps) return "Maaf, saya belum berhasil menyelesaikannya."
-            if (io.cancelled()) return "Dibatalkan."
+            if (steps > maxSteps) return AiStyle.failed(ctx)
+            if (io.cancelled()) return AiStyle.cancelled(ctx)
             val name = action.optString("name")
             io.status(statusOf(name, action))
             val res = exec(ctx, name, action)
-            if (io.cancelled()) return "Dibatalkan."
+            if (io.cancelled()) return AiStyle.cancelled(ctx)
             val settle = if (name == "open_app" || name == "open_url") 1600L else if (name == "wait" || name == "read_screen") 100L else 750L
-            try { Thread.sleep(settle) } catch (_: InterruptedException) { return "Dibatalkan." }
+            try { Thread.sleep(settle) } catch (_: InterruptedException) { return AiStyle.cancelled(ctx) }
             forgetOldScreens(history)
             val screen = if (name == "read_notifications") "" else AiAccess.dump()
             val shot = if (AiPrefs.vision(ctx) && name != "read_notifications") AiAccess.screenshotB64() else null

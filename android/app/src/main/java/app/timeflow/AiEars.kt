@@ -20,6 +20,8 @@ class AiEars(private val ctx: Context, private val cb: Callback) {
         fun onFinal(text: String)
         fun onLevel(level: Float)
         fun onFatal(message: String)
+        /** Masalah sementara pengenal suara (bukan "tidak ada ucapan"); untuk ditampilkan agar kelihatan kenapa tidak mendengar. */
+        fun onProblem(message: String) {}
     }
 
     private val ui = Handler(Looper.getMainLooper())
@@ -101,6 +103,15 @@ class AiEars(private val ctx: Context, private val cb: Callback) {
         }
         override fun onError(error: Int) {
             when (error) {
+                SpeechRecognizer.ERROR_SPEECH_TIMEOUT, SpeechRecognizer.ERROR_NO_MATCH -> {}
+                SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_SERVER ->
+                    cb.onProblem("Pengenal suara butuh internet (kode $error)")
+                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> cb.onProblem("Pengenal suara sedang dipakai aplikasi lain")
+                12, 13 -> cb.onProblem("Bahasa ${AiPrefs.lang(ctx)} belum terpasang di layanan suara Google (kode $error)")
+                else -> {}
+            }
+            when (error) {
+                12, 13 -> restart(4000, true)
                 SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> { running = false; cb.onFatal("Izin mikrofon belum diberikan") }
                 SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> restart(900, true)
                 SpeechRecognizer.ERROR_CLIENT -> restart(500, true)

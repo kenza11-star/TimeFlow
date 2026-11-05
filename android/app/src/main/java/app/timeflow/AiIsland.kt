@@ -110,8 +110,9 @@ object AiIsland {
         val tw: Float
         val th: Float
         if (want == AI) {
-            tw = min(270f * s * d, dm.widthPixels - 16f * d)
-            th = max(54f * s * d, v.idleH)
+            // ringkas seperti notch biasa: tinggi sama dengan kapsul info, lebar mengikuti teks (maks 220dp)
+            th = max(38f * s * d, v.idleH)
+            tw = min(min(220f * s * d, dm.widthPixels - 16f * d), max(v.idleW + 40f * d, v.textWidth() + 98f * d))
         } else {
             th = max(38f * s * d, v.idleH)
             tw = min(dm.widthPixels - 16f * d, max(v.idleW + 40f * d, v.contentWidth() + 56f * d))
@@ -235,6 +236,8 @@ object AiIsland {
         private val iconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 16f * d }
         private val ringColors = intArrayOf(0xFFFF5FA2.toInt(), 0xFFA66BFF.toInt(), 0xFF4DA3FF.toInt(), 0xFF3DE0D0.toInt(), 0xFFFFB35C.toInt(), 0xFFFF5FA2.toInt())
 
+        fun textWidth(): Float = textPaint.measureText(text)
+
         fun contentWidth(): Float = textPaint.measureText(text) + (if (icon.isNotEmpty()) 26f * d else 0f)
 
         fun animateTo(tw: Float, th: Float) {
@@ -317,25 +320,10 @@ object AiIsland {
         private fun drawAi(c: Canvas, r: Float, ca: Float) {
             val cx = pill.centerX()
             val cy = pill.centerY()
-            // cincin cahaya berputar: merah muda, ungu, biru, tosca, oranye
-            val sh = SweepGradient(cx, cy, ringColors, null)
-            mat.setRotate(angle, cx, cy)
-            sh.setLocalMatrix(mat)
-            ringPaint.shader = sh
-            val widths = floatArrayOf(5f, 3f, 1.6f)
-            val alphas = intArrayOf(45, 110, 255)
-            for (i in 0..2) {
-                val sw = widths[i] * d
-                ringPaint.strokeWidth = sw
-                ringPaint.alpha = (alphas[i] * a).toInt().coerceIn(0, 255)
-                val inset = sw / 2f
-                ring.set(pill.left + inset, pill.top + inset, pill.right - inset, pill.bottom - inset)
-                val rr = max(0f, r - inset)
-                c.drawRoundRect(ring, rr, rr, ringPaint)
-            }
+            // tanpa cincin cahaya: pil hitam polos seperti notch, hidupnya dari orb dan gelombang
             if (ca < 0.05f) return
             // orb: berdenyut (mendengarkan), berputar (berpikir/bekerja), hangat (berbicara)
-            val orbR = min(15f * d, curH * 0.3f)
+            val orbR = min(11f * d, curH * 0.3f)
             val ox = pill.left + 14f * d + orbR
             val t = (SystemClock.uptimeMillis() % 1800L) / 1800f
             val pulse = 1f + 0.12f * Math.sin(t * 6.2832).toFloat()
@@ -356,9 +344,9 @@ object AiIsland {
                 c.drawArc(arc, t * 360f, 100f, false, orbPaint)
             }
             // gelombang 5 batang: mengikuti volume mikrofon saat mendengarkan
-            val ww = 40f * d
-            val wh = min(24f * d, curH * 0.5f)
-            val wx = pill.right - 16f * d - ww
+            val ww = 28f * d
+            val wh = min(16f * d, curH * 0.5f)
+            val wx = pill.right - 14f * d - ww
             val n = 5
             val gap = ww * 0.08f
             val bw = (ww - gap * (n - 1)) / n
@@ -376,7 +364,7 @@ object AiIsland {
                 c.drawRoundRect(bar, bw / 2f, bw / 2f, orbPaint)
             }
             // teks status / transkrip
-            val tx = pill.left + 14f * d + orbR * 2f + 12f * d
+            val tx = pill.left + 14f * d + orbR * 2f + 10f * d
             val avail = wx - 10f * d - tx
             if (avail > 24f * d) {
                 val s = TextUtils.ellipsize(text, textPaint, avail, TextUtils.TruncateAt.END).toString()

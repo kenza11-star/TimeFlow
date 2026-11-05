@@ -128,6 +128,10 @@ class AiService : Service() {
         override fun onFinal(text: String) { handle(text) }
         override fun onLevel(level: Float) { if (active) AiIsland.level(level) }
         override fun onFatal(message: String) { lastError = message; stopSelf() }
+        override fun onProblem(message: String) {
+            lastError = message
+            if (active && !busy) island(1, message)   // kelihatan di pil, bukan "Mendengarkan…" terus
+        }
     }
 
     private fun norm(s: String): String = s.lowercase().replace(Regex("[^\\p{L}\\p{N} ]"), " ").replace(Regex("\\s+"), " ").trim()
@@ -198,7 +202,7 @@ class AiService : Service() {
     private fun speakThen(text: String, then: () -> Unit) {
         if (!AiPrefs.speak(this)) { ui.postDelayed({ then() }, 1800); return }
         ears?.pause()
-        voice?.speak(text, onError = { msg -> lastError = msg }) { ears?.resume(); then() }
+        voice?.speak(text, onError = { msg -> lastError = "Suara: $msg"; if (active) island(3, "Suara gagal: $msg") }) { ears?.resume(); then() }
     }
 
     private fun activateAi(announce: Boolean) {
@@ -209,7 +213,7 @@ class AiService : Service() {
         history.clear()
         island(1, "")
         refreshNotif()
-        if (announce) speakThen("Siap.") { island(1, "") }
+        if (announce) speakThen(AiStyle.ready(this)) { island(1, "") }
     }
 
     private fun sleepAi(announce: Boolean) {
@@ -224,12 +228,14 @@ class AiService : Service() {
             if (!AiPrefs.wake(this)) stopSelf()
         }
         if (announce) {
-            island(3, "Oke, saya tidur")
-            speakThen("Oke, saya tidur.") { finish() }
+            val bye = AiStyle.sleep(this)
+            island(3, bye)
+            speakThen(bye) { finish() }
         } else finish()
     }
 
     private fun runCommand(cmd: String) {
+        AiPrefs.addStyleSample(this, cmd)    // untuk meniru gaya bicaramu
         busy = true
         val id = ++runId
         island(2, cmd)
@@ -243,7 +249,7 @@ class AiService : Service() {
                 AiAgent.run(ctx, history, cmd, io)
             } catch (e: Exception) {
                 lastError = AiLlm.friendly(e)
-                "Maaf, ada masalah: " + AiLlm.friendly(e)
+                AiStyle.problem(ctx, AiLlm.friendly(e))
             }
             ui.post { finishRun(reply, id) }
         }.start()

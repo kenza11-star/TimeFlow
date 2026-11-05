@@ -2,6 +2,8 @@ package app.timeflow
 
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.Handler
 import android.os.Looper
@@ -15,8 +17,8 @@ import java.net.URLEncoder
 import java.util.Locale
 
 /**
- * Suara asisten. Utama: ElevenLabs (API key milikmu). Cadangan otomatis: suara bawaan HP bila ElevenLabs belum diisi atau gagal.
- * Semua callback dipanggil di thread utama.
+ * Suara asisten. Utama: ElevenLabs (API key milikmu). Cadangan otomatis: suara bawaan HP bila ElevenLabs belum diisi atau gagal
+ * (termasuk bila pemutaran mp3 gagal). Semua callback dipanggil di thread utama.
  */
 class AiVoice(private val ctx: Context) {
     private val ui = Handler(Looper.getMainLooper())
@@ -26,6 +28,25 @@ class AiVoice(private val ctx: Context) {
     private var pendingText: String? = null
     private var ttsDone: (() -> Unit)? = null
     private var token = 0
+    private var watchdog: Runnable? = null
+    private var focus: AudioFocusRequest? = null
+    private val am = ctx.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+    // Aliran media (volume media HP), bukan aliran "asisten" yang di sebagian HP volumenya terpisah atau 0.
+    private val attrs = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
+
+    private fun grabFocus() {
+        runCatching {
+            val r = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK).setAudioAttributes(attrs).build()
+            focus = r
+            am.requestAudioFocus(r)
+        }
+    }
+
+    private fun dropFocus() {
+        runCatching { focus?.let { am.abandonAudioFocusRequest(it) } }
+        focus = null
+    }
 
     fun speak(text: String, onError: ((String) -> Unit)? = null, onDone: () -> Unit) {
         stop()
@@ -37,7 +58,7 @@ class AiVoice(private val ctx: Context) {
         Thread {
             try {
                 val f = fetch(t, key)
-                ui.post { if (my == token) play(f, my, onDone) else f.delete() }
+                ui.post { if (my == token) play(f, t, my, onError, onDone) else f.delete() }
             } catch (e: Exception) {
                 val msg = AiLlm.friendly(e)
                 ui.post {
@@ -54,8 +75,10 @@ class AiVoice(private val ctx: Context) {
         token++
         ttsDone = null
         pendingText = null
+        cancelWatch()
         mp?.let { p -> mp = null; runCatching { p.stop() }; runCatching { p.release() } }
         runCatching { tts?.stop() }
+        dropFocus()
     }
 
     fun shutdown() {
@@ -78,7 +101,8 @@ class AiVoice(private val ctx: Context) {
             c.setRequestProperty("xi-api-key", key)
             c.setRequestProperty("Content-Type", "application/json")
             c.setRequestProperty("Accept", "audio/mpeg")
-            val body = JSONObject().put("text", text).put("model_id", model).toString()
+            val body = JSONObject().put("text", text).put("model_id", model)
+                .put("voice_settings", JSONObject().put("stability", 0.45).put("similarity_boost", 0.8)).toString()
             c.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
             val code = c.responseCode
             if (code !in 200..299) {
@@ -87,30 +111,40 @@ class AiVoice(private val ctx: Context) {
             }
             val f = File(ctx.cacheDir, "ai_tts_" + System.nanoTime() + ".mp3")
             c.inputStream.use { i -> f.outputStream().use { o -> i.copyTo(o) } }
+            if (f.length() < 800) { f.delete(); throw AiLlm.AiError("ElevenLabs mengirim audio kosong") }
             return f
         } finally {
             c.disconnect()
         }
     }
 
-    private fun play(f: File, my: Int, onDone: () -> Unit) {
+    private fun play(f: File, text: String, my: Int, onError: ((String) -> Unit)?, onDone: () -> Unit) {
         val p = MediaPlayer()
         mp = p
-        val finish = {
-            if (mp === p) mp = null
-            runCatching { p.release() }
-            f.delete()
-            if (my == token) onDone()
+        var ended = false
+        val finish = { ok: Boolean, why: String ->
+            if (!ended) {
+                ended = true
+                if (mp === p) mp = null
+                runCatching { p.release() }
+                f.delete()
+                if (my == token) {
+                    if (ok) { dropFocus(); onDone() }
+                    else { onError?.invoke(why); fallback(text, onDone) }   // mp3 gagal diputar: pakai suara bawaan HP
+                } else dropFocus()
+            }
         }
         try {
-            p.setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANT).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
+            grabFocus()
+            p.setAudioAttributes(attrs)
+            p.setVolume(1f, 1f)
             p.setDataSource(f.absolutePath)
-            p.setOnCompletionListener { finish() }
-            p.setOnErrorListener { _, _, _ -> finish(); true }
+            p.setOnCompletionListener { finish(true, "") }
+            p.setOnErrorListener { _, w, e -> finish(false, "pemutar audio gagal ($w/$e)"); true }
             p.setOnPreparedListener { it.start() }
             p.prepareAsync()
         } catch (e: Exception) {
-            finish()
+            finish(false, "pemutar audio gagal: " + (e.message ?: e.javaClass.simpleName))
         }
     }
 
@@ -118,6 +152,12 @@ class AiVoice(private val ctx: Context) {
     private fun fallback(text: String, onDone: () -> Unit) {
         ttsDone = onDone
         pendingText = text
+        cancelWatch()
+        // jaga-jaga: bila mesin suara HP tidak pernah membalas, jangan biarkan asisten macet
+        val w = Runnable { finishTts() }
+        watchdog = w
+        ui.postDelayed(w, 6000L + text.length * 130L)
+        grabFocus()
         if (tts == null) {
             tts = TextToSpeech(ctx.applicationContext) { st -> ui.post { onTtsInit(st == TextToSpeech.SUCCESS) } }
         } else if (ttsReady) flushTts()
@@ -126,13 +166,19 @@ class AiVoice(private val ctx: Context) {
     private fun onTtsInit(ok: Boolean) {
         ttsReady = ok
         val t = tts ?: return
-        if (!ok) { finishTts(); return }
-        runCatching { t.language = Locale.forLanguageTag(AiPrefs.lang(ctx)) }
+        if (!ok) { AiService.lastError = "Suara bawaan HP tidak tersedia (pasang mesin suara Google)"; finishTts(); return }
+        runCatching { t.setAudioAttributes(attrs) }
+        val lang = AiPrefs.lang(ctx)
+        val r = runCatching { t.setLanguage(Locale.forLanguageTag(lang)) }.getOrDefault(TextToSpeech.LANG_NOT_SUPPORTED)
+        if (r == TextToSpeech.LANG_MISSING_DATA || r == TextToSpeech.LANG_NOT_SUPPORTED) {
+            runCatching { t.language = Locale.getDefault() }
+            AiService.lastError = "Suara bawaan HP belum punya bahasa $lang"
+        }
         t.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {}
             override fun onDone(utteranceId: String?) { ui.post { finishTts() } }
             @Deprecated("Deprecated in Java")
-            override fun onError(utteranceId: String?) { ui.post { finishTts() } }
+            override fun onError(utteranceId: String?) { AiService.lastError = "Suara bawaan HP gagal berbicara"; ui.post { finishTts() } }
         })
         flushTts()
     }
@@ -142,10 +188,18 @@ class AiVoice(private val ctx: Context) {
         val s = pendingText
         if (s == null) { finishTts(); return }
         pendingText = null
-        t.speak(s, TextToSpeech.QUEUE_FLUSH, null, "ai")
+        val rc = t.speak(s, TextToSpeech.QUEUE_FLUSH, null, "ai")
+        if (rc != TextToSpeech.SUCCESS) { AiService.lastError = "Suara bawaan HP menolak berbicara"; finishTts() }
+    }
+
+    private fun cancelWatch() {
+        watchdog?.let { ui.removeCallbacks(it) }
+        watchdog = null
     }
 
     private fun finishTts() {
+        cancelWatch()
+        dropFocus()
         val d = ttsDone
         ttsDone = null
         d?.invoke()
