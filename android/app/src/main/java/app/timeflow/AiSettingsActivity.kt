@@ -9,6 +9,8 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.text.Editable
 import android.text.InputType
@@ -21,6 +23,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
+import android.widget.Toast
 
 /**
  * Pengaturan Asisten AI (dibuka dari Pengaturan Flow Launcher): penyedia dan API key AI, ElevenLabs, kata aktivasi, izin, dan tes.
@@ -44,6 +47,12 @@ class AiSettingsActivity : Activity() {
     private lateinit var etBase: EditText
     private lateinit var etModel: EditText
     private var voice: AiVoice? = null
+    private var micEars: AiEars? = null
+    private lateinit var aiRes: TextView
+    private lateinit var voiceRes: TextView
+    private lateinit var micRes: TextView
+    private val ui = Handler(Looper.getMainLooper())
+    private val tick = object : Runnable { override fun run() { updateStatus(); ui.postDelayed(this, 2000) } }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
@@ -61,9 +70,16 @@ class AiSettingsActivity : Activity() {
     override fun onResume() {
         super.onResume()
         updateStatus()
+        ui.postDelayed(tick, 2000)
+    }
+
+    override fun onPause() {
+        ui.removeCallbacks(tick)
+        super.onPause()
     }
 
     override fun onDestroy() {
+        micEars?.stop(); micEars = null
         voice?.shutdown()
         voice = null
         super.onDestroy()
@@ -182,6 +198,7 @@ class AiSettingsActivity : Activity() {
         field(ai, "API key AI", "tempel token di sini", AiPrefs.apiKey(this), true, false) { AiPrefs.setApiKey(this, it) }
         note(ai, "Dua format didukung: OpenAI-compatible (OpenAI, Gemini, OpenRouter, Groq, DeepSeek, Mistral, xAI, Ollama, LM Studio, dll.) dan Anthropic. Pilih \"Kustom\" untuk alamat sendiri (harus https).")
         button(ai, "Tes AI") { testAi() }
+        aiRes = resLine(ai)
         refreshProvider()
 
         val el = card("SUARA ELEVENLABS")
@@ -189,6 +206,7 @@ class AiSettingsActivity : Activity() {
         field(el, "Voice ID", "mis. 21m00Tcm4TlvDq8ikWAM", AiPrefs.elVoice(this), false, false) { AiPrefs.setElVoice(this, it) }
         field(el, "Model suara", "eleven_flash_v2_5 (cepat) atau eleven_multilingual_v2", AiPrefs.elModel(this), false, false) { AiPrefs.setElModel(this, it) }
         button(el, "Tes suara") { testVoice() }
+        voiceRes = resLine(el)
 
         val wk = card("KATA AKTIVASI")
         field(wk, "Nama panggilan (pisahkan dengan koma)", "ai, kyn", AiPrefs.namesRaw(this), false, false) { AiPrefs.setNames(this, it) }
@@ -198,6 +216,8 @@ class AiSettingsActivity : Activity() {
 
         val pm = card("IZIN")
         button(pm, "Izinkan mikrofon") { askMic() }
+        button(pm, "Tes mikrofon (AI mendengar suaramu?)") { testMic() }
+        micRes = resLine(pm)
         button(pm, "Nyalakan layanan aksesibilitas \"Flow AI (kendali layar)\"") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
         note(pm, "Layanan \"Flow AI (kendali layar)\" terpisah dari Control Center dan wajib agar AI bisa melihat layar dan menyentuh. Akses notifikasi dan \"tampil di atas aplikasi lain\" juga dipakai (membaca notifikasi dan membuka aplikasi).")
 
@@ -206,7 +226,21 @@ class AiSettingsActivity : Activity() {
         note(col, "Privasi: kunci API disimpan hanya di HP ini dan dikirim hanya ke penyedia yang kamu pilih. Isi layar yang dibaca AI dikirim ke penyedia AI itu, tanpa kolom kata sandi. Hati-hati menyebut data rahasia saat AI aktif.")
     }
 
-    private fun out(t: String) { runOnUiThread { testOut.text = t } }
+    /** Pesan hasil: muncul sebagai toast (langsung kelihatan) dan di teks paling bawah. */
+    private fun out(t: String) {
+        runOnUiThread {
+            testOut.text = t
+            Toast.makeText(this, t, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun show(v: TextView, t: String) { runOnUiThread { v.text = t } }
+
+    private fun resLine(parent: LinearLayout): TextView {
+        val v = text("", 13f, INK).apply { setLineSpacing(0f, 1.2f) }
+        parent.addView(v, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8) })
+        return v
+    }
 
     private fun askMic() {
         if (!AiService.hasMic(this)) requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_MIC)
@@ -230,23 +264,66 @@ class AiSettingsActivity : Activity() {
     }
 
     private fun testAi() {
-        out("Menguji AI…")
         val app = applicationContext
+        val p = AiPrefs.provider(app)
+        show(aiRes, "Menguji AI (${p.label}, model ${AiPrefs.model(app)})…")
         Thread {
             val r = try {
                 val a = AiLlm.chat(app, "Balas dengan satu kata saja: siap.", listOf(AiLlm.Msg("user", "tes koneksi")))
-                "AI berfungsi. Jawaban: " + a.take(80)
+                "AI berfungsi ✓ Jawaban: " + a.take(80)
             } catch (e: Exception) {
-                "AI gagal: " + AiLlm.friendly(e)
+                "AI gagal ✗ " + AiLlm.friendly(e)
             }
+            show(aiRes, r)
             out(r)
         }.start()
     }
 
     private fun testVoice() {
-        out("Menguji suara…")
+        val key = AiPrefs.elKey(this).trim()
+        show(voiceRes, if (key.isEmpty()) "Key ElevenLabs kosong: memakai suara bawaan HP…" else "Mengambil suara dari ElevenLabs…")
         val v = voice ?: AiVoice(this).also { voice = it }
-        v.speak("Halo, saya siap membantu.", onError = { msg -> out("ElevenLabs gagal ($msg), memakai suara HP.") }) { }
+        var err: String? = null
+        v.speak("Halo, ini tes suara. Kalau kamu dengar ini, berarti udah jalan.", onError = { msg -> err = msg; show(voiceRes, "ElevenLabs gagal ✗ $msg\nMencoba suara bawaan HP…") }) {
+            val e = err
+            val r = when {
+                key.isEmpty() -> "Suara bawaan HP sudah diputar. Isi API key ElevenLabs untuk suara yang lebih natural."
+                e != null -> "ElevenLabs gagal ✗ $e\nSuara bawaan HP dipakai sebagai cadangan."
+                else -> "Suara ElevenLabs sudah diputar ✓ Kalau tidak terdengar, naikkan volume media HP."
+            }
+            val extra = if (AiService.lastError.isNotEmpty()) "\nCatatan: " + AiService.lastError else ""
+            show(voiceRes, r + extra)
+            out(r)
+        }
+    }
+
+    private fun testMic() {
+        if (!AiService.hasMic(this)) { askMic(); show(micRes, "Izinkan mikrofon dulu, lalu ketuk tes lagi."); return }
+        micEars?.stop()
+        var heard = ""
+        var maxLevel = 0f
+        var problem = ""
+        show(micRes, "Mendengarkan 9 detik… ucapkan sesuatu, mis. \"halo tes satu dua tiga\"." +
+            if (AiService.running) "\n(Layanan AI sedang jalan dan memakai mikrofon; bila gagal, matikan asisten dulu.)" else "")
+        val e = AiEars(this, object : AiEars.Callback {
+            override fun onPartial(text: String) { heard = text; show(micRes, "Terdengar: $text") }
+            override fun onFinal(text: String) { heard = text; show(micRes, "Terdengar: $text") }
+            override fun onLevel(level: Float) { if (level > maxLevel) maxLevel = level }
+            override fun onFatal(message: String) { problem = message; show(micRes, "Gagal ✗ $message") }
+            override fun onProblem(message: String) { problem = message }
+        })
+        micEars = e
+        e.start()
+        ui.postDelayed({
+            e.stop()
+            if (micEars === e) micEars = null
+            val r = if (heard.isNotEmpty()) "Berhasil ✓ AI mendengar: \"$heard\""
+            else "Tidak ada teks yang terdengar ✗\nLevel suara tertinggi: ${(maxLevel * 100).toInt()}%" +
+                (if (problem.isNotEmpty()) "\nMasalah: $problem" else "") +
+                (if (AiEars.diag.isNotEmpty()) "\n" + AiEars.diag else "")
+            show(micRes, r)
+            out(if (heard.isNotEmpty()) "Mikrofon OK ✓" else "Mikrofon: tidak ada teks terdengar")
+        }, 9000)
     }
 
     private fun mark(ok: Boolean) = if (ok) "✓" else "✗"
@@ -265,6 +342,7 @@ class AiSettingsActivity : Activity() {
             .append(mark(AiPrefs.elKey(this).isNotEmpty())).append(" API key ElevenLabs\n")
         sb.append("Layanan AI: ").append(st)
         if (AiService.lastError.isNotEmpty()) sb.append("\nGalat terakhir: ").append(AiService.lastError)
+        if (AiEars.diag.isNotEmpty()) sb.append("\n").append(AiEars.diag)
         status.text = sb.toString()
     }
 }
