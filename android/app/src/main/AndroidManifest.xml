@@ -9,6 +9,9 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- Asisten AI (opsional, mati bawaan): mikrofon hanya dipakai untuk mendengar kata aktivasi dan perintah suara. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
@@ -36,7 +39,7 @@
     <!-- Widget Waktu Layar: baca durasi pemakaian aplikasi lewat UsageStatsManager. Ini izin khusus: tidak ada dialog; pengguna menyalakannya sendiri di
          Pengaturan > Akses penggunaan. Data dihitung dan disimpan hanya di perangkat, tidak pernah dikirim ke jaringan. -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
-    <!-- Sengaja tidak ada kamera, mikrofon, atau kontak: tidak ada fitur yang memakainya. -->
+    <!-- Sengaja tidak ada kamera atau kontak. Mikrofon hanya untuk Asisten AI (izin diminta saat dinyalakan). -->
 
     <!-- Control Center: mengenali aplikasi peluncur (perekam layar, ChatGPT, dll.) untuk ikon dan pembukaannya -->
     <queries>
@@ -83,6 +86,29 @@
             android:name=".AlarmService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+
+        <!-- Asisten AI: mendengar kata aktivasi dan perintah (mikrofon latar depan) -->
+        <service
+            android:name=".AiService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+
+        <service
+            android:name=".AiAccessibilityService"
+            android:exported="true"
+            android:label="Flow AI (kendali layar)"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/accessibility_ai" />
+        </service>
+
+        <activity
+            android:name=".AiSettingsActivity"
+            android:exported="false"
+            android:label="Asisten AI"
+            android:theme="@style/Theme.TimeFlow.Ring" />
 
         <service
             android:name=".NotchListener"
@@ -229,6 +255,10 @@
         <receiver android:name=".FolderWidget" android:exported="false" android:label="@string/widget_folder_name">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_folder_info" />
+        </receiver>
+        <receiver android:name=".GlassClockWidget" android:exported="false" android:label="Jam Kaca">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_glass_clock_info" />
         </receiver>
         <receiver android:name=".WidgetRefreshReceiver" android:exported="false" />
 
