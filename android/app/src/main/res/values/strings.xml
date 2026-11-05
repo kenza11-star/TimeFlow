@@ -15,4 +15,5 @@
     <string name="widget_screentime_name">Flow Waktu Layar</string>
     <string name="widget_screentime_desc">Waktu layar hari ini, grafik Minggu–Sabtu, dan aplikasi teratas. Butuh Akses penggunaan.</string>
     <string name="cc_a11y_desc">Dipakai Flow Launcher untuk menampilkan Control Center saat kamu menggeser dari kanan atas layar, dan untuk menekan tombol Wi-Fi, Bluetooth, dll. di panel sistem saat kamu mengetuknya di Control Center. Isi layar hanya dibaca saat itu; ketikan tidak dibaca.</string>
+    <string name="ai_a11y_desc">Khusus Asisten AI Flow Launcher: dipakai agar AI bisa melihat layar dan mengetuk atau menggeser saat menjalankan perintah suaramu. Bukan untuk Control Center; untuk itu nyalakan TimeFlow Control Center.</string>
 </resources>

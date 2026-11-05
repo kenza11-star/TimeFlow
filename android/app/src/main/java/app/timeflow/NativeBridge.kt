@@ -276,6 +276,7 @@ class NativeBridge(private val act: MainActivity) {
             "widget.pin" -> ok(id, JSONObject().put("pinned", WidgetUtil.pin(ctx, o.optString("what"))))
             // halaman Waktu Layar (juga tempat menyembunyikan aplikasi dari widget)
             "widgetstyle.open" -> { act.startActivity(android.content.Intent(act, WidgetStyleActivity::class.java)); ok(id, true) }
+            "ai.open" -> { act.startActivity(android.content.Intent(act, AiSettingsActivity::class.java)); ok(id, true) }
             "screentime.open" -> { act.startActivity(android.content.Intent(act, ScreenTimeActivity::class.java)); ok(id, true) }
 
             // pintasan widget -> form yang harus dibuka UI (dibaca sekali, lalu dikosongkan)
