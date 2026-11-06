@@ -162,6 +162,24 @@
             </intent-filter>
         </service>
 
+        <service
+            android:name=".AiTileService"
+            android:exported="true"
+            android:label="Flow AI"
+            android:icon="@drawable/ic_stat_alarm"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <activity
+            android:name=".AiLaunchActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay" />
+
         <!-- Halaman Waktu Layar: dibuka dari widget Waktu Layar -->
         <activity
             android:name=".ScreenTimeActivity"

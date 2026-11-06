@@ -30,6 +30,9 @@ android {
 
     buildFeatures { buildConfig = true }
 
+    // lint tidak perlu menghentikan build APK di Termux
+    lint { checkReleaseBuilds = false; abortOnError = false }
+
     // bundled = UI dibundel di APK (offline penuh, tanpa izin INTERNET).
     // vercel  = UI dimuat dari URL Vercel milikmu: -PtimeflowUrl=https://nama.vercel.app (butuh INTERNET).
     flavorDimensions += "ui"
@@ -79,8 +82,10 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Tanpa keystore.properties, APK release dihasilkan tanpa tanda tangan (tandatangani manual, lihat README).
-            signingConfig = if (ksProps.isNotEmpty()) signingConfigs.getByName("release") else null
+            isDebuggable = false
+            // Tanpa keystore.properties, APK release ditandatangani dengan kunci debug repo (sama seperti build debug),
+            // jadi bisa langsung menimpa APK lama tanpa uninstall.
+            signingConfig = if (ksProps.isNotEmpty()) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
         }
         debug {
             // Nama paket sama dengan rilis (com.timeflow.app), tanpa akhiran ".debug".

@@ -30,6 +30,7 @@ class AiService : Service() {
         const val ACTION_STOP = "app.timeflow.ai.STOP"
         private const val CH = "flow_ai"
         private const val NID = 4107
+        private const val IDLE_SLEEP_MS = 4 * 60 * 1000L     // tanpa perintah selama ini: AI tidur sendiri (mikrofon mati)
 
         @Volatile var running = false
         @Volatile var active = false
@@ -39,7 +40,7 @@ class AiService : Service() {
 
         /** Dipanggil saat peluncur tampil: nyalakan mode siaga bila pengguna mengaktifkannya (mikrofon latar depan tidak bisa dimulai dari boot). */
         fun ensure(c: Context) {
-            if (running || !AiPrefs.enabled(c) || !AiPrefs.wake(c)) return
+            if (running || !AiPrefs.enabled(c) || !AiPrefs.wake(c) || AiPrefs.sleeping(c)) return
             start(c, ACTION_START)
         }
 
@@ -48,7 +49,7 @@ class AiService : Service() {
             runCatching { ContextCompat.startForegroundService(c, Intent(c, AiService::class.java).setAction(action)) }
         }
 
-        fun activate(c: Context) = start(c, ACTION_ACTIVATE)
+        fun activate(c: Context) { AiPrefs.setSleeping(c, false); start(c, ACTION_ACTIVATE) }
         fun sleep(c: Context) { if (running) start(c, ACTION_SLEEP) }
         fun stop(c: Context) { runCatching { c.stopService(Intent(c, AiService::class.java)) } }
     }
@@ -84,7 +85,7 @@ class AiService : Service() {
         running = false
         active = false
         runId++
-        ui.removeCallbacksAndMessages(null)
+        ui.removeCallbacksAndMessages(null)      // termasuk tidur otomatis
         ears?.stop(); ears = null
         voice?.shutdown(); voice = null
         AiIsland.state(applicationContext, 0, "")
@@ -205,9 +206,19 @@ class AiService : Service() {
         voice?.speak(text, onError = { msg -> lastError = "Suara: $msg"; if (active) island(3, "Suara gagal: $msg") }) { ears?.resume(); then() }
     }
 
+    private val idleSleep = Runnable { if (active && !busy) sleepAi(false) }
+
+    /** Setiap ada aktivitas, tunda tidur otomatis. Hanya berlaku bila mode "mikrofon mati saat tidur" aktif. */
+    private fun touch() {
+        ui.removeCallbacks(idleSleep)
+        if (active && AiPrefs.micOffAsleep(this)) ui.postDelayed(idleSleep, IDLE_SLEEP_MS)
+    }
+
     private fun activateAi(announce: Boolean) {
         if (active) return
         active = true
+        AiPrefs.setSleeping(this, false)
+        touch()
         busy = false
         runId++
         history.clear()
@@ -217,15 +228,23 @@ class AiService : Service() {
     }
 
     private fun sleepAi(announce: Boolean) {
-        if (!active) return
+        if (!active) {
+            // sedang siaga (belum aktif): kalau diminta tidur, matikan mikrofon total juga
+            if (AiPrefs.micOffAsleep(this)) { AiPrefs.setSleeping(this, true); stopSelf() }
+            return
+        }
         runId++
         voice?.stop()
         val finish = {
             active = false
             busy = false
+            ui.removeCallbacks(idleSleep)
             AiIsland.state(applicationContext, 0, "")
-            refreshNotif()
-            if (!AiPrefs.wake(this)) stopSelf()
+            if (AiPrefs.micOffAsleep(this) || !AiPrefs.wake(this)) {
+                // tidur = mikrofon mati total: hentikan layanan (titik hijau hilang)
+                AiPrefs.setSleeping(this, true)
+                stopSelf()
+            } else refreshNotif()
         }
         if (announce) {
             val bye = AiStyle.sleep(this)
@@ -235,6 +254,7 @@ class AiService : Service() {
     }
 
     private fun runCommand(cmd: String) {
+        touch()
         AiPrefs.addStyleSample(this, cmd)    // untuk meniru gaya bicaramu
         busy = true
         val id = ++runId
@@ -259,6 +279,7 @@ class AiService : Service() {
         if (id != runId) return
         if (!active) { busy = false; return }
         island(3, reply)
-        speakThen(reply) { busy = false; island(1, "") }
+        touch()
+        speakThen(reply) { busy = false; island(1, ""); touch() }
     }
 }

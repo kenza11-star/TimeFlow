@@ -278,6 +278,19 @@ class AppEntry(val pkg: String, val label: String)
 /** Daftar aplikasi yang bisa dibuka (cache; dipanaskan di thread latar). */
 object AppRepo {
     @Volatile private var cache: List<AppEntry>? = null
+    @Volatile private var seq = 0
+    @Volatile private var at = 0L
+
+    /** Muat ulang daftar aplikasi hanya bila paket benar-benar berubah (bukan tiap kali layar utama dibuka). true bila dimuat ulang. */
+    fun refreshIfChanged(ctx: Context): Boolean {
+        val now = android.os.SystemClock.elapsedRealtime()
+        val cp = runCatching { ctx.packageManager.getChangedPackages(seq) }.getOrNull()
+        val changed = cp != null || cache == null || now - at > 10 * 60_000L
+        if (cp != null) seq = cp.sequenceNumber
+        if (changed) cache = null
+        list(ctx)
+        return changed
+    }
 
     fun list(ctx: Context): List<AppEntry> {
         val c = cache
@@ -289,6 +302,7 @@ object AppRepo {
             .map { AppEntry(it.activityInfo.packageName, it.loadLabel(pm).toString()) }
             .sortedBy { it.label.lowercase() }
         cache = l
+        at = android.os.SystemClock.elapsedRealtime()
         return l
     }
 

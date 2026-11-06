@@ -92,10 +92,12 @@ fi
 
 # ---------------------------------------------------------------- 4. build APK
 say "4/4 Membangun APK (mode Vercel) untuk $URL"
-( cd android && "$GRADLE" --no-daemon -Dorg.gradle.jvmargs=-Xmx1536m :app:assembleVercelDebug -PtimeflowUrl="$URL" ) \
+( cd android && "$GRADLE" --no-daemon -Dorg.gradle.jvmargs=-Xmx1536m :app:assembleVercelRelease -PtimeflowUrl="$URL" ) \
   || die "Build gagal. Baca error di atas; bagian 'Troubleshooting' di README. Alternatif: GitHub Actions (.github/workflows/build-apk.yml)."
 
-APK=$ROOT/android/app/build/outputs/apk/vercel/debug/app-vercel-debug.apk
+# release = lebih cepat dan hemat baterai dibanding debug; ditandatangani kunci debug repo sehingga bisa menimpa APK lama
+APK=$ROOT/android/app/build/outputs/apk/vercel/release/app-vercel-release.apk
+[ -f "$APK" ] || APK=$ROOT/android/app/build/outputs/apk/vercel/debug/app-vercel-debug.apk
 [ -f "$APK" ] || die "APK tidak ditemukan di $APK"
 DEST=$HOME/TimeFlow.apk
 [ -d "$HOME/storage/downloads" ] && DEST=$HOME/storage/downloads/TimeFlow.apk

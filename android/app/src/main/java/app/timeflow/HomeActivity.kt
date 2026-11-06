@@ -241,15 +241,20 @@ class HomeActivity : Activity() {
             addDataScheme("package")
         }
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(pkgRx, f, Context.RECEIVER_EXPORTED) else registerReceiver(pkgRx, f)
-        Thread { AppRepo.refresh(); AppRepo.list(this) }.start()
-        pruneMissing()
+        // dulu: muat ulang SEMUA aplikasi + periksa semuanya tiap kali layar utama muncul. Sekarang hanya bila ada paket berubah.
+        Thread {
+            val ch = AppRepo.refreshIfChanged(this)
+            if (ch || !pruned) { pruned = true; runOnUiThread { if (!isFinishing && !isDestroyed) pruneMissing() } }
+        }.start()
     }
+
+    private var pruned = false
 
     override fun onResume() {
         super.onResume()
         if (HomeStore.dirty) { HomeStore.dirty = false; if (built()) rebuild() }
         val sp = getSharedPreferences(SP, MODE_PRIVATE)
-        val def = HomeUtil.isDefaultHome(this)
+        val def = HomeUtil.isDefaultHomeCached(this)
         if (def != sp.getBoolean("was_default", false)) {
             sp.edit().putBoolean("was_default", def).apply()
             WidgetUtil.updateAll(this)          // widget TimeFlow ganti ke kaca peluncur (atau kembali ke latar tangkapan layar)

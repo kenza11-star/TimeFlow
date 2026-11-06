@@ -27,3 +27,8 @@ Tambah widget **Jam Kaca** dari pemilih widget peluncur. Ukurannya bisa diubah; 
 - Pengenal suara Android bisa mengeluarkan bunyi "ting" tiap mulai mendengarkan (ada opsi meredam) dan tidak seirit pendeteksi kata aktivasi khusus.
 - Mikrofon latar depan tidak bisa dinyalakan dari boot: siaga aktif lagi saat peluncur dibuka.
 - Alamat kustom harus https. Kunci API tersimpan hanya di HP dan tidak ikut cadangan.
+
+## Mode tidur (mikrofon mati)
+- Saklar **Mikrofon mati saat AI tidur** (aktif secara bawaan): setelah AI tidur (perintah suara, tombol "Tidurkan AI", ubin, atau 4 menit tanpa perintah) layanan dihentikan total sehingga titik hijau mikrofon hilang.
+- Bangunkan lewat tombol **Aktifkan AI sekarang** atau ubin Quick Settings **Flow AI** (tambahkan lewat Edit di panel Quick Settings).
+- Matikan saklar ini bila ingin AI terus menunggu kata aktivasi (mikrofon menyala terus).

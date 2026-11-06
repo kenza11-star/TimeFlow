@@ -172,12 +172,17 @@ class AiSettingsActivity : Activity() {
         val sw = card("MODE")
         switchRow(sw, "Nyalakan asisten AI", "Izinkan Flow Launcher menjalankan asisten", { AiPrefs.enabled(this) }) { v ->
             AiPrefs.setEnabled(this, v)
-            if (v) { askMic(); AiService.ensure(this) } else AiService.stop(this)
+            if (v) { AiPrefs.setSleeping(this, false); askMic(); AiService.ensure(this) } else AiService.stop(this)
             updateStatus()
         }
         switchRow(sw, "Dengarkan kata aktivasi", "Mikrofon menyala terus saat siaga (ada notifikasi tetap). Matikan bila ingin mengaktifkan lewat tombol saja.", { AiPrefs.wake(this) }) { v ->
             AiPrefs.setWake(this, v)
-            if (v) { askMic(); AiService.ensure(this) } else if (AiService.running && !AiService.active) AiService.stop(this)
+            if (v) { AiPrefs.setSleeping(this, false); askMic(); AiService.ensure(this) } else if (AiService.running && !AiService.active) AiService.stop(this)
+            updateStatus()
+        }
+        switchRow(sw, "Mikrofon mati saat AI tidur", "Setelah AI tidur, mikrofon dimatikan total (titik hijau hilang). AI juga tidur sendiri setelah 4 menit tanpa perintah. Bangunkan lewat tombol \"Aktifkan AI sekarang\" atau ubin Quick Settings \"Flow AI\".", { AiPrefs.micOffAsleep(this) }) { v ->
+            AiPrefs.setMicOffAsleep(this, v)
+            if (v && AiService.running && !AiService.active) { AiPrefs.setSleeping(this, true); AiService.stop(this) }
             updateStatus()
         }
         switchRow(sw, "Ucapkan jawaban", "Pakai suara ElevenLabs; cadangan suara HP", { AiPrefs.speak(this) }) { AiPrefs.setSpeak(this, it) }

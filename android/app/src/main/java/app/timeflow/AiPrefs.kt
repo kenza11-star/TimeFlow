@@ -62,6 +62,12 @@ object AiPrefs {
     fun setSpeak(c: Context, v: Boolean) = put(c, "speak", v)
     fun vision(c: Context): Boolean = b(c, "vision", false)
     fun setVision(c: Context, v: Boolean) = put(c, "vision", v)
+    /** Saat AI tidur: mikrofon dan layanan dimatikan total (titik hijau hilang). Bangunkan lewat tombol, ubin Quick Settings, atau layar Asisten AI. */
+    fun micOffAsleep(c: Context): Boolean = b(c, "mic_off_asleep", true)
+    fun setMicOffAsleep(c: Context, v: Boolean) = put(c, "mic_off_asleep", v)
+    /** AI sedang ditidurkan dengan mikrofon mati: layanan siaga tidak dinyalakan otomatis sampai dibangunkan lagi. */
+    fun sleeping(c: Context): Boolean = b(c, "sleeping", false)
+    fun setSleeping(c: Context, v: Boolean) = put(c, "sleeping", v)
     fun muteBeep(c: Context): Boolean = b(c, "mute_beep", false)
     fun setMuteBeep(c: Context, v: Boolean) = put(c, "mute_beep", v)
 
