@@ -53,3 +53,7 @@ Tambah widget **Jam Kaca** dari pemilih widget peluncur. Ukurannya bisa diubah; 
 
 ## Blur Control Center
 - Latar blur memakai tangkapan layar yang dikecilkan (hemat RAM). Bila tangkapan baru ditolak (layar aman, batas jarak antar tangkapan, game), dipakai tangkapan terakhir yang berhasil (maks 3 menit) sehingga blur tidak hilang.
+
+## Pengenalan (onboarding)
+- Tampil sekali saat pertama kali Flow Launcher dibuka pada pemasangan baru (pengguna lama dengan tata letak yang sudah ada tidak diganggu). Ulangi lewat Pengaturan layar utama > "Ulangi pengenalan".
+- Halaman: intro, gaya ikon (warna asli / satu warna), kaca & blur (pratinjau langsung), mode game, lalu penyiapan ikon dengan progres. Geser atau ketuk Lanjut. Semua pilihan tersimpan ke pengaturan yang sama dengan menu Pengaturan.

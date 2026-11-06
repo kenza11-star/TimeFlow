@@ -219,9 +219,10 @@ object FlowUi {
     /** Pengaturan peluncur: sisipkan "Asisten AI" tepat setelah "Layar tersembunyi". */
     private fun withAi(a: Activity, items: List<Item>): List<Item> {
         val i = items.indexOfFirst { it.label == "Layar tersembunyi" }
-        if (i < 0 || items.any { it.label == "Asisten AI" }) return items
+        if (i < 0 || items.any { it.label == "Asisten AI" || it.label == "Ulangi pengenalan" }) return items
         val out = ArrayList(items)
         out.add(i + 1, Item("Asisten AI", 9) { a.startActivity(android.content.Intent(a, AiSettingsActivity::class.java)) })
+        out.add(i + 2, Item("Ulangi pengenalan", 9) { a.startActivity(android.content.Intent(a, OnboardingActivity::class.java)) })
         return out
     }
 

@@ -210,6 +210,14 @@
             </intent-filter>
         </activity>
 
+        <!-- Pengenalan saat pertama kali membuka Flow Launcher -->
+        <activity
+            android:name=".OnboardingActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
+            android:theme="@style/Theme.TimeFlow.Ring" />
+
         <!-- Folder App: folder terbuka dan pemilih aplikasi -->
         <activity
             android:name=".FolderActivity"

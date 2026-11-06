@@ -172,6 +172,11 @@ class HomeActivity : Activity() {
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // pertama kali dipasang: tampilkan pengenalan; pengguna lama (sudah punya tata letak) tidak diganggu
+        if (!OnboardingActivity.done(this)) {
+            if (getSharedPreferences(SP, MODE_PRIVATE).contains("layout")) OnboardingActivity.markDone(this)
+            else startActivity(Intent(this, OnboardingActivity::class.java))
+        }
         HomeStore.load(this)
         mono = getSharedPreferences(SP, MODE_PRIVATE).getBoolean("mono", false)
         showLabels = getSharedPreferences(SP, MODE_PRIVATE).getBoolean("labels", true)
@@ -259,6 +264,7 @@ class HomeActivity : Activity() {
             sp.edit().putBoolean("was_default", def).apply()
             WidgetUtil.updateAll(this)          // widget TimeFlow ganti ke kaca peluncur (atau kembali ke latar tangkapan layar)
         }
+        mono = getSharedPreferences(SP, MODE_PRIVATE).getBoolean("mono", false)    // bisa berubah dari pengenalan/pengaturan
         val sig = GlassPrefs.sig(this) + "|" + mono
         if (built() && sig != lastSig) { lastSig = sig; applyWall(true) }
         warmIcons()
@@ -479,7 +485,8 @@ class HomeActivity : Activity() {
         }.start()
     }
 
-    private fun maybeAskDefault(): Boolean = HomeUtil.promptDefault(this, REQ_ROLE) { askWallpaperOnce() }
+    // selama pengenalan belum selesai, jangan menimpa layarnya dengan dialog launcher utama (ada tombolnya di akhir pengenalan)
+    private fun maybeAskDefault(): Boolean = OnboardingActivity.done(this) && HomeUtil.promptDefault(this, REQ_ROLE) { askWallpaperOnce() }
 
     private fun requestHome() = HomeUtil.requestHome(this, REQ_ROLE)
 
