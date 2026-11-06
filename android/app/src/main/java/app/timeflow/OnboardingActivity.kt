@@ -2,13 +2,7 @@ package app.timeflow
 
 import android.app.Activity
 import android.content.Context
-import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.LinearGradient
-import android.graphics.Outline
-import android.graphics.Paint
-import android.graphics.RenderEffect
-import android.graphics.Shader
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
@@ -18,7 +12,6 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.view.ViewOutlineProvider
 import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -254,16 +247,16 @@ class OnboardingActivity : Activity() {
         glassPrev = GlassPreview(this)
         p.addView(glassPrev, LinearLayout.LayoutParams(dp(300), dp(180)))
         val g = GlassPrefs.get(this)
-        glassPrev.set(g.blur, g.style)
+        glassPrev.set(g.blur, g.style, g.dim, g.sheen, g.radius)
         p.addView(label("Kekuatan blur").apply { setPadding(0, dp(18), 0, dp(8)) })
         p.addView(chips(listOf("Lembut", "Sedang", "Tebal"), g.blur) { sel ->
             GlassPrefs.set(this, blur = sel); glassChanged = true
-            glassPrev.set(sel, GlassPrefs.get(this).style)
+            GlassPrefs.get(this).let { glassPrev.set(sel, it.style, it.dim, it.sheen, it.radius) }
         })
         p.addView(label("Warna kaca").apply { setPadding(0, dp(14), 0, dp(8)) })
         p.addView(chips(listOf("Gelap", "Terang", "Otomatis"), g.style) { sel ->
             GlassPrefs.set(this, style = sel); glassChanged = true
-            glassPrev.set(GlassPrefs.get(this).blur, sel)
+            GlassPrefs.get(this).let { glassPrev.set(it.blur, sel, it.dim, it.sheen, it.radius) }
         })
         return p
     }
@@ -390,54 +383,5 @@ class OnboardingActivity : Activity() {
         }
         paint(selected)
         return row
-    }
-}
-
-/** Latar berwarna dengan lingkaran: dipakai pratinjau kaca (satu tajam, satu diburamkan). */
-private class Blobs(c: Context) : View(c) {
-    private val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    override fun onDraw(c: Canvas) {
-        val w = width.toFloat(); val h = height.toFloat()
-        p.shader = LinearGradient(0f, 0f, w, h, intArrayOf(0xFF2A5CFF.toInt(), 0xFF8E2DE2.toInt(), 0xFFFF6A88.toInt()), null, Shader.TileMode.CLAMP)
-        c.drawRect(0f, 0f, w, h, p)
-        p.shader = null
-        p.color = 0xFFFFD166.toInt(); c.drawCircle(w * 0.18f, h * 0.30f, h * 0.20f, p)
-        p.color = 0xFF06D6A0.toInt(); c.drawCircle(w * 0.82f, h * 0.72f, h * 0.24f, p)
-        p.color = 0xFFFFFFFF.toInt(); c.drawCircle(w * 0.62f, h * 0.18f, h * 0.10f, p)
-    }
-}
-
-/** Pratinjau kaca: kartu yang memotong salinan latar yang diburamkan, dengan tint sesuai gaya. */
-private class GlassPreview(ctx: Context) : FrameLayout(ctx) {
-    private val d = ctx.resources.displayMetrics.density
-    private val blurred = Blobs(ctx)
-    private val tint = View(ctx)
-    private val time = TextView(ctx)
-
-    init {
-        outlineProvider = object : ViewOutlineProvider() {
-            override fun getOutline(v: View, o: Outline) { o.setRoundRect(0, 0, v.width, v.height, 28 * d) }
-        }
-        clipToOutline = true
-        addView(Blobs(ctx), LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-        val cl = (50 * d).toInt(); val ct = (40 * d).toInt()
-        val card = FrameLayout(ctx)
-        card.outlineProvider = object : ViewOutlineProvider() {
-            override fun getOutline(v: View, o: Outline) { o.setRoundRect(0, 0, v.width, v.height, 22 * d) }
-        }
-        card.clipToOutline = true
-        card.addView(blurred, LayoutParams((300 * d).toInt(), (180 * d).toInt()).apply { leftMargin = -cl; topMargin = -ct })
-        card.addView(tint, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-        time.apply { text = "13:17"; textSize = 34f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; typeface = Typeface.create("sans-serif-light", Typeface.NORMAL) }
-        card.addView(time, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-        card.foreground = GradientDrawable().apply { setColor(Color.TRANSPARENT); setStroke((1 * d).toInt().coerceAtLeast(1), 0x66FFFFFF); cornerRadius = 22 * d }
-        addView(card, LayoutParams((200 * d).toInt(), (100 * d).toInt()).apply { leftMargin = cl; topMargin = ct })
-    }
-
-    fun set(blur: Int, style: Int) {
-        val r = when (blur) { 0 -> 6f; 1 -> 14f; else -> 26f } * d
-        if (Build.VERSION.SDK_INT >= 31) blurred.setRenderEffect(RenderEffect.createBlurEffect(r, r, Shader.TileMode.CLAMP))
-        tint.setBackgroundColor(if (style == 1) 0x70FFFFFF else 0x38000000)
-        time.setTextColor(if (style == 1) 0xFF101426.toInt() else Color.WHITE)
     }
 }

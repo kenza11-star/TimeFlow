@@ -31,6 +31,7 @@ class WidgetStyleActivity : Activity() {
     private lateinit var status: TextView
     private val groups = ArrayList<() -> Unit>()       // penyegar tampilan pilihan setelah "Kembalikan bawaan"
     private val seeks = ArrayList<() -> Unit>()
+    private var onChanged: () -> Unit = {}                 // menyegarkan pratinjau langsung
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
@@ -65,6 +66,25 @@ class WidgetStyleActivity : Activity() {
         status = tv(this, 13f, MUTED).apply { setLineSpacing(0f, 1.2f) }
         col.addView(status, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(8) })
 
+        val prev = GlassPreview(this)
+        col.addView(prev, LinearLayout.LayoutParams(dp(300), dp(180)).apply { gravity = Gravity.CENTER_HORIZONTAL; topMargin = dp(4) })
+        onChanged = { GlassPrefs.get(this).let { prev.set(it.blur, it.style, it.dim, it.sheen, it.radius) } }
+        onChanged()
+        hint(col, "Pratinjau perkiraan. Blur asli di widget memakai wallpaper kamu.")
+
+        section(col, "Preset")
+        choice(col, listOf("Ringan", "Seimbang", "Penuh"), { -1 }) { i ->
+            // Ringan = blur rendah dan kilau kecil (hemat CPU/GPU/baterai); Penuh = blur tinggi dan kilau kuat
+            when (i) {
+                0 -> GlassPrefs.set(this, blur = 0, dim = 35, sheen = 25, radius = 1)
+                1 -> GlassPrefs.set(this, blur = 1, dim = 50, sheen = 50, radius = 1)
+                else -> GlassPrefs.set(this, blur = 2, dim = 55, sheen = 75, radius = 1)
+            }
+            GameMode.setEnabled(this, true)
+            groups.forEach { it() }; seeks.forEach { it() }
+        }
+        hint(col, "Ringan paling hemat daya. Mode game otomatis ikut dinyalakan.")
+
         section(col, "Gaya kaca")
         choice(col, listOf("Gelap", "Terang", "Otomatis"), { GlassPrefs.get(this).style }) { GlassPrefs.set(this, style = it) }
         hint(col, "Terang = kaca putih susu dengan teks gelap. Otomatis memilih gelap atau terang untuk tiap widget menurut kecerahan wallpaper di belakangnya.")
@@ -87,7 +107,7 @@ class WidgetStyleActivity : Activity() {
             background = GradientDrawable().apply { setStroke(dp(1), 0xFF55555F.toInt()); cornerRadius = dp(24).toFloat() }
             setOnClickListener {
                 GlassPrefs.reset(this@WidgetStyleActivity); GlassPrefs.applyNow(this@WidgetStyleActivity)
-                groups.forEach { it() }; seeks.forEach { it() }
+                groups.forEach { it() }; seeks.forEach { it() }; onChanged()
             }
         }
         col.addView(reset, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(28); gravity = Gravity.CENTER_HORIZONTAL })
@@ -124,7 +144,7 @@ class WidgetStyleActivity : Activity() {
         val views = names.mapIndexed { i, n ->
             tv(this, 14f, INK, true).apply {
                 text = n; gravity = Gravity.CENTER; setPadding(0, dp(12), 0, dp(12))
-                setOnClickListener { onPick(i); GlassPrefs.applyNow(this@WidgetStyleActivity); repaint() }
+                setOnClickListener { onPick(i); onChanged(); GlassPrefs.applyNow(this@WidgetStyleActivity); repaint() }
             }
         }
         fun paint() {
@@ -146,7 +166,10 @@ class WidgetStyleActivity : Activity() {
         val sb = SeekBar(this).apply { max = 100; progress = current() }
         val label = tv(this, 14f, INK).apply { gravity = Gravity.END; minWidth = dp(48); text = "${current()}%" }
         sb.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(s: SeekBar, p: Int, fromUser: Boolean) { label.text = "$p%" }
+            override fun onProgressChanged(s: SeekBar, p: Int, fromUser: Boolean) {
+                label.text = "$p%"
+                if (fromUser) { onSet(p); onChanged() }       // pratinjau ikut bergerak saat digeser; latar widget dibuat ulang saat jari diangkat
+            }
             override fun onStartTrackingTouch(s: SeekBar) {}
             override fun onStopTrackingTouch(s: SeekBar) { onSet(s.progress); GlassPrefs.applyNow(this@WidgetStyleActivity) }
         })

@@ -57,3 +57,7 @@ Tambah widget **Jam Kaca** dari pemilih widget peluncur. Ukurannya bisa diubah; 
 ## Pengenalan (onboarding)
 - Tampil sekali saat pertama kali Flow Launcher dibuka pada pemasangan baru (pengguna lama dengan tata letak yang sudah ada tidak diganggu). Ulangi lewat Pengaturan layar utama > "Ulangi pengenalan".
 - Halaman: intro, gaya ikon (warna asli / satu warna), kaca & blur (pratinjau langsung), mode game, lalu penyiapan ikon dengan progres. Geser atau ketuk Lanjut. Semua pilihan tersimpan ke pengaturan yang sama dengan menu Pengaturan.
+
+## Pengaturan widget (blur dan gaya kaca)
+- Ada pratinjau langsung di bagian atas (bergerak saat slider digeser). Pratinjau blur memakai Android 12+.
+- Preset Ringan / Seimbang / Penuh: satu ketukan mengatur blur, kepekatan, dan kilau. Ringan paling hemat daya dan ikut menyalakan Mode game otomatis.
