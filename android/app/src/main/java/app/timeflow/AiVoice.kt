@@ -54,7 +54,8 @@ class AiVoice(private val ctx: Context) {
         if (t.isEmpty()) { ui.post { onDone() }; return }
         val my = ++token
         val key = AiPrefs.elKey(ctx).trim()
-        if (key.isEmpty()) { fallback(t, onDone); return }
+        // tanpa key atau offline: langsung suara bawaan HP (tidak menunggu timeout)
+        if (key.isEmpty() || !Net.connected(ctx)) { fallback(t, onDone); return }
         Thread {
             try {
                 val f = fetch(t, key)
@@ -95,8 +96,8 @@ class AiVoice(private val ctx: Context) {
         val c = u.openConnection() as HttpURLConnection
         try {
             c.requestMethod = "POST"
-            c.connectTimeout = 12000
-            c.readTimeout = 30000
+            c.connectTimeout = 8000
+            c.readTimeout = 20000
             c.doOutput = true
             c.setRequestProperty("xi-api-key", key)
             c.setRequestProperty("Content-Type", "application/json")

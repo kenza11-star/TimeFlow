@@ -73,6 +73,8 @@ interface CcHost {
     fun pressTile(labels: List<String>, onFail: () -> Unit, onDone: () -> Unit = {}): Boolean = false
     /** Tangkapan layar sebelum panel muncul (untuk latar blur). null bila tidak tersedia. */
     fun screenshot(cb: (Bitmap?) -> Unit) { cb(null) }
+    /** Latar blur panel: tangkapan baru; bila gagal, latar terakhir yang berhasil (agar blur tidak hilang). */
+    fun backdrop(cb: (Bitmap?) -> Unit) { screenshot(cb) }
 }
 
 /** Membaca dan mengubah status sistem. Semua pemanggilan dibungkus supaya HP tertentu yang menolak tidak membuat layanan crash. */

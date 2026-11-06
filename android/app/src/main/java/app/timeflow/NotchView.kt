@@ -650,24 +650,37 @@ class NotchView(ctx: Context, private val host: NotchHost) : FrameLayout(ctx) {
     // ---- gambar kecil ----
     class Eq(ctx: Context, tint: Int) : View(ctx) {
         private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = tint }
-        private var phase = 0f; private var a: ValueAnimator? = null
-        fun setPlaying(on: Boolean) {
-            if (on) {
-                if (a == null) a = ValueAnimator.ofFloat(0f, 6.2832f).apply {
-                    duration = 900; repeatCount = ValueAnimator.INFINITE; interpolator = LinearInterpolator()
-                    addUpdateListener { phase = it.animatedValue as Float; invalidate() }; start()
-                }
-            } else { a?.cancel(); a = null; phase = 0f; invalidate() }
+        private var phase = 0f
+        private var on = false
+        // 5 batang kecil cukup ~15 gambar/detik; jauh lebih hemat daripada animator tiap frame layar (60-120 Hz)
+        private val step = object : Runnable {
+            override fun run() {
+                phase = (phase + 0.45f) % 6.2832f
+                invalidate()
+                if (on && isAttachedToWindow) postDelayed(this, 66)
+            }
         }
+        fun setPlaying(v: Boolean) {
+            if (v == on) return
+            on = v
+            removeCallbacks(step)
+            if (v) { if (isAttachedToWindow) post(step) } else { phase = 0f; invalidate() }
+        }
+        override fun onAttachedToWindow() { super.onAttachedToWindow(); if (on) { removeCallbacks(step); post(step) } }
+        override fun onWindowVisibilityChanged(visibility: Int) {
+            super.onWindowVisibilityChanged(visibility)
+            removeCallbacks(step)
+            if (visibility == VISIBLE && on) post(step)
+        }
+        override fun onDetachedFromWindow() { removeCallbacks(step); super.onDetachedFromWindow() }
         override fun onDraw(c: Canvas) {
             val n = 5; val gap = width / (n * 2f); val bw = gap
             for (i in 0 until n) {
-                val f = if (a == null) 0.25f else 0.3f + 0.7f * abs(sin(phase + i * 1.3f))
+                val f = if (!on) 0.25f else 0.3f + 0.7f * abs(sin(phase + i * 1.3f))
                 val h = height * f; val x = i * gap * 2f + gap / 2f
                 c.drawRoundRect(x, (height - h) / 2f, x + bw, (height + h) / 2f, bw / 2f, bw / 2f, p)
             }
         }
-        override fun onDetachedFromWindow() { super.onDetachedFromWindow(); a?.cancel(); a = null }
     }
 
     class Bar(ctx: Context) : View(ctx) {

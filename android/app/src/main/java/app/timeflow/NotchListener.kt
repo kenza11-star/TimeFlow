@@ -121,8 +121,17 @@ class NotchListener : NotificationListenerService(), NotchHost, CcHost {
     }
 
     // ---------- siklus hidup ----------
+    /** Mode game berubah: lepas atau pasang lagi notch dan Control Center; segarkan widget musik begitu game selesai. */
+    private val gmL: () -> Unit = {
+        ui.post {
+            apply()
+            if (!GameMode.blocked(this)) { ui.removeCallbacks(widgetLoop); widgetLoop.first = false; widgetLoop.run() }
+        }
+    }
+
     override fun onListenerConnected() {
         inst = this
+        GameMode.listen(gmL)
         LockScreen.register(this)
         wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         ui.post {
@@ -137,6 +146,7 @@ class NotchListener : NotificationListenerService(), NotchHost, CcHost {
 
     override fun onListenerDisconnected() {
         inst = null
+        GameMode.unlisten(gmL)
         ui.post {
             runCatching { msm?.removeOnActiveSessionsChangedListener(sessions) }
             for (c in ctls) runCatching { c.unregisterCallback(cb) }
@@ -149,7 +159,7 @@ class NotchListener : NotificationListenerService(), NotchHost, CcHost {
 
     override fun onConfigurationChanged(newConfig: Configuration) { super.onConfigurationChanged(newConfig); ui.post { apply() } }
 
-    override fun onDestroy() { inst = null; teardown(); cc?.release(); cc = null; super.onDestroy() }
+    override fun onDestroy() { inst = null; GameMode.unlisten(gmL); teardown(); cc?.release(); cc = null; super.onDestroy() }
 
     // ---------- overlay ----------
     private fun makeLp(c: NotchPrefs.Cfg): WindowManager.LayoutParams {
@@ -171,13 +181,13 @@ class NotchListener : NotificationListenerService(), NotchHost, CcHost {
 
     private fun allowed(c: NotchPrefs.Cfg): Boolean {
         val land = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-        return c.enabled && (overlayGranted(this) || CcAccessibilityService.connected()) && !(land && c.hideLandscape)
+        return c.enabled && (overlayGranted(this) || CcAccessibilityService.connected()) && !(land && c.hideLandscape) && !GameMode.blocked(this)
     }
 
     /** Control Center berjalan terpisah dari notch: tetap aktif walau notch dimatikan. */
     private fun applyCc() {
         if (CcAccessibilityService.connected()) { cc?.release(); cc = null; return }   // layanan aksesibilitas yang menampilkan panel
-        if (CcPrefs.get(this).enabled && overlayGranted(this)) {
+        if (CcPrefs.get(this).enabled && overlayGranted(this) && !GameMode.blocked(this)) {
             val c = cc ?: ControlCenter(this, this).also { cc = it }
             c.sync()
         } else { cc?.release(); cc = null }
@@ -346,6 +356,9 @@ class NotchListener : NotificationListenerService(), NotchHost, CcHost {
         var first = false   // false = pembaruan penuh (dengan sampul), selanjutnya sebagian per detik
         override fun run() {
             if (!MusicWidget.has(this@NotchListener)) return
+            // game di depan atau layar mati: widget tidak terlihat, jangan kirim pembaruan tiap detik (cek ringan tiap 4 dtk)
+            val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            if (GameMode.blocked(this@NotchListener) || !pm.isInteractive) { ui.postDelayed(this, 4000); return }
             val m = if (demoOn) null else buildMedia()
             MusicWidget.push(this@NotchListener, m, partial = first)
             first = true

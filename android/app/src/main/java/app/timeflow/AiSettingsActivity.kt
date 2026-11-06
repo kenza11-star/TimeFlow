@@ -185,6 +185,7 @@ class AiSettingsActivity : Activity() {
             if (v && AiService.running && !AiService.active) { AiPrefs.setSleeping(this, true); AiService.stop(this) }
             updateStatus()
         }
+        switchRow(sw, "Mode game otomatis", "Saat game atau aplikasi layar penuh (landscape) di depan, notch, Control Center, mikrofon AI, dan pembaruan widget dihentikan sementara: game lebih ringan dan mikrofon bebas untuk voice chat game. Menyala lagi otomatis setelah keluar.", { GameMode.enabled(this) }) { GameMode.setEnabled(this, it) }
         switchRow(sw, "Ucapkan jawaban", "Pakai suara ElevenLabs; cadangan suara HP", { AiPrefs.speak(this) }) { AiPrefs.setSpeak(this, it) }
         switchRow(sw, "Kirim tangkapan layar ke AI", "Untuk model yang bisa melihat gambar (vision). Lebih akurat, tapi lebih lambat dan lebih mahal.", { AiPrefs.vision(this) }) { AiPrefs.setVision(this, it) }
         switchRow(sw, "Redam bunyi \"ting\" pengenal suara", "Menyenyapkan aliran sistem dan notifikasi selama AI mendengarkan. Coba bila ada bunyi berulang.", { AiPrefs.muteBeep(this) }) { AiPrefs.setMuteBeep(this, it) }

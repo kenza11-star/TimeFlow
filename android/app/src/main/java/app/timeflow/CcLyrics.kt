@@ -54,7 +54,7 @@ object CcLyrics {
         return Lyrics(ts.toLongArray(), ls.toTypedArray())
     }
 
-    private fun http(u: String): String? = try {
+    private fun http(u: String): String? = if (!Net.connectedNow()) { netErr = true; null } else try {
         val c = URL(u).openConnection() as HttpURLConnection
         c.connectTimeout = 6000; c.readTimeout = 6000
         c.setRequestProperty("User-Agent", "TimeFlow/1.0 (Android)")

@@ -20,7 +20,16 @@ class AiAccessibilityService : AccessibilityService() {
         inst = this
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
+    // Hanya untuk mengetahui aplikasi di depan (Mode game): tidak membaca isi layar.
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
+            GameMode.onWindow(this, event.packageName?.toString(), event.className?.toString())
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        GameMode.recheck(this)
+    }
     override fun onInterrupt() {}
 
     override fun onUnbind(intent: Intent?): Boolean {

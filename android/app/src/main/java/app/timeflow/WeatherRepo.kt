@@ -199,6 +199,7 @@ object WeatherRepo {
     /** Segarkan hanya bila data sudah lama dan lokasi ada. Mengembalikan true bila ada data baru. */
     fun refreshIfStale(ctx: Context): Boolean {
         if (!hasLocation(ctx) || !isStale(ctx)) return false
+        if (!Net.connected(ctx)) return false        // offline: pakai data tersimpan, jangan mencoba jaringan
         return runCatching { fetch(ctx); true }.getOrDefault(false)
     }
 

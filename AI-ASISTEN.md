@@ -32,3 +32,24 @@ Tambah widget **Jam Kaca** dari pemilih widget peluncur. Ukurannya bisa diubah; 
 - Saklar **Mikrofon mati saat AI tidur** (aktif secara bawaan): setelah AI tidur (perintah suara, tombol "Tidurkan AI", ubin, atau 4 menit tanpa perintah) layanan dihentikan total sehingga titik hijau mikrofon hilang.
 - Bangunkan lewat tombol **Aktifkan AI sekarang** atau ubin Quick Settings **Flow AI** (tambahkan lewat Edit di panel Quick Settings).
 - Matikan saklar ini bila ingin AI terus menunggu kata aktivasi (mikrofon menyala terus).
+
+## Mode game otomatis (hemat CPU, GPU, RAM, baterai)
+- Saklar **Mode game otomatis** (aktif secara bawaan) di Asisten AI > MODE.
+- Terdeteksi saat aplikasi di depan berkategori game, atau aplikasi layar penuh dalam posisi landscape.
+- Selama itu: notch, panel Control Center, pil AI, mikrofon AI (supaya voice chat game bebas memakai mikrofon), pembaruan widget musik per detik, dan penangkapan kaca widget dihentikan sementara. Semuanya menyala lagi otomatis begitu kembali ke layar utama atau aplikasi lain.
+- Butuh salah satu layanan aksesibilitas (TimeFlow Control Center atau Flow AI) menyala agar aplikasi di depan bisa diketahui.
+
+## Penghematan lain
+- Daftar aplikasi dimuat ulang hanya bila ada aplikasi dipasang/dihapus (bukan tiap layar utama dibuka).
+- Tata letak layar utama hanya disimpan bila berubah.
+- Animasi batang musik di notch ~15 gambar per detik (sebelumnya mengikuti refresh layar) dan berhenti saat jendela tidak terlihat.
+- Widget musik tidak memperbarui tiap detik saat layar mati.
+- Build lewat skrip Termux memakai mode release.
+
+## Offline / sinyal jelek
+- AI: bila tidak ada internet, langsung dijawab "lagi nggak ada internet" (tanpa menunggu timeout); suara beralih ke suara bawaan HP; pengenal suara memakai model offline bila ada (unduh bahasa Indonesia di Pengaturan Google > Suara) dan mencoba ulang dengan jeda makin panjang (hemat baterai).
+- Timeout dipersingkat: LLM 8 dtk sambung / 40 dtk baca, ElevenLabs 8 / 20 dtk.
+- Cuaca dan lirik tidak mencoba jaringan saat offline (memakai data tersimpan).
+
+## Blur Control Center
+- Latar blur memakai tangkapan layar yang dikecilkan (hemat RAM). Bila tangkapan baru ditolak (layar aman, batas jarak antar tangkapan, game), dipakai tangkapan terakhir yang berhasil (maks 3 menit) sehingga blur tidak hilang.

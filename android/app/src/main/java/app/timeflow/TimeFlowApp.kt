@@ -16,6 +16,7 @@ class TimeFlowApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        Net.init(this)
         Notifs.ensureChannels(this)
         // Idempoten: memastikan jadwal ada setelah proses dimulai ulang (mis. setelah force-stop lalu dibuka lagi).
         runCatching { AlarmScheduler.rescheduleAll(this) }

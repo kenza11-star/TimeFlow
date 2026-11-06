@@ -28,6 +28,9 @@ object AiLlm {
         if (key.isEmpty() && !AiPrefs.provider(ctx).id.startsWith("custom")) throw AiError("API key AI belum diisi")
         if (base.isEmpty()) throw AiError("Base URL belum diisi")
         if (model.isEmpty()) throw AiError("Nama model belum diisi")
+        // offline: langsung beri tahu, jangan menunggu timeout (kecuali server AI ada di jaringan lokal / HP sendiri)
+        val local = Regex("^https?://(localhost|127\\.|10\\.|192\\.168\\.|172\\.(1[6-9]|2\\d|3[01])\\.)").containsMatchIn(base)
+        if (!local && !Net.connected(ctx)) throw AiError("lagi nggak ada internet")
         val msgs = merge(history)
         return if (AiPrefs.isAnthropic(ctx)) anthropic(base, key, model, system, msgs) else openai(base, key, model, system, msgs)
     }
@@ -99,8 +102,8 @@ object AiLlm {
         val c = URL(url).openConnection() as HttpURLConnection
         try {
             c.requestMethod = "POST"
-            c.connectTimeout = 15000
-            c.readTimeout = 60000
+            c.connectTimeout = 8000
+            c.readTimeout = 40000
             c.doOutput = true
             c.setRequestProperty("Content-Type", "application/json")
             for ((k, v) in headers) c.setRequestProperty(k, v)

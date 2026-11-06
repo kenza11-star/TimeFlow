@@ -47,6 +47,7 @@ class AiEars(private val ctx: Context, private val cb: Callback) {
     private val ui = Handler(Looper.getMainLooper())
     private var useDefault = false      // true bila layanan Google gagal berulang: pakai pengenal suara bawaan HP
     private var fails = 0
+    private var netFails = 0            // galat jaringan beruntun: jeda mulai ulang makin panjang agar hemat baterai saat offline
     private var svcName = ""
     private var errCount = 0
     private var sr: SpeechRecognizer? = null
@@ -91,13 +92,14 @@ class AiEars(private val ctx: Context, private val cb: Callback) {
         val r = sr ?: run {
             // Utamakan layanan suara Google (di sebagian HP pengenal bawaan merek tidak mengembalikan teks sama sekali)
             val comp = if (useDefault) null else googleService(ctx)
-            svcName = if (comp != null) "Google" else "bawaan HP"
-            (if (comp != null) SpeechRecognizer.createSpeechRecognizer(ctx, comp) else SpeechRecognizer.createSpeechRecognizer(ctx))
-                .also { sr = it; it.setRecognitionListener(listener) }
+            val g = if (comp != null) runCatching { SpeechRecognizer.createSpeechRecognizer(ctx, comp) }.getOrNull() else null
+            svcName = if (g != null) "Google" else "bawaan HP"
+            (g ?: SpeechRecognizer.createSpeechRecognizer(ctx)).also { sr = it; it.setRecognitionListener(listener) }
         }
         val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, AiPrefs.lang(ctx))
+            if (!Net.good(ctx)) putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)   // offline / sinyal jelek: pakai model suara di HP bila ada
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
             putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, ctx.packageName)
@@ -124,11 +126,11 @@ class AiEars(private val ctx: Context, private val cb: Callback) {
         override fun onEvent(eventType: Int, params: Bundle?) {}
         override fun onPartialResults(partialResults: Bundle?) {
             val t = best(partialResults)
-            if (t.isNotEmpty()) { fails = 0; diag = "Pengenal suara ($svcName): terdengar \"" + t.take(40) + "\""; cb.onPartial(t) }
+            if (t.isNotEmpty()) { fails = 0; netFails = 0; diag = "Pengenal suara ($svcName): terdengar \"" + t.take(40) + "\""; cb.onPartial(t) }
         }
         override fun onResults(results: Bundle?) {
             val t = best(results)
-            if (t.isNotEmpty()) { fails = 0; diag = "Pengenal suara ($svcName): terdengar \"" + t.take(40) + "\""; cb.onFinal(t) }
+            if (t.isNotEmpty()) { fails = 0; netFails = 0; diag = "Pengenal suara ($svcName): terdengar \"" + t.take(40) + "\""; cb.onFinal(t) }
             restart(120)
         }
         override fun onError(error: Int) {
@@ -142,7 +144,7 @@ class AiEars(private val ctx: Context, private val cb: Callback) {
                 SpeechRecognizer.ERROR_AUDIO -> cb.onProblem("Mikrofon tidak bisa direkam (kode 3): cek izin mikrofon atau aplikasi lain yang memakai mikrofon")
                 SpeechRecognizer.ERROR_SPEECH_TIMEOUT, SpeechRecognizer.ERROR_NO_MATCH -> {}
                 SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_SERVER ->
-                    cb.onProblem("Pengenal suara butuh internet (kode $error)")
+                    cb.onProblem(if (!Net.connected(ctx)) "Tidak ada internet: pengenal suara butuh internet (atau unduh bahasa Indonesia offline di pengaturan Google > Suara)" else "Sinyal jelek: pengenal suara belum bisa terhubung (kode $error)")
                 SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> cb.onProblem("Pengenal suara sedang dipakai aplikasi lain")
                 12, 13 -> cb.onProblem("Bahasa ${AiPrefs.lang(ctx)} belum terpasang di layanan suara Google (kode $error)")
                 else -> {}
@@ -155,7 +157,10 @@ class AiEars(private val ctx: Context, private val cb: Callback) {
                 SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> { running = false; cb.onFatal("Izin mikrofon belum diberikan") }
                 SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> restart(900, true)
                 SpeechRecognizer.ERROR_CLIENT -> restart(500, true)
-                SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_SERVER -> restart(2000, true)
+                SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_SERVER -> {
+                    netFails++
+                    restart(minOf(2000L shl minOf(netFails - 1, 4), 30000L), true)   // 2, 4, 8, 16, 30 detik
+                }
                 else -> restart(120)    // tidak ada ucapan / tidak cocok: ulangi
             }
         }

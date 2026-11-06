@@ -51,6 +51,7 @@ class CcAccessibilityService : AccessibilityService(), CcHost {
         super.onServiceConnected()
         inst = this
         LockScreen.register(this)
+        GameMode.listen(gmL)
         apply()
         tuneEvents()
         NotchListener.refresh()   // notch berhenti menampilkan Control Center sendiri
@@ -65,9 +66,15 @@ class CcAccessibilityService : AccessibilityService(), CcHost {
         if (info.eventTypes != want) { info.eventTypes = want; runCatching { serviceInfo = info } }
     }
 
+    /** Mode game berubah: pasang atau lepas panel Control Center (dan gambar kaca widget). */
+    private val gmL: () -> Unit = { ui.post { apply() } }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
-        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) tuneEvents()
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            GameMode.onWindow(this, event.packageName?.toString(), event.className?.toString())
+            tuneEvents()
+        }
         // widget musik: launcher naik ke depan atau halaman digeser -> cek posisi widget, perbarui latar kaca bila perlu
         if (event.packageName?.toString() != packageName && (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED)) scheduleGlass()
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
@@ -78,13 +85,14 @@ class CcAccessibilityService : AccessibilityService(), CcHost {
     }
     override fun onInterrupt() {}
 
-    override fun onConfigurationChanged(newConfig: Configuration) { super.onConfigurationChanged(newConfig); ui.post { apply() } }
+    override fun onConfigurationChanged(newConfig: Configuration) { super.onConfigurationChanged(newConfig); GameMode.recheck(this); ui.post { apply() } }
 
     override fun onUnbind(intent: Intent?): Boolean { shutdown(); return super.onUnbind(intent) }
     override fun onDestroy() { shutdown(); super.onDestroy() }
 
     private fun shutdown() {
         inst = null
+        GameMode.unlisten(gmL)
         if (GlassBg.hidden) runCatching { GlassSlots.show(this, GlassSlots.present(this)) }   // jangan tinggalkan widget dalam keadaan tersembunyi
         ui.removeCallbacks(glassCheck)
         cc?.release(); cc = null
@@ -92,7 +100,7 @@ class CcAccessibilityService : AccessibilityService(), CcHost {
     }
 
     private fun apply() {
-        if (CcPrefs.get(this).enabled) {
+        if (CcPrefs.get(this).enabled && !GameMode.blocked(this)) {
             val c = cc ?: ControlCenter(this, this, WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY).also { cc = it }
             c.sync()
         } else { cc?.release(); cc = null }
@@ -102,7 +110,7 @@ class CcAccessibilityService : AccessibilityService(), CcHost {
     private var glassBusy = false
     private val glassCheck = Runnable { glassTick() }
     private fun scheduleGlass() {
-        if (android.os.Build.VERSION.SDK_INT < 30 || !GlassSlots.anyCached(this)) return
+        if (android.os.Build.VERSION.SDK_INT < 30 || GameMode.blocked(this) || !GlassSlots.anyCached(this)) return
         if (HomeUtil.isDefaultHomeCached(this)) return        // Flow jadi launcher: kaca widget digambar peluncur sendiri, tanpa tangkapan layar
         ui.removeCallbacks(glassCheck); ui.postDelayed(glassCheck, 900)   // tunggu geseran selesai
     }
@@ -291,7 +299,7 @@ class CcAccessibilityService : AccessibilityService(), CcHost {
         if (android.os.Build.VERSION.SDK_INT < 30) { cb(null); return }
         var done = false
         val finish = { b: Bitmap? -> if (!done) { done = true; cb(b) } }
-        ui.postDelayed({ finish(null) }, 1800)
+        ui.postDelayed({ finish(null) }, 2600)    // cukup untuk satu kali ulang saat sistem membatasi jarak tangkapan layar
         fun shoot(retry: Boolean) {
             try {
                 takeScreenshot(Display.DEFAULT_DISPLAY, mainExecutor, object : TakeScreenshotCallback {
@@ -310,6 +318,17 @@ class CcAccessibilityService : AccessibilityService(), CcHost {
             } catch (e: Throwable) { CcLog.add("tangkapan layar error: " + e.javaClass.simpleName); finish(null) }
         }
         shoot(true)
+    }
+
+    /** Latar blur Control Center: dikecilkan (hemat RAM; toh diburamkan) dan disimpan, dipakai ulang bila tangkapan layar berikutnya ditolak. */
+    override fun backdrop(cb: (Bitmap?) -> Unit) {
+        screenshot { b ->
+            if (b == null) { cb(CcShot.recent()); return@screenshot }
+            val s = runCatching { Bitmap.createScaledBitmap(b, maxOf(1, b.width / 3), maxOf(1, b.height / 3), true) }.getOrNull() ?: b
+            if (s !== b) runCatching { b.recycle() }
+            CcShot.put(s)
+            cb(s)
+        }
     }
 
     override fun pressTile(labels: List<String>, onFail: () -> Unit, onDone: () -> Unit): Boolean { ui.post { doPress(labels, onFail, onDone) }; return true }

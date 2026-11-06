@@ -188,8 +188,8 @@ class ControlCenter(private val svc: Context, private val host: CcHost, private 
         pending = true
         // ambil tangkapan layar dulu (untuk latar blur), lalu tampilkan panel
         var fired = false
-        host.screenshot { bmp ->
-            if (fired) return@screenshot
+        host.backdrop { bmp ->
+            if (fired) return@backdrop
             fired = true; pending = false
             if (panel == null && !closing) showNow(bmp)
         }

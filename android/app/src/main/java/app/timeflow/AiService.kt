@@ -61,6 +61,19 @@ class AiService : Service() {
     @Volatile private var runId = 0      // tiap perintah baru / pembatalan menaikkan angka ini; hasil perintah lama diabaikan
     private val history = ArrayList<AiLlm.Msg>()
 
+    /** Mode game: lepas mikrofon (supaya voice chat game bisa memakainya) dan sembunyikan pil; lanjut lagi setelah game selesai. */
+    private val gmL: () -> Unit = { ui.post { onGame() } }
+
+    private fun onGame() {
+        if (GameMode.blocked(this)) {
+            ears?.pause()
+            AiIsland.state(applicationContext, 0, "")
+        } else {
+            ears?.resume()
+            if (active) island(1, "")
+        }
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -72,6 +85,8 @@ class AiService : Service() {
             voice = AiVoice(this)
             ears = AiEars(this, earsCb)
             ears?.start()
+            GameMode.listen(gmL)
+            if (GameMode.blocked(this)) ears?.pause()
         }
         when (action) {
             ACTION_ACTIVATE -> activateAi(true)
@@ -85,6 +100,7 @@ class AiService : Service() {
         running = false
         active = false
         runId++
+        GameMode.unlisten(gmL)
         ui.removeCallbacksAndMessages(null)      // termasuk tidur otomatis
         ears?.stop(); ears = null
         voice?.shutdown(); voice = null
@@ -203,7 +219,7 @@ class AiService : Service() {
     private fun speakThen(text: String, then: () -> Unit) {
         if (!AiPrefs.speak(this)) { ui.postDelayed({ then() }, 1800); return }
         ears?.pause()
-        voice?.speak(text, onError = { msg -> lastError = "Suara: $msg"; if (active) island(3, "Suara gagal: $msg") }) { ears?.resume(); then() }
+        voice?.speak(text, onError = { msg -> lastError = "Suara: $msg"; if (active) island(3, "Suara gagal: $msg") }) { if (!GameMode.blocked(this)) ears?.resume(); then() }
     }
 
     private val idleSleep = Runnable { if (active && !busy) sleepAi(false) }

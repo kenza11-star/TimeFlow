@@ -155,8 +155,13 @@ object HomeStore {
         val da = JSONArray()
         for (x in dock) da.put(x.toJson())
         o.put("dock", da)
-        sp(c).edit().putString("layout", o.toString()).apply()
+        val js = o.toString()
+        if (js == lastSaved) return                 // tidak berubah: jangan tulis ulang ke penyimpanan tiap layar utama ditutup
+        lastSaved = js
+        sp(c).edit().putString("layout", js).apply()
     }
+
+    private var lastSaved = ""
 
     fun all(): List<HItem> {
         val l = ArrayList<HItem>()
