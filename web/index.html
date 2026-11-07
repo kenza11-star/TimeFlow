@@ -7,7 +7,7 @@
 :root{--bg:#F4F2EE;--card:#fff;--ink:#1c1c1e;--mut:#77737a;--line:#e6e2dc;--acc:#8E4B57;--cor:#E8683E;--lav:#8E91DE;--sag:#86B070;--blu:#A9C7EC;--sh:0 6px 20px rgba(60,40,30,.07)}
 [data-theme=dark]{--bg:#151416;--card:#232125;--ink:#f3f0ec;--mut:#a39fa6;--line:#343136;--sh:none}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow-x:hidden}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow-x:clip}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer;border:0;background:none;padding:0}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
@@ -240,7 +240,7 @@ function nEnsurePerms(){if(!NATIVE||NI.asked)return;nat('status.get').then(st=>{
  ask('Izin '+n[1],'TimeFlow membutuhkan izin ini untuk '+n[2]+'. Kamu bisa mengubahnya kapan saja di Settings, menu Izin &amp; notifikasi Android.','Lanjut',()=>nat('perm.request',{what:n[0]}).then(()=>setTimeout(nRefresh,300)).catch(nerr))}).catch(()=>{})}
 const NCH={cfg:null,st:null,t:0};
 const NCH_SL=[['width','Lebar notch',60,260,'dp'],['height','Tinggi notch',20,60,'dp'],['top','Jarak dari atas',0,90,'dp'],['x','Geser kiri / kanan',-160,160,'dp'],['scale','Ukuran saat membesar',80,130,'%'],['autoHide','Lama notifikasi tampil',2,15,'dtk']];
-const NCH_TG=[['enabled','Aktifkan notch'],['idleVisible','Tampilkan pil saat diam'],['showMedia','Musik (Spotify, YouTube Music, dll.)'],['showNotif','Notifikasi semua aplikasi (WA, dll.)'],['hideLandscape','Sembunyikan saat layar landscape']];
+const NCH_TG=[['enabled','Aktifkan notch'],['idleVisible','Tampilkan pil saat diam'],['showMedia','Musik (Spotify, YouTube Music, dll.)'],['showNotif','Notifikasi semua aplikasi (WA, dll.)'],['hideLandscape','Sembunyikan saat layar landscape'],['charge','Status pengisian daya saat charger dicolok'],['haptic','Getaran haptic']];
 async function nchLoad(){try{const r=await nat('notch.get');NCH.cfg=r.cfg;NCH.st=r.st}catch(e){nerr(e)}}
 function nchSend(part){Object.assign(NCH.cfg,part);NCH.pend=Object.assign(NCH.pend||{},part);clearTimeout(NCH.t);NCH.t=setTimeout(()=>{const q=NCH.pend;NCH.pend=null;return nat('notch.set',{cfg:q}).then(r=>{NCH.st=r.st;nchStatus()}).catch(nerr)},120)}
 function nchPrev(){const c=NCH.cfg,el=$('#nchp');if(!el)return;const k=.62;el.style.width=c.width*k+'px';el.style.height=c.height*k+'px';el.style.borderRadius=c.height*k/2+'px';el.style.marginTop=c.top*k*.5+'px';el.style.transform=`translateX(${c.x*k*.5}px)`}

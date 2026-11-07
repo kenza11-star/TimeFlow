@@ -181,6 +181,16 @@
             android:theme="@android:style/Theme.NoDisplay" />
 
         <!-- Halaman Waktu Layar: dibuka dari widget Waktu Layar -->
+        <!-- Halaman musik layar penuh (dibuka dari Dynamic Island) -->
+        <activity
+            android:name=".MusicPageActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTop"
+            android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+
         <activity
             android:name=".ScreenTimeActivity"
             android:exported="false"

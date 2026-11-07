@@ -1,7 +1,11 @@
 package app.timeflow
 
 import android.app.Notification
+import android.content.BroadcastReceiver
 import android.content.ComponentName
+import android.content.IntentFilter
+import android.os.BatteryManager
+import androidx.core.content.ContextCompat
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
@@ -108,9 +112,30 @@ class NotchListener : NotificationListenerService(), NotchHost, CcHost {
     private val seen = HashMap<String, String>()
     private val labels = HashMap<String, String>()
     private val shownOngoing = HashSet<String>()
+    private val callKeys = HashSet<String>()
     private val repliedAt = HashMap<String, Long>()
     private val hseen = HashMap<String, String>()
     private val hOngoing = HashSet<String>()
+    private var pwrOn = false
+    private val pwr = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) {
+            val cf = NotchPrefs.get(this@NotchListener)
+            if (!cf.enabled || !cf.charge) return
+            if (i.action == Intent.ACTION_POWER_CONNECTED) {
+                val b = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                val lv = b?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+                val sc = b?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100
+                if (lv < 0 || sc <= 0) return
+                ui.post { if (view == null && allowed(cf)) apply(); view?.setCharge(ChargeInfo(lv * 100 / sc, true)) }
+            } else ui.post { view?.setCharge(null) }
+        }
+    }
+    private fun pwrReg(on: Boolean) {
+        if (on == pwrOn) return
+        pwrOn = on
+        if (on) runCatching { ContextCompat.registerReceiver(this, pwr, IntentFilter().apply { addAction(Intent.ACTION_POWER_CONNECTED); addAction(Intent.ACTION_POWER_DISCONNECTED) }, ContextCompat.RECEIVER_EXPORTED) }
+        else runCatching { unregisterReceiver(pwr) }
+    }
     private val comp by lazy { ComponentName(this, NotchListener::class.java) }
 
     private val sessions = MediaSessionManager.OnActiveSessionsChangedListener { list -> ui.post { pick(list ?: emptyList()) } }
@@ -132,6 +157,7 @@ class NotchListener : NotificationListenerService(), NotchHost, CcHost {
     override fun onListenerConnected() {
         inst = this
         GameMode.listen(gmL)
+        pwrReg(true)
         LockScreen.register(this)
         wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         ui.post {
@@ -147,6 +173,7 @@ class NotchListener : NotificationListenerService(), NotchHost, CcHost {
     override fun onListenerDisconnected() {
         inst = null
         GameMode.unlisten(gmL)
+        pwrReg(false)
         ui.post {
             runCatching { msm?.removeOnActiveSessionsChangedListener(sessions) }
             for (c in ctls) runCatching { c.unregisterCallback(cb) }
@@ -159,7 +186,7 @@ class NotchListener : NotificationListenerService(), NotchHost, CcHost {
 
     override fun onConfigurationChanged(newConfig: Configuration) { super.onConfigurationChanged(newConfig); ui.post { apply() } }
 
-    override fun onDestroy() { inst = null; GameMode.unlisten(gmL); teardown(); cc?.release(); cc = null; super.onDestroy() }
+    override fun onDestroy() { inst = null; pwrReg(false); GameMode.unlisten(gmL); teardown(); cc?.release(); cc = null; super.onDestroy() }
 
     // ---------- overlay ----------
     private fun makeLp(c: NotchPrefs.Cfg): WindowManager.LayoutParams {
@@ -263,6 +290,10 @@ class NotchListener : NotificationListenerService(), NotchHost, CcHost {
     override fun seek(frac: Float) {
         val dur = ctl?.metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L
         if (dur > 0) ctl?.transportControls?.seekTo((dur * frac).toLong())
+    }
+
+    override fun openMusicPage() {
+        runCatching { startActivity(Intent(this, MusicPageActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)) }
     }
 
     override fun openMedia() { runCatching { ctl?.sessionActivity?.send() } }
@@ -398,7 +429,7 @@ class NotchListener : NotificationListenerService(), NotchHost, CcHost {
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
-        seen.remove(sbn.key); shownOngoing.remove(sbn.key); hseen.remove(sbn.key); hOngoing.remove(sbn.key)
+        seen.remove(sbn.key); shownOngoing.remove(sbn.key); callKeys.remove(sbn.key); hseen.remove(sbn.key); hOngoing.remove(sbn.key)
         ui.post { view?.removeNotif(sbn.key) }
     }
 
@@ -423,6 +454,11 @@ class NotchListener : NotificationListenerService(), NotchHost, CcHost {
             return
         }
         val key = sbn.key
+        // Panggilan masuk: kartu tetap tampil sampai notifikasi hilang atau berubah jadi panggilan berlangsung (dijawab)
+        val incoming = n.category == Notification.CATEGORY_CALL &&
+            ((Build.VERSION.SDK_INT >= 31 && n.extras.getInt("android.callType", 0) == 1) || n.fullScreenIntent != null)
+        if (!incoming && callKeys.remove(key)) { ui.post { view?.removeNotif(key) }; return }
+        if (incoming) callKeys.add(key)
         val last = repliedAt[key]
         if (last != null && SystemClock.elapsedRealtime() - last < 6000L) return   // jangan tampilkan balasan kita sendiri
 
@@ -464,12 +500,12 @@ class NotchListener : NotificationListenerService(), NotchHost, CcHost {
         val c = NotchPrefs.get(this)
         if (!c.enabled || !c.showNotif) return
         val sig = dedupe
-        if (seen[key] == sig) return
+        if (!incoming && seen[key] == sig) return
         if (seen.size > 80) seen.clear()
         seen[key] = sig
         // Notifikasi menetap (unduhan, layanan latar) hanya tampil sekali per kunci supaya tidak membanjiri notch
         val persistent = (n.flags and (Notification.FLAG_ONGOING_EVENT or Notification.FLAG_FOREGROUND_SERVICE)) != 0
-        if (persistent) {
+        if (persistent && !incoming) {
             if (shownOngoing.contains(key)) return
             if (shownOngoing.size > 80) shownOngoing.clear()
             shownOngoing.add(key)
@@ -480,7 +516,7 @@ class NotchListener : NotificationListenerService(), NotchHost, CcHost {
             (n.getLargeIcon() ?: n.smallIcon)?.loadDrawable(pc)
         }.getOrNull()
         val pi = n.contentIntent
-        val open: (() -> Unit)? = if (pi != null) ({ runCatching { pi.send() }; Unit }) else null
+        val open: () -> Boolean = { NotifOpen.launch(this@NotchListener, pi, pkg) }
 
         // Aksi balas (RemoteInput) dan aksi tombol lain dari notifikasi
         val acts: Array<Notification.Action> = n.actions ?: emptyArray()
@@ -498,11 +534,11 @@ class NotchListener : NotificationListenerService(), NotchHost, CcHost {
             val label = a.title?.toString().orEmpty()
             if (label.isEmpty()) continue
             val ai = a.actionIntent
-            extra.add(NotifAct(label) { runCatching { ai.send() } })
-            if (extra.size >= 2) break
+            extra.add(NotifAct(label) { NotifOpen.launch(this@NotchListener, ai, "") })
+            if (extra.size >= (if (incoming) 3 else 2)) break
         }
 
-        val info = NotifInfo(key, app, title.ifEmpty { app }, if (title.isEmpty()) "" else text, icon, n.color, open, reply, hint, extra)
+        val info = NotifInfo(key, app, title.ifEmpty { app }, if (title.isEmpty()) "" else text, icon, n.color, open, reply, hint, extra, incoming)
         ui.post {
             if (!allowed(NotchPrefs.get(this))) return@post
             if (view == null) apply()

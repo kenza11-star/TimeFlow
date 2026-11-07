@@ -7,6 +7,7 @@ import android.content.Context
 import android.graphics.*
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -18,7 +19,7 @@ import android.util.TypedValue
 import android.view.*
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.LinearInterpolator
-import android.view.animation.OvershootInterpolator
+import android.view.animation.Interpolator
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
@@ -27,6 +28,8 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
@@ -40,8 +43,8 @@ data class NotifAct(val label: String, val run: () -> Unit)
 /** reply != null berarti notifikasi punya kolom balasan (RemoteInput); reply(teks) mengembalikan true bila terkirim. */
 data class NotifInfo(
     val key: String, val app: String, val title: String, val text: String, val icon: Drawable?, val color: Int,
-    val open: (() -> Unit)?, val reply: ((String) -> Boolean)? = null, val replyHint: String = "",
-    val actions: List<NotifAct> = emptyList(),
+    val open: (() -> Boolean)?, val reply: ((String) -> Boolean)? = null, val replyHint: String = "",
+    val actions: List<NotifAct> = emptyList(), val call: Boolean = false,
 )
 
 /** Alarm yang sedang berbunyi (alarm utama + jumlah alarm lain yang ikut berbunyi). */
@@ -49,6 +52,14 @@ data class AlarmInfo(val id: String, val label: String, val time: String, val sn
 
 /** Focus Timer dari halaman web. running = hitung mundur berjalan sampai endAt (epoch ms); jika dijeda, sisa waktu = leftMs. */
 data class TimerInfo(val running: Boolean, val endAt: Long, val leftMs: Long)
+
+/** Status pengisian daya (pct 0..100) yang tampil singkat saat charger dicolok. */
+data class ChargeInfo(val pct: Int, val charging: Boolean)
+
+/** Pegas teredam ringan: sedikit melampaui target (~9%) lalu mengendap. Tanpa dependensi. */
+private class Spring : Interpolator {
+    override fun getInterpolation(t: Float): Float = if (t >= 1f) 1f else 1f - exp(-6.5f * t) * cos(8.5f * t)
+}
 
 interface NotchHost {
     fun resize(w: Int, h: Int)          // ubah ukuran jendela overlay (px)
@@ -59,6 +70,7 @@ interface NotchHost {
     fun seek(frac: Float)
     fun openMedia()
     fun openApp()                       // buka aplikasi TimeFlow
+    fun openMusicPage()                 // buka halaman musik layar penuh
     fun alarmSnooze(id: String)
     fun alarmStop(id: String)
 }
@@ -68,7 +80,7 @@ interface NotchHost {
  * Animasi hanya menggambar ulang pil di dalam jendela; jendela di-resize sekali per transisi (bukan tiap frame), jadi ketukan terasa instan.
  */
 class NotchView(ctx: Context, private val host: NotchHost) : FrameLayout(ctx) {
-    private enum class Mode { IDLE, MEDIA, BANNER, FULL, NFULL, ALARM, TIMER }
+    private enum class Mode { IDLE, MEDIA, BANNER, FULL, NFULL, ALARM, TIMER, CHARGE }
 
     private val d = resources.displayMetrics.density
     private val ui = Handler(Looper.getMainLooper())
@@ -79,6 +91,8 @@ class NotchView(ctx: Context, private val host: NotchHost) : FrameLayout(ctx) {
     private val queue = ArrayDeque<NotifInfo>()
     private var alarm: AlarmInfo? = null
     private var timer: TimerInfo? = null
+    private var charge: ChargeInfo? = null
+    private val spring = Spring()
     private var notifOpen = false
     private var imeOn = false
     private var sentKey = ""
@@ -131,6 +145,12 @@ class NotchView(ctx: Context, private val host: NotchHost) : FrameLayout(ctx) {
     private val aChips = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
     private val aBox = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
 
+    // ---- isi: pengisian daya ----
+    private val batt = Batt(ctx)
+    private val cText = tv(14f, Color.WHITE, true)
+    private val cBox = FrameLayout(ctx)
+    private val chargeClose = Runnable { setCharge(null) }
+
     // ---- isi: hitung mundur timer ----
     private val tIcon = Glyph(ctx, 7)
     private val tText = tv(14f, Color.WHITE, true)
@@ -161,7 +181,7 @@ class NotchView(ctx: Context, private val host: NotchHost) : FrameLayout(ctx) {
             if (mode == Mode.FULL) { refreshProgress(); ui.postDelayed(this, 500) }
         }
     }
-    private val autoClose = Runnable { if (alarm != null || (mode == Mode.NFULL && nEdit.text.isNotEmpty())) poke() else dismiss() }
+    private val autoClose = Runnable { if (notif?.call == true && alarm == null) return@Runnable; if (alarm != null || (mode == Mode.NFULL && nEdit.text.isNotEmpty())) poke() else dismiss() }
 
     // sentuhan manual (lebih toleran daripada GestureDetector: geser jari kecil tetap dihitung ketukan)
     private var down = false
@@ -278,7 +298,9 @@ class NotchView(ctx: Context, private val host: NotchHost) : FrameLayout(ctx) {
         // hitung mundur kecil di pil musik ringkas saat timer aktif
         mTime.visibility = View.GONE
         mediaBox.addView(mTime, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.END or Gravity.CENTER_VERTICAL).apply { rightMargin = dp(44f) })
-        for (b in listOf(mediaBox, bannerBox, fullBox, nBox, aBox, tBox)) { b.visibility = View.GONE; addView(b) }
+        cBox.addView(batt, LayoutParams(dp(26f), dp(14f), Gravity.START or Gravity.CENTER_VERTICAL).apply { leftMargin = dp(14f) })
+        cBox.addView(cText, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.END or Gravity.CENTER_VERTICAL).apply { rightMargin = dp(14f) })
+        for (b in listOf(mediaBox, bannerBox, fullBox, nBox, aBox, tBox, cBox)) { b.visibility = View.GONE; addView(b) }
     }
 
     // ---- gambar pil (hitam, sudut bulat) ----
@@ -298,6 +320,7 @@ class NotchView(ctx: Context, private val host: NotchHost) : FrameLayout(ctx) {
 
     private fun press(on: Boolean) {
         if (on && (mode == Mode.IDLE || mode == Mode.NFULL || mode == Mode.ALARM)) return
+        if (on) buzz(HapticFeedbackConstants.KEYBOARD_TAP)
         animate().scaleX(if (on) 0.96f else 1f).scaleY(if (on) 0.96f else 1f).setDuration(90).start()
     }
 
@@ -313,7 +336,7 @@ class NotchView(ctx: Context, private val host: NotchHost) : FrameLayout(ctx) {
                 if (!down) return false
                 down = false; press(false)
                 val dx = e.rawX - dx0; val dy = e.rawY - dy0
-                if (dy < -dp(28f).toFloat() && abs(dy) > abs(dx) * 1.2f) { if (mode == Mode.BANNER || mode == Mode.MEDIA || mode == Mode.FULL) dismiss() }
+                if (dy < -dp(28f).toFloat() && abs(dy) > abs(dx) * 1.2f) { if (mode == Mode.BANNER || mode == Mode.MEDIA || mode == Mode.FULL) { buzz(HapticFeedbackConstants.KEYBOARD_TAP); dismiss() } else if (mode == Mode.CHARGE) setCharge(null) }
                 else if (abs(dx) < dp(24f) && abs(dy) < dp(24f)) tap()
                 return true
             }
@@ -425,6 +448,21 @@ class NotchView(ctx: Context, private val host: NotchHost) : FrameLayout(ctx) {
         aChips.addView(chip("Matikan", accent) { host.alarmStop(a.id) })
     }
 
+    /** Charger dicolok/dicabut: tampil sekitar 3,5 detik; null = sembunyikan. */
+    fun setCharge(ci: ChargeInfo?) {
+        ui.removeCallbacks(chargeClose)
+        charge = ci
+        if (ci != null) {
+            batt.set(ci.pct, ci.charging)
+            cText.text = ci.pct.toString() + "%"
+            buzz(if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.KEYBOARD_TAP)
+            ui.postDelayed(chargeClose, 3500L)
+        }
+        evaluate(true, force = true)
+    }
+
+    private fun buzz(kind: Int) { if (host.cfg().haptic) performHapticFeedback(kind) }
+
     fun applyConfig() { evaluate(false, force = true) }
 
     fun release() {
@@ -454,13 +492,17 @@ class NotchView(ctx: Context, private val host: NotchHost) : FrameLayout(ctx) {
         nSend.isEnabled = true; nSend.invalidate()
         nChips.removeAllViews()
         nChips.addView(chip("Buka") { openApp() })
-        for (a in n.actions) nChips.addView(chip(a.label) { a.run(); dismiss() })
+        for (a in n.actions) {
+            val decline = n.call && Regex("tolak|decline|reject|abaikan|dismiss|hang|akhiri|end", RegexOption.IGNORE_CASE).containsMatchIn(a.label)
+            val fill = if (!n.call) Color.rgb(44, 44, 46) else if (decline) Color.rgb(255, 69, 58) else Color.rgb(48, 209, 88)
+            nChips.addView(chip(a.label, fill) { a.run(); dismiss() })
+        }
         bindBadge()
     }
 
     private fun scheduleBannerClose() {
         ui.removeCallbacks(autoClose)
-        if (notifOpen) return
+        if (notifOpen || notif?.call == true) return
         var ms = max(2000L, host.cfg().autoHide * 1000L)
         if (queue.size > 0) ms = min(ms, 3000L)
         ui.postDelayed(autoClose, ms)
@@ -470,8 +512,9 @@ class NotchView(ctx: Context, private val host: NotchHost) : FrameLayout(ctx) {
         when (mode) {
             Mode.BANNER -> openCard()
             Mode.MEDIA -> { expanded = true; poke(); evaluate(true) }
-            Mode.FULL -> collapse()
+            Mode.FULL -> { host.openMusicPage(); collapse() }
             Mode.TIMER -> host.openApp()
+            Mode.CHARGE -> setCharge(null)
             else -> {}
         }
     }
@@ -500,7 +543,8 @@ class NotchView(ctx: Context, private val host: NotchHost) : FrameLayout(ctx) {
     private fun openApp() {
         val o = notif?.open
         dismiss()
-        runCatching { o?.invoke() }
+        val ok = runCatching { o?.invoke() }.getOrDefault(false) ?: false
+        if (!ok) NotifOpen.failed(context)
     }
 
     private fun status(msg: String, color: Int) {
@@ -543,6 +587,7 @@ class NotchView(ctx: Context, private val host: NotchHost) : FrameLayout(ctx) {
         return when {
             alarm != null -> Mode.ALARM
             notif != null -> if (notifOpen) Mode.NFULL else Mode.BANNER
+            charge != null && c.charge -> Mode.CHARGE
             expanded && m != null -> Mode.FULL
             timerActive() && !(c.showMedia && m != null && m.playing) -> Mode.TIMER
             c.showMedia && m != null && m.playing -> Mode.MEDIA
@@ -568,6 +613,7 @@ class NotchView(ctx: Context, private val host: NotchHost) : FrameLayout(ctx) {
         nBox.visibility = if (mode == Mode.NFULL) View.VISIBLE else View.GONE
         aBox.visibility = if (mode == Mode.ALARM) View.VISIBLE else View.GONE
         tBox.visibility = if (mode == Mode.TIMER) View.VISIBLE else View.GONE
+        cBox.visibility = if (mode == Mode.CHARGE) View.VISIBLE else View.GONE
     }
 
     private fun target(): Triple<Float, Float, Float> {
@@ -577,6 +623,7 @@ class NotchView(ctx: Context, private val host: NotchHost) : FrameLayout(ctx) {
             Mode.IDLE -> Triple(c.width * d, c.height * d, c.height * d / 2f)
             Mode.MEDIA -> Triple(min(maxW, (c.width + 104f * s + (if (timerActive()) 54f * s else 0f)) * d), c.height * d, c.height * d / 2f)
             Mode.TIMER -> Triple(min(maxW, (c.width + 70f * s) * d), c.height * d, c.height * d / 2f)
+            Mode.CHARGE -> Triple(min(maxW, (c.width + 96f * s) * d), c.height * d, c.height * d / 2f)
             Mode.ALARM -> {
                 val tw = min(maxW, 370f * s * d)
                 aBox.measure(MeasureSpec.makeMeasureSpec(tw.toInt(), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED))
@@ -598,7 +645,7 @@ class NotchView(ctx: Context, private val host: NotchHost) : FrameLayout(ctx) {
         val (tw, th, tr) = target()
         anim?.cancel()
         val sw = if (curW > 0f) curW else tw; val sh = if (curH > 0f) curH else th; val sr = if (curR > 0f) curR else tr
-        val boxes = listOf(mediaBox, bannerBox, fullBox, nBox, aBox, tBox)
+        val boxes = listOf(mediaBox, bannerBox, fullBox, nBox, aBox, tBox, cBox)
         // isi diberi ukuran tetap sesuai target agar teks tidak "bergetar" saat animasi
         for (b in boxes) b.layoutParams = LayoutParams(tw.toInt(), th.toInt(), Gravity.TOP or Gravity.CENTER_HORIZONTAL)
         if (!animate) {
@@ -613,8 +660,8 @@ class NotchView(ctx: Context, private val host: NotchHost) : FrameLayout(ctx) {
         host.resize(min(screenW, (max(tw, sw) * 1.1f).toInt()), (max(th, sh) * 1.2f).toInt())
         for (b in boxes) b.alpha = 0f
         anim = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = if (grow) 300 else 200
-            interpolator = if (grow) OvershootInterpolator(0.8f) else DecelerateInterpolator(1.6f)
+            duration = if (grow) 380 else 200
+            interpolator = if (grow) spring else DecelerateInterpolator(1.6f)
             addUpdateListener {
                 val t = it.animatedValue as Float
                 setPill(sw + (tw - sw) * t, sh + (th - sh) * t, sr + (tr - sr) * t)
@@ -680,6 +727,24 @@ class NotchView(ctx: Context, private val host: NotchHost) : FrameLayout(ctx) {
                 val h = height * f; val x = i * gap * 2f + gap / 2f
                 c.drawRoundRect(x, (height - h) / 2f, x + bw, (height + h) / 2f, bw / 2f, bw / 2f, p)
             }
+        }
+    }
+
+    /** Ikon baterai kecil: isi sesuai level, hijau saat mengisi, merah saat <= 20%. */
+    class Batt(ctx: Context) : View(ctx) {
+        private val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val r = RectF()
+        private var pct = 0; private var chg = false
+        fun set(v: Int, c: Boolean) { pct = v.coerceIn(0, 100); chg = c; invalidate() }
+        override fun onDraw(c: Canvas) {
+            val dn = resources.displayMetrics.density
+            val w = width - 2f * dn; val h = height.toFloat()
+            p.style = Paint.Style.STROKE; p.strokeWidth = 1.5f * dn; p.color = Color.argb(160, 255, 255, 255)
+            r.set(0.75f * dn, 0.75f * dn, w - 0.75f * dn, h - 0.75f * dn); c.drawRoundRect(r, 4f * dn, 4f * dn, p)
+            p.style = Paint.Style.FILL; c.drawRoundRect(w + 0.5f * dn, h * 0.33f, w + 2f * dn, h * 0.67f, dn, dn, p)
+            p.color = if (chg) Color.rgb(48, 209, 88) else if (pct <= 20) Color.rgb(255, 69, 58) else Color.WHITE
+            val inner = w - 4f * dn
+            r.set(2f * dn, 2f * dn, 2f * dn + max(2f * dn, inner * pct / 100f), h - 2f * dn); c.drawRoundRect(r, 2f * dn, 2f * dn, p)
         }
     }
 

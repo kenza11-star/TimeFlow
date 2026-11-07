@@ -8,7 +8,7 @@ object NotchPrefs {
     data class Cfg(
         val enabled: Boolean, val idleVisible: Boolean, val showMedia: Boolean, val showNotif: Boolean,
         val hideLandscape: Boolean, val width: Int, val height: Int, val top: Int, val x: Int,
-        val scale: Int, val autoHide: Int,
+        val scale: Int, val autoHide: Int, val charge: Boolean = true, val haptic: Boolean = true,
     )
 
     private fun sp(c: Context) = c.getSharedPreferences("notch", Context.MODE_PRIVATE)
@@ -23,13 +23,14 @@ object NotchPrefs {
             width = it.getInt("width", 126), height = it.getInt("height", 34),
             top = it.getInt("top", 10), x = it.getInt("x", 0),
             scale = it.getInt("scale", 100), autoHide = it.getInt("autoHide", 5),
+            charge = it.getBoolean("charge", true), haptic = it.getBoolean("haptic", true),
         )
     }
 
     fun toJson(c: Context): JSONObject = get(c).let {
         JSONObject().put("enabled", it.enabled).put("idleVisible", it.idleVisible).put("showMedia", it.showMedia)
             .put("showNotif", it.showNotif).put("hideLandscape", it.hideLandscape).put("width", it.width)
-            .put("height", it.height).put("top", it.top).put("x", it.x).put("scale", it.scale).put("autoHide", it.autoHide)
+            .put("height", it.height).put("top", it.top).put("x", it.x).put("scale", it.scale).put("autoHide", it.autoHide).put("charge", it.charge).put("haptic", it.haptic)
     }
 
     /** Terima sebagian/seluruh kunci; nilai dibatasi ke rentang aman. */
@@ -37,7 +38,7 @@ object NotchPrefs {
         val e = sp(c).edit()
         fun b(k: String) { if (o.has(k)) e.putBoolean(k, o.optBoolean(k)) }
         fun i(k: String, lo: Int, hi: Int) { if (o.has(k)) e.putInt(k, o.optInt(k).coerceIn(lo, hi)) }
-        b("enabled"); b("idleVisible"); b("showMedia"); b("showNotif"); b("hideLandscape")
+        b("enabled"); b("idleVisible"); b("showMedia"); b("showNotif"); b("hideLandscape"); b("charge"); b("haptic")
         i("width", 60, 260); i("height", 20, 60); i("top", 0, 90); i("x", -160, 160); i("scale", 80, 130); i("autoHide", 2, 15)
         e.apply()
     }
