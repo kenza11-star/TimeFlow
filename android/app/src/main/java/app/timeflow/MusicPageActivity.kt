@@ -80,7 +80,10 @@ class MusicPageActivity : Activity() {
     private fun dpf(v: Float) = v * d
     private val sp: SharedPreferences by lazy { getSharedPreferences("musicpage", Context.MODE_PRIVATE) }
 
-    private lateinit var root: LinearLayout
+    private lateinit var root: FrameLayout
+    private lateinit var cover: FrameLayout
+    private var gallery: MpGallerySheet? = null
+    private var menu: MpMenu? = null
     private lateinit var leftPane: FrameLayout
     private lateinit var bg: ImageView
     private var tex: TextureView? = null
@@ -138,7 +141,10 @@ class MusicPageActivity : Activity() {
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean { gd.onTouchEvent(ev); return super.dispatchTouchEvent(ev) }
 
     @Deprecated("Deprecated in Java")
-    override fun onBackPressed() { if (pager.target != 0) pager.goTo(0) else super.onBackPressed() }
+    override fun onBackPressed() {
+        val g = gallery; val m = menu
+        if (g != null) g.close() else if (m != null) m.dismiss() else if (pager.target != 0) pager.goTo(0) else super.onBackPressed()
+    }
 
     override fun onCreate(s: Bundle?) {
         super.onCreate(s)
@@ -172,21 +178,32 @@ class MusicPageActivity : Activity() {
 
     // ====================================================================================================
     private fun build() {
-        root = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setBackgroundColor(Color.BLACK) }
+        root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
 
-        // ---------------- PANEL KIRI ----------------
-        leftPane = FrameLayout(this).apply { setBackgroundColor(Color.BLACK); clipChildren = true }
+        // ---------------- LAPISAN SAMPUL (di bawah kedua panel, memudar halus ke hitam) ----------------
+        cover = FrameLayout(this)
         bg = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
-        leftPane.addView(bg, FrameLayout.LayoutParams(-1, -1))
-        // gradien: gelap di bawah (kontrol terbaca), sedikit gelap di tepi kanan (menyatu ke panel hitam)
-        leftPane.addView(View(this).apply {
+        cover.addView(bg, FrameLayout.LayoutParams(-1, -1))
+        // gelap atas/bawah supaya teks & tombol terbaca
+        cover.addView(View(this).apply {
             background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 intArrayOf(Color.argb(70, 0, 0, 0), Color.argb(0, 0, 0, 0), Color.argb(0, 0, 0, 0), Color.argb(150, 0, 0, 0), Color.argb(235, 0, 0, 0)))
-
         }, FrameLayout.LayoutParams(-1, -1))
-        leftPane.addView(View(this).apply {
-            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(Color.argb(0, 0, 0, 0), Color.argb(110, 0, 0, 0)))
-        }, FrameLayout.LayoutParams(dp(46f), -1, Gravity.END))
+        // pudar horizontal panjang: sampul menyatu ke panel hitam tanpa tepi keras
+        cover.addView(View(this).apply {
+            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(
+                Color.argb(0, 0, 0, 0), Color.argb(0, 0, 0, 0), Color.argb(0, 0, 0, 0), Color.argb(22, 0, 0, 0),
+                Color.argb(80, 0, 0, 0), Color.argb(165, 0, 0, 0), Color.argb(232, 0, 0, 0), Color.argb(255, 0, 0, 0)))
+        }, FrameLayout.LayoutParams(-1, -1))
+        val coverRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        coverRow.addView(cover, LinearLayout.LayoutParams(0, -1, 68f))
+        coverRow.addView(View(this), LinearLayout.LayoutParams(0, -1, 32f))
+        root.addView(coverRow, FrameLayout.LayoutParams(-1, -1))
+
+        // ---------------- PANEL KIRI (transparan) ----------------
+        val panes = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        root.addView(panes, FrameLayout.LayoutParams(-1, -1))
+        leftPane = FrameLayout(this)
 
         // pegangan atas (ketuk = tutup)
         val handleL = View(this).apply {
@@ -234,10 +251,10 @@ class MusicPageActivity : Activity() {
         col.addView(ctl, LinearLayout.LayoutParams(-1, dp(44f)).apply { topMargin = dp(2f) })
         leftPane.addView(col, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM).apply { leftMargin = dp(61f); rightMargin = dp(12f); bottomMargin = dp(13f) })
 
-        root.addView(leftPane, LinearLayout.LayoutParams(0, -1, 53f))
+        panes.addView(leftPane, LinearLayout.LayoutParams(0, -1, 53f))
 
         // ---------------- PANEL KANAN ----------------
-        val right = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        val right = FrameLayout(this)
         pager = Pager(this)
         dots = MpDots(this)
 
@@ -287,7 +304,7 @@ class MusicPageActivity : Activity() {
         }
         press(more)
         right.addView(more, FrameLayout.LayoutParams(dp(32f), dp(32f), Gravity.TOP or Gravity.END).apply { topMargin = dp(14f); rightMargin = dp(14f) })
-        root.addView(right, LinearLayout.LayoutParams(0, -1, 47f))
+        panes.addView(right, LinearLayout.LayoutParams(0, -1, 47f))
 
         pager.dots = dots
         pager.onSettle = { p -> onPageSettled(p) }
@@ -309,28 +326,36 @@ class MusicPageActivity : Activity() {
         heart.kind = if (s.contains(key)) 1 else 0; heart.invalidate()
     }
 
-    private fun otherMenu(anchor: View) {
-        val pm = PopupMenu(this, anchor)
-        pm.menu.add(0, 1, 0, "Edit player (foto / GIF / video)")
-        pm.menu.add(0, 2, 1, if (lyricsOn) "Matikan lirik" else "Nyalakan lirik")
-        pm.menu.add(0, 3, 2, "Buka aplikasi musik")
-        pm.menu.add(0, 4, 3, "Kembalikan latar ke sampul lagu")
-        pm.setOnMenuItemClickListener {
-            when (it.itemId) {
-                1 -> editPlayer()
-                2 -> { lyricsOn = !lyricsOn; sp.edit().putBoolean("lyrics", lyricsOn).apply(); lrcLine = -2; lrcShown = null; refresh() }
-                3 -> NotchListener.hubOpenMedia()
-                4 -> resetBg()
-            }
-            true
-        }
-        pm.show()
+    private fun toggleLyrics() {
+        lyricsOn = !lyricsOn; sp.edit().putBoolean("lyrics", lyricsOn).apply(); lrcLine = -2; lrcShown = null; refresh()
     }
 
-    private fun editPlayer() {
-        val items = arrayOf("Pilih foto / GIF / video", "Kembalikan ke sampul lagu")
-        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle("Edit player")
-            .setItems(items) { _, i -> if (i == 0) pick() else resetBg() }.show()
+    private fun otherMenu(anchor: View) {
+        menu?.dismiss()
+        val m = MpMenu(this, listOf(
+            "Edit player" to { openEdit() },
+            (if (lyricsOn) "Matikan lirik" else "Nyalakan lirik") to { toggleLyrics() },
+            "Buka aplikasi musik" to { NotchListener.hubOpenMedia() },
+            "Kembalikan ke sampul lagu" to { resetBg() }
+        )) { menu = null }
+        menu = m
+        root.addView(m.view, FrameLayout.LayoutParams(-1, -1)); m.show()
+    }
+
+    private fun openEdit() {
+        gallery?.close()
+        val g = MpGallerySheet(this, sp.getString("bg_uri", null),
+            onPick = { u -> sp.edit().putString("bg_uri", u.toString()).apply(); applyBackground() },
+            onReset = { resetBg() },
+            onSystemPicker = { pick() },
+            onClosed = { gallery = null })
+        gallery = g
+        root.addView(g.view, FrameLayout.LayoutParams(-1, -1)); g.show()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        gallery?.reload()
     }
 
     private fun pick() {
@@ -358,7 +383,7 @@ class MusicPageActivity : Activity() {
         bgGen++
         anim?.stop(); anim = null
         player?.let { runCatching { it.release() } }; player = null; vidReady = false
-        tex?.let { leftPane.removeView(it) }; tex = null
+        tex?.let { cover.removeView(it) }; tex = null
     }
 
     private fun applyBackground() {
@@ -377,10 +402,7 @@ class MusicPageActivity : Activity() {
     }
 
     private fun showCover() {
-        if (Build.VERSION.SDK_INT >= 31) {
-            val a = lastArt
-            bg.setRenderEffect(if (a != null && a.width < 700) RenderEffect.createBlurEffect(18f, 18f, Shader.TileMode.CLAMP) else null)
-        }
+        if (Build.VERSION.SDK_INT >= 31) bg.setRenderEffect(null)   // sampul TIDAK di-blur
         bg.setImageBitmap(lastArt)
     }
 
@@ -428,7 +450,7 @@ class MusicPageActivity : Activity() {
         bg.visibility = View.GONE
         val t = TextureView(this)
         tex = t
-        leftPane.addView(t, 0, FrameLayout.LayoutParams(-1, -1))
+        cover.addView(t, 0, FrameLayout.LayoutParams(-1, -1))
         t.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> fitVideo() }
         val gen = bgGen
         t.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
