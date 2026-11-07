@@ -185,6 +185,7 @@
         <activity
             android:name=".MusicPageActivity"
             android:exported="false"
+            android:screenOrientation="sensorLandscape"
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:launchMode="singleTop"
