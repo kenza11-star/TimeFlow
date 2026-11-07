@@ -4,6 +4,8 @@ import android.Manifest
 import android.app.Activity
 import android.content.ContentUris
 import android.content.Context
+import android.content.Intent
+import android.provider.Settings
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
@@ -60,6 +62,9 @@ class MpGallerySheet(
     private var shown: List<Item> = emptyList()
     private var filter = 0
     private var closing = false
+    private var asked = false
+    private val gateAllow = TextView(act)
+    private val gateSettings = TextView(act)
     private val chips = ArrayList<TextView>()
     private val cache = object : LruCache<String, Bitmap>(24 * 1024) { override fun sizeOf(k: String, v: Bitmap) = v.byteCount / 1024 }
     private val pool = Executors.newFixedThreadPool(3)
@@ -72,6 +77,7 @@ class MpGallerySheet(
     }
 
     private fun askAccess() {
+        asked = true
         act.requestPermissions(
             if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
             else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), 78)
@@ -164,12 +170,32 @@ class MpGallerySheet(
         return out
     }
 
+    private fun showGate(title: String, sub: String, allow: Boolean, settings: Boolean) {
+        gateTitle.text = title; gateSub.text = sub
+        gateAllow.visibility = if (allow) View.VISIBLE else View.GONE
+        gateSettings.visibility = if (settings) View.VISIBLE else View.GONE
+        gate.visibility = View.VISIBLE; grid.visibility = View.GONE
+    }
+
     fun reload() {
-        if (!hasAccess()) { gate.visibility = View.VISIBLE; grid.visibility = View.GONE; return }
+        if (closing) return
+        if (!hasAccess()) {
+            if (asked) showGate("Izin galeri ditolak", "Aktifkan izin Foto dan video di Pengaturan, atau pilih langsung dari file.", false, true)
+            else showGate("Izinkan akses galeri", "Supaya foto dan video kamu tampil di sini.", true, false)
+            return
+        }
         gate.visibility = View.GONE; grid.visibility = View.VISIBLE
         Thread {
-            val l = query()
-            act.runOnUiThread { all = l; applyFilter() }
+            val res = runCatching { query() }
+            act.runOnUiThread {
+                if (closing) return@runOnUiThread
+                res.onSuccess {
+                    all = it; applyFilter()
+                    if (it.isEmpty()) showGate("Galeri tidak terbaca", "Tidak ada foto atau video yang bisa dibuka. Coba pilih dari file.", false, false)
+                }.onFailure {
+                    showGate("Galeri gagal dibaca", it.message ?: "Coba pilih dari file.", true, false)
+                }
+            }
         }.start()
     }
 
@@ -220,6 +246,12 @@ class MpGallerySheet(
         }
         styleChips()
         head.addView(TextView(act).apply {
+            text = "+ File"; setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f); typeface = Typeface.create("sans-serif", Typeface.BOLD)
+            setTextColor(Color.WHITE); background = round(Color.TRANSPARENT, 18f, dp(1f), Color.argb(110, 255, 255, 255))
+            setPadding(dp(16f), dp(8f), dp(16f), dp(8f)); includeFontPadding = false
+            setOnClickListener { onSystemPicker(); close() }
+        }, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(14f) })
+        head.addView(TextView(act).apply {
             text = "✕"; gravity = Gravity.CENTER; setTextColor(Color.WHITE); setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             background = round(Color.argb(38, 255, 255, 255), 18f); setOnClickListener { close() }
         }, LinearLayout.LayoutParams(dp(36f), dp(36f)).apply { leftMargin = dp(14f) })
@@ -244,14 +276,22 @@ class MpGallerySheet(
         gateTitle.apply { text = "Izinkan akses galeri"; setTextColor(Color.WHITE); setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f); typeface = Typeface.create("sans-serif", Typeface.BOLD) }
         gateSub.apply { text = "Supaya foto dan video kamu tampil di sini."; setTextColor(Color.argb(150, 255, 255, 255)); setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f); gravity = Gravity.CENTER }
         gate.addView(gateTitle); gate.addView(gateSub, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(6f) })
-        gate.addView(TextView(act).apply {
+        gateAllow.apply {
             text = "Izinkan"; setTextColor(Color.BLACK); setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f); typeface = Typeface.create("sans-serif", Typeface.BOLD)
             background = round(Color.WHITE, 24f); setPadding(dp(30f), dp(11f), dp(30f), dp(11f)); setOnClickListener { askAccess() }
-        }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(16f) })
+        }
+        gate.addView(gateAllow, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(16f) })
+        gateSettings.apply {
+            text = "Buka pengaturan izin"; setTextColor(Color.BLACK); setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f); typeface = Typeface.create("sans-serif", Typeface.BOLD)
+            background = round(Color.WHITE, 24f); setPadding(dp(26f), dp(11f), dp(26f), dp(11f))
+            setOnClickListener { runCatching { act.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + act.packageName))) } }
+        }
+        gate.addView(gateSettings, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(16f) })
         gate.addView(TextView(act).apply {
-            text = "Atau pilih dari file"; setTextColor(Color.argb(190, 255, 255, 255)); setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-            setPadding(dp(12f), dp(10f), dp(12f), dp(10f)); setOnClickListener { onSystemPicker(); close() }
-        }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(6f) })
+            text = "Pilih dari file"; setTextColor(Color.WHITE); setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f); typeface = Typeface.create("sans-serif", Typeface.BOLD)
+            background = round(Color.argb(45, 255, 255, 255), 24f); setPadding(dp(26f), dp(10f), dp(26f), dp(10f))
+            setOnClickListener { onSystemPicker(); close() }
+        }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(10f) })
         panel.addView(gate, LinearLayout.LayoutParams(-1, 0, 1f))
 
         val h = (act.resources.displayMetrics.heightPixels * 0.80f).toInt()

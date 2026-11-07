@@ -343,14 +343,20 @@ class MusicPageActivity : Activity() {
     }
 
     private fun openEdit() {
-        gallery?.close()
-        val g = MpGallerySheet(this, sp.getString("bg_uri", null),
-            onPick = { u -> sp.edit().putString("bg_uri", u.toString()).apply(); applyBackground() },
-            onReset = { resetBg() },
-            onSystemPicker = { pick() },
-            onClosed = { gallery = null })
-        gallery = g
-        root.addView(g.view, FrameLayout.LayoutParams(-1, -1)); g.show()
+        try {
+            gallery?.close()
+            val g = MpGallerySheet(this, sp.getString("bg_uri", null),
+                onPick = { u -> sp.edit().putString("bg_uri", u.toString()).apply(); applyBackground() },
+                onReset = { resetBg() },
+                onSystemPicker = { pick() },
+                onClosed = { gallery = null })
+            gallery = g
+            root.addView(g.view, FrameLayout.LayoutParams(-1, -1)); g.show()
+        } catch (e: Throwable) {
+            gallery = null
+            Toast.makeText(this, "Galeri gagal dibuka (" + (e.message ?: e.javaClass.simpleName) + "), memakai pemilih file", Toast.LENGTH_LONG).show()
+            pick()
+        }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
