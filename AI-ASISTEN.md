@@ -61,3 +61,6 @@ Tambah widget **Jam Kaca** dari pemilih widget peluncur. Ukurannya bisa diubah; 
 ## Pengaturan widget (blur dan gaya kaca)
 - Ada pratinjau langsung di bagian atas (bergerak saat slider digeser). Pratinjau blur memakai Android 12+.
 - Preset Ringan / Seimbang / Penuh: satu ketukan mengatur blur, kepekatan, dan kilau. Ringan paling hemat daya dan ikut menyalakan Mode game otomatis.
+
+## Mode edit layar utama
+- Bar bawah: Wallpaper, Widget, Ikon (ganti warna asli / satu warna), Blur (buka Blur dan gaya kaca), Pengaturan. Tombol **Selesai** di kanan atas untuk keluar dari mode edit.

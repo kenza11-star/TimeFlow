@@ -31,6 +31,7 @@ class OnboardingActivity : Activity() {
         fun done(c: Context): Boolean = c.getSharedPreferences(SP, Context.MODE_PRIVATE).getBoolean("done", false)
         fun markDone(c: Context) { c.getSharedPreferences(SP, Context.MODE_PRIVATE).edit().putBoolean("done", true).apply() }
         private const val LAST = 4
+        private const val HOME_SP = "timeflow_home"      // sama dengan HomeActivity.SP (companion-nya privat)
         private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
     }
@@ -66,7 +67,7 @@ class OnboardingActivity : Activity() {
         window.navigationBarColor = Color.TRANSPARENT
         if (Build.VERSION.SDK_INT >= 30) window.setDecorFitsSystemWindows(false)
         else window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-        mono = getSharedPreferences(HomeActivity.SP, Context.MODE_PRIVATE).getBoolean("mono", false)
+        mono = getSharedPreferences(HOME_SP, Context.MODE_PRIVATE).getBoolean("mono", false)
 
         val root = FrameLayout(this)
         root.background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF0B1226.toInt(), 0xFF1D2A6B.toInt(), 0xFF6A2C91.toInt()))
@@ -234,7 +235,7 @@ class OnboardingActivity : Activity() {
         p.addView(View(this), LinearLayout.LayoutParams(MATCH, dp(32)))
         p.addView(chips(listOf("Warna asli", "Satu warna"), if (mono) 1 else 0) { sel ->
             mono = sel == 1
-            getSharedPreferences(HomeActivity.SP, Context.MODE_PRIVATE).edit().putBoolean("mono", mono).apply()
+            getSharedPreferences(HOME_SP, Context.MODE_PRIVATE).edit().putBoolean("mono", mono).apply()
             Thread { refreshTiles() }.start()
         })
         return p

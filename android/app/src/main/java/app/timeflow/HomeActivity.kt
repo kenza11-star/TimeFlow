@@ -129,6 +129,7 @@ class HomeActivity : Activity() {
     private var dragY0 = Float.NaN
     private var menuHidden = true
     private var editBar: LinearLayout? = null
+    private var editDone: View? = null
     private var sheet: FrameLayout? = null
     private lateinit var host: AppWidgetHost
     private lateinit var awm: AppWidgetManager
@@ -1565,6 +1566,16 @@ class HomeActivity : Activity() {
                 c.drawRoundRect(RectF(f * 0.55f, f * 0.12f, f * 0.88f, f * 0.45f), f * 0.07f, f * 0.07f, st)
                 c.restore()
             }
+            3 -> {
+                c.drawRoundRect(RectF(f * 0.12f, f * 0.12f, f * 0.46f, f * 0.46f), f * 0.12f, f * 0.12f, st)
+                c.drawCircle(f * 0.71f, f * 0.29f, f * 0.17f, st)
+                c.drawCircle(f * 0.29f, f * 0.71f, f * 0.17f, st)
+                c.drawRoundRect(RectF(f * 0.54f, f * 0.54f, f * 0.88f, f * 0.88f), f * 0.12f, f * 0.12f, fl)
+            }
+            4 -> {
+                c.drawCircle(f * 0.38f, f * 0.5f, f * 0.26f, st)
+                c.drawCircle(f * 0.62f, f * 0.5f, f * 0.26f, st)
+            }
             else -> {
                 for (i in 0..2) {
                     val y = f * (0.24f + i * 0.26f)
@@ -1589,6 +1600,15 @@ class HomeActivity : Activity() {
         return box
     }
 
+    /** Ganti gaya ikon (warna asli <-> satu warna) dari bar edit; sama dengan item "Ikon" di menu Pengaturan. */
+    private fun toggleIconStyle() {
+        mono = !mono
+        getSharedPreferences(SP, MODE_PRIVATE).edit().putBoolean("mono", mono).apply()
+        lastSig = GlassPrefs.sig(this) + "|" + mono
+        rebuild(); warmIcons()
+        android.widget.Toast.makeText(this, if (mono) "Ikon: satu warna" else "Ikon: warna asli", android.widget.Toast.LENGTH_SHORT).show()
+    }
+
     private fun enterEdit() {
         if (editing || overlay != null || sheet != null || drag != null) return
         editing = true
@@ -1596,10 +1616,22 @@ class HomeActivity : Activity() {
         pager.pivotY = pageH * 0.4f
         pager.animate().scaleX(0.84f).scaleY(0.84f).setDuration(240).setInterpolator(DecelerateInterpolator(1.6f)).start()
         for (v in listOf<View>(dockPanel, pill, dots)) v.animate().alpha(0f).setDuration(180).start()
-        val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(dp(24), 0, dp(24), 0) }
+        val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(dp(10), 0, dp(10), 0) }
         bar.addView(editButton("Wallpaper", 0) { exitEdit(); pickWallpaper() }, LinearLayout.LayoutParams(0, WRAP, 1f))
         bar.addView(editButton("Widget", 1) { openWidgetSheet() }, LinearLayout.LayoutParams(0, WRAP, 1f))
+        bar.addView(editButton("Ikon", 3) { exitEdit(); toggleIconStyle() }, LinearLayout.LayoutParams(0, WRAP, 1f))
+        bar.addView(editButton("Blur", 4) { exitEdit(); startActivity(Intent(this, WidgetStyleActivity::class.java)) }, LinearLayout.LayoutParams(0, WRAP, 1f))
         bar.addView(editButton("Pengaturan", 2) { exitEdit(); showSettings() }, LinearLayout.LayoutParams(0, WRAP, 1f))
+        // tombol Selesai di kanan atas (sebelumnya keluar mode edit hanya lewat Kembali atau ketuk kosong)
+        val done = TextView(this).apply {
+            text = "Selesai"; textSize = 14f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setPadding(dp(18), dp(8), dp(18), dp(8))
+            background = GlassPanelDrawable(this, dp(18).toFloat(), 1f, 56, 0.4f)
+            setOnClickListener { exitEdit() }
+        }
+        root.addView(done, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.END).apply { topMargin = topInset + dp(14); rightMargin = dp(20) })
+        editDone = done
         root.addView(bar, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM).apply { bottomMargin = botInset + dp(30) })
         editBar = bar
         startJiggle()
@@ -1615,6 +1647,8 @@ class HomeActivity : Activity() {
         stopJiggle(true)
         pager.animate().scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(DecelerateInterpolator(1.6f)).start()
         for (v in listOf<View>(dockPanel, pill, dots)) v.animate().alpha(1f).setDuration(220).start()
+        editDone?.let { d -> d.animate().alpha(0f).setDuration(160).withEndAction { root.removeView(d) }.start() }
+        editDone = null
         val bar = editBar
         editBar = null
         if (bar != null) bar.animate().alpha(0f).translationY(dp(30).toFloat()).setDuration(160).withEndAction { root.removeView(bar) }.start()
